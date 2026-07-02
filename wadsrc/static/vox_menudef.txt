@@ -1,0 +1,11 @@
+﻿AddOptionMenu "OptionsMenu"
+{
+   SubMenu "Voxel Options",   "RV_Options"
+}
+
+OptionMenu "RV_Options"
+{   
+	Title "Reikall's Voxels"
+	//Option "Voxel rendering", r_drawvoxels, "OnOff"
+	Option "Auto-rotate decorations (next map)", sv_wallcheck, "OnOff"	
+}

@@ -1,0 +1,141 @@
+<style>
+.ca{font-family:var(--font-mono,'Courier New',monospace);padding:1rem 0;color:#e6e9f2;font-size:12px}
+.ca h1{font-size:15px;letter-spacing:.14em;color:#fff;margin:0 0 3px}
+.ca .sub{font-size:10px;color:#8a90a0;margin-bottom:6px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:9px;color:#9aa0ae;margin-bottom:13px}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+.ca-cols{display:grid;grid-template-columns:300px 1fr;gap:16px}
+@media(max-width:640px){.ca-cols{grid-template-columns:1fr}}
+.panel{background:#0c0b14;border:1px solid rgba(0, 255, 255, .3);border-radius:10px;padding:12px}
+.panel h2{font-size:11px;letter-spacing:.12em;color:#00ffff;margin:0 0 10px}
+.fld{margin-bottom:9px}
+.fld label{display:block;font-size:9px;letter-spacing:.08em;color:#9aa0ae;margin-bottom:3px}
+.ca input,.ca select,.ca textarea{width:100%;box-sizing:border-box;background:#15131f;border:1px solid rgba(255,255,255,.14);border-radius:5px;color:#e6e9f2;font-family:inherit;font-size:11px;padding:5px 7px}
+.ca textarea{resize:vertical;min-height:42px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{background:#1c1830;border:1px solid #00ffff;color:#b3ffff;border-radius:6px;padding:6px 12px;font-family:inherit;font-size:11px;cursor:pointer;letter-spacing:.04em}
+.btn:hover{background:#251f3d}
+.btn.o{border-color:#FF9C37;color:#ffce9a}
+.btn.g{border-color:#28FF3C;color:#a6f5b0}
+.btn.sm{padding:3px 8px;font-size:10px}
+.tools{display:flex;gap:7px;flex-wrap:wrap;margin-top:4px}
+.filters{display:flex;gap:7px;margin-bottom:9px;flex-wrap:wrap}
+.filters select{width:auto;flex:1;min-width:90px}
+.cnt{font-size:9px;color:#8a90a0;margin-bottom:8px}
+.list{display:flex;flex-direction:column;gap:5px;max-height:470px;overflow:auto}
+.it{display:flex;align-items:center;gap:8px;background:#14121d;border:1px solid rgba(255,255,255,.08);border-left:4px solid #888;border-radius:5px;padding:6px 9px}
+.it .nm{font-size:11px;color:#eef1f7;font-weight:bold}
+.it .meta{font-size:9px;color:#9aa0ae;margin-top:1px}
+.it .grow{flex:1;min-width:0}
+.it .tag{font-size:8px;letter-spacing:.06em;padding:1px 6px;border-radius:4px;white-space:nowrap}
+.it .val{font-size:9px;color:#FFCD28;margin-top:1px}
+.it .fl{font-size:9px;color:#7d8493;font-style:italic;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.io{margin-top:14px}
+.io textarea{min-height:90px;font-size:10px}
+.hint{font-size:9px;color:#6b7280;margin-top:5px;line-height:1.4}
+</style>
+<div class="ca">
+<h2 class="sr-only">SDF Score System combo authoring tool: a form to define new combos by type, trigger, value and class, a filterable list of the existing combos colored by type, and JSON export/import.</h2>
+<h1>SDF SCORE SYSTEM &mdash; COMBO AUTHORING</h1>
+<div class="sub">combos are colored BY TYPE. write new ones, export JSON, and the engine evaluates them live.</div>
+<div class="legend">
+  <span><i style="background:#FFD830"></i>Base &mdash; foundation</span>
+  <span><i style="background:#FF8080"></i>Survival &mdash; streak / no-hit</span>
+  <span><i style="background:#B8FF30"></i>Skill &mdash; style / trick</span>
+  <span><i style="background:#FF8030"></i>Danger &mdash; close / low-HP / melee</span>
+</div>
+<div class="ca-cols">
+
+  <div class="panel">
+    <h2>NEW / EDIT COMBO</h2>
+    <div class="fld"><label>NAME</label><input id="f_name" placeholder="e.g. Ricochet"></div>
+    <div class="row2">
+      <div class="fld"><label>TYPE (sets color)</label><select id="f_type">
+        <option value="Base">Base (gold)</option>
+        <option value="Survival">Survival (red)</option>
+        <option value="Skill" selected>Skill (green)</option>
+        <option value="Danger">Danger (orange)</option>
+      </select></div>
+      <div class="fld"><label>CLASS (Weapon)</label><select id="f_class">
+        <option value="">General (any)</option><option>pistol</option><option>revolver</option><option>smg</option>
+        <option>shotgun</option><option>ssg</option><option>rifle</option><option>chaingun</option>
+        <option>rl</option><option>plasma</option><option>bfg</option><option>fist</option><option>chainsaw</option>
+      </select></div>
+    </div>
+    <div class="fld"><label>TRIGGER (Keywords to intersect)</label><textarea id="f_trig" placeholder="e.g. style:precision + vulnerability:head_crit"></textarea></div>
+    <div class="fld"><label>VALUE (points / multiplier)</label><input id="f_val" placeholder="e.g. +0.15 multiplier"></div>
+    <div class="fld"><label>FLAVOR TEXT (SDF Output)</label><textarea id="f_flavor" placeholder="the text to display in-world"></textarea></div>
+    <div class="fld"><label>GATE (optional)</label><input id="f_gate" placeholder="e.g. role:boss"></div>
+    <div class="tools">
+      <button class="btn" id="b_add">+ Add / Update</button>
+      <button class="btn sm" id="b_clear">Clear form</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>COMBO REGISTRY</h2>
+    <div class="filters">
+      <select id="flt_type"><option value="">all types</option><option>Base</option><option>Survival</option><option>Skill</option><option>Danger</option></select>
+      <select id="flt_class"><option value="">all classes</option><option value="">general</option></select>
+      <input id="flt_q" placeholder="search..." style="flex:2">
+    </div>
+    <div class="cnt" id="cnt"></div>
+    <div class="list" id="list"></div>
+    <div class="io">
+      <div class="tools">
+        <button class="btn o" id="b_export">Export JSON &darr;</button>
+        <button class="btn sm" id="b_import">Load from box</button>
+      </div>
+      <textarea id="io_box" placeholder="exported JSON appears here (editable) — paste JSON + Load from box to import"></textarea>
+      <div class="hint">Export downloads <b>sdf_combos.json</b>. Put this file in `wadsrc/static` to load it in-engine.</div>
+    </div>
+  </div>
+
+</div>
+</div>
+<script>
+(function(){
+  var TCOL={Base:"#FFD830",Survival:"#FF8080",Skill:"#B8FF30",Danger:"#FF8030"};
+  var SEED=[
+    {name:"Base",type:"Base",klass:"",trig:"any kill",val:"+1.0 multiplier",flavor:""},
+    {name:"Point-Blank",type:"Danger",klass:"",trig:"distance < 64",val:"+0.1",flavor:"POINT BLANK"},
+    {name:"Brawler",type:"Danger",klass:"fist",trig:"style:melee",val:"+0.5",flavor:"BRAWLER"},
+    {name:"Executioner",type:"Skill",klass:"",trig:"vulnerability:head_crit",val:"+0.25",flavor:"EXECUTIONER"},
+    {name:"System Crash",type:"Skill",klass:"",trig:"dmg:energy + anatomy:cybernetic",val:"+0.5",flavor:"SYSTEM CRASH"},
+    {name:"Clean Sweep",type:"Base",klass:"shotgun",trig:"role:fodder",val:"+0.1",flavor:"CLEAN SWEEP"}
+  ];
+  var items=SEED.map(function(c){return Object.assign({gate:""},c);});
+  var editIdx=-1;
+  var $=function(id){return document.getElementById(id);};
+  function readForm(){return{name:$("f_name").value.trim(),type:$("f_type").value,klass:$("f_class").value,trig:$("f_trig").value.trim(),val:$("f_val").value.trim(),flavor:$("f_flavor").value.trim(),gate:$("f_gate").value.trim()};}
+  function fillForm(c){$("f_name").value=c.name;$("f_type").value=c.type;$("f_class").value=c.klass||"";$("f_trig").value=c.trig||"";$("f_val").value=c.val||"";$("f_flavor").value=c.flavor||"";$("f_gate").value=c.gate||"";}
+  function clearForm(){fillForm({name:"",type:"Skill",max:10});editIdx=-1;$("b_add").textContent="+ Add / Update";}
+  function render(){
+    var ft=$("flt_type").value,fc=$("flt_class").value,fq=$("flt_q").value.toLowerCase();
+    var box=$("list");box.innerHTML="";var shown=0;
+    items.forEach(function(c,i){
+      if(ft&&c.type!==ft)return;
+      if($("flt_class").selectedIndex>0&&(c.klass||"")!==fc)return;
+      if(fq&&(c.name+c.trig+c.flavor).toLowerCase().indexOf(fq)<0)return;
+      shown++;
+      var col=TCOL[c.type]||"#888";
+      var row=document.createElement("div");row.className="it";row.style.borderLeftColor=col;
+      var tag='<span class="tag" style="background:'+col+'22;color:'+col+'">'+esc(c.type)+'</span>';
+      var cls=c.klass?(' <span class="tag" style="background:rgba(255,255,255,.08);color:#c9cfdd">'+esc(c.klass)+'</span>'):'';
+      row.innerHTML='<div class="grow"><span class="nm">'+esc(c.name)+'</span> '+tag+cls+'<div class="val">'+esc(c.val)+'</div><div class="meta">'+esc(c.trig)+'</div>'+(c.flavor?('<div class="fl">&ldquo;'+esc(c.flavor)+'&rdquo;</div>'):'')+'</div>';
+      var be=document.createElement("button");be.className="btn sm";be.textContent="edit";be.onclick=function(){editIdx=i;fillForm(c);$("b_add").textContent="Update #"+(i+1);window.scrollTo(0,0);};
+      var bd=document.createElement("button");bd.className="btn sm";bd.textContent="x";bd.onclick=function(){items.splice(i,1);render();};
+      row.appendChild(be);row.appendChild(bd);box.appendChild(row);
+    });
+    $("cnt").textContent=shown+" of "+items.length+" combos";
+  }
+  function esc(s){return(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  $("b_add").onclick=function(){var c=readForm();if(!c.name){$("f_name").focus();return;}if(editIdx>=0){items[editIdx]=c;}else{items.push(c);}clearForm();render();};
+  $("b_clear").onclick=clearForm;
+  ["flt_type","flt_class","flt_q"].forEach(function(id){$(id).oninput=render;$(id).onchange=render;});
+  $("b_export").onclick=function(){var out=items.map(function(c){return Object.assign({color:TCOL[c.type]||"#888"},c);});var j=JSON.stringify(out,null,2);$("io_box").value=j;try{var b=new Blob([j],{type:"application/json"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="sdf_combos.json";a.click();}catch(e){}};
+  $("b_import").onclick=function(){try{var d=JSON.parse($("io_box").value);if(Array.isArray(d)){items=d.map(function(c){return Object.assign({gate:""},c);});render();}}catch(e){alert("Invalid JSON");}};
+  clearForm();render();
+})();
+</script>

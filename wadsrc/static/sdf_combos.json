@@ -1,0 +1,56 @@
+[
+  {
+    "name": "Base",
+    "type": "Base",
+    "klass": "",
+    "trig": "any kill",
+    "val": "+1.0 multiplier",
+    "flavor": "",
+    "gate": ""
+  },
+  {
+    "name": "Point-Blank",
+    "type": "Danger",
+    "klass": "",
+    "trig": "distance < 64",
+    "val": "+0.1",
+    "flavor": "POINT BLANK",
+    "gate": ""
+  },
+  {
+    "name": "Brawler",
+    "type": "Danger",
+    "klass": "fist",
+    "trig": "style:melee",
+    "val": "+0.5",
+    "flavor": "BRAWLER",
+    "gate": ""
+  },
+  {
+    "name": "Executioner",
+    "type": "Skill",
+    "klass": "",
+    "trig": "vulnerability:head_crit",
+    "val": "+0.25",
+    "flavor": "EXECUTIONER",
+    "gate": ""
+  },
+  {
+    "name": "System Crash",
+    "type": "Skill",
+    "klass": "",
+    "trig": "dmg:energy + anatomy:cybernetic",
+    "val": "+0.5",
+    "flavor": "SYSTEM CRASH",
+    "gate": ""
+  },
+  {
+    "name": "Clean Sweep",
+    "type": "Base",
+    "klass": "shotgun",
+    "trig": "role:fodder",
+    "val": "+0.1",
+    "flavor": "CLEAN SWEEP",
+    "gate": ""
+  }
+]

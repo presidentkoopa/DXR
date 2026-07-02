@@ -1,0 +1,9 @@
+addkeysection "VR Combat Options" VRCombatSection
+addmenukey "Quick Grenade" throwgrenade
+addmenukey "Throw Current Weapon" throwweapon
+
+alias "throwgrenade" "netevent throw_grenade"
+defaultbind g "throwgrenade"
+
+alias "throwweapon" "netevent throw_weapon"
+defaultbind k "throwweapon"

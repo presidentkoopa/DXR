@@ -1,0 +1,1325 @@
+﻿// weapons ---------------------------------------------------------------------
+/*
+pointlight PLASSPAWN
+{
+    color 0.2 0.0 0.0
+    size 18
+	offset 0 13 21
+}
+object PlasmaRifle
+{
+    frame PLAS { light PLASSPAWN }
+}
+
+pointlight BFGSPAWN
+{
+    color 0.1 0.0 0.0
+    size 12
+	offset 0 17 4
+}
+object BFG9000
+{
+    frame BFUG { light BFGSPAWN }
+}
+*/
+
+pulselight CELL
+{
+    color 0.0 0.3 0.0
+    size 6
+    secondarySize 10
+    interval 2.0
+    //offset 0 6 0
+	//attenuate 1
+}
+
+object Cell
+{
+    frame CELL { light CELL }
+}
+object RV_Cell
+{
+    frame CELL { light CELL }
+}
+
+pulselight CELLPACK
+{
+    color 0.5 0.3 0.0
+    size 12
+    secondarySize 14
+    interval 2.0
+    //offset 0 9 4
+	//attenuate 1
+}
+
+object CellPack
+{
+    frame CELP { light CELLPACK }
+}
+object RV_CellPack
+{
+    frame CELP { light CELLPACK }
+}
+
+// explosives ------------------------------------------------------------------
+
+pointlight ROCKET
+{
+    color 1.0 0.4 0.0
+    size 84
+	offset -25 0 0
+	attenuate 1
+}
+
+flickerlight ROCKET_X1
+{
+    color 1.0 0.5 0.1
+    size 96
+    secondarySize 108
+    chance 0.3
+	attenuate 1
+}
+
+flickerlight ROCKET_X2
+{
+    color 0.5 0.2 0.0
+    size 120
+    secondarySize 132
+    chance 0.3
+	//attenuate 1
+}
+
+flickerlight ROCKET_X3
+{
+    color 0.3 0.1 0.0
+    size 144
+    secondarySize 156
+    chance 0.3
+	//attenuate 1
+}
+/*
+object RV_PlasmaBall
+{
+    frame PLSSA { light PLASMABALL }
+    frame PLSSB { light PLASMABALL }
+
+    frame PLSEA { light PLASMA_X1 }
+    frame PLSEB { light PLASMA_X2 }
+    frame PLSEC { light PLASMA_X2 }
+    frame PLSED { light PLASMA_X3 }
+    frame PLSEE { light PLASMA_X4 }
+}
+*/
+// monsters --------------------------------------------------------------------
+
+
+// Zombies
+flickerlight2 ZOMBIEATK
+{
+    color 1.0 0.6 0.2
+    size 84
+    secondarySize 96
+    interval 1
+    offset 20 28 10
+	//attenuate 1
+}
+
+object ZombieMan
+{
+    frame POSSF { light ZOMBIEATK }
+}
+
+object ShotgunGuy
+{
+    frame SPOSF { light ZOMBIEATK }
+}
+
+object ChaingunGuy
+{
+    frame CPOSE { light ZOMBIEATK }
+    frame CPOSF { light ZOMBIEATK }
+}
+
+flickerlight2 PLAYATK
+{
+    color 0.8 0.4 0.1
+    size 176
+    secondarySize 192
+    interval 1
+    offset 16 30 0
+	//attenuate 1
+}
+object DoomPlayer
+{
+    frame PLAYF { light PLAYATK }
+}
+
+
+pointlight IMPBALL
+{
+    color 1.0 0.4 0.1
+    size 96
+	//attenuate 1
+}
+
+flickerlight IMPBALL_X1
+{
+    color 0.7 0.3 0.25
+    size 120
+    secondarySize 132
+    chance 0.25
+	//attenuate 1
+}
+
+flickerlight IMPBALL_X2
+{
+    color 0.4 0.1 0.1
+    size 144
+    secondarySize 156
+    chance 0.25
+	//attenuate 1
+}
+
+flickerlight IMPBALL_X3
+{
+    color 0.2 0.05 0.0
+    size 168
+    secondarySize 180
+    chance 0.25
+	//attenuate 1
+}
+/*
+object RV_DoomImpBall
+{
+    frame BAL1A { light IMPBALL    }
+    frame BAL1B { light IMPBALL    }
+
+    frame BAL1C { light IMPBALL_X1 }
+    frame BAL1D { light IMPBALL_X2 }
+    frame BAL1E { light IMPBALL_X3 }
+}
+
+object RV_CacodemonBall
+{
+    frame BAL2A { light CACOBALL }
+    frame BAL2B { light CACOBALL }
+
+    frame BAL2C { light CACOBALL_X1 }
+    frame BAL2D { light CACOBALL_X2 }
+    frame BAL2E { light CACOBALL_X3 }
+}
+
+object RV_BaronBall
+{
+    frame BAL7A { light BARONBALL    }
+    frame BAL7B { light BARONBALL    }
+
+    frame BAL7C { light BARONBALL_X1 }
+    frame BAL7D { light BARONBALL_X2 }
+    frame BAL7E { light BARONBALL_X3 }
+}
+
+object RV_FatShot
+{
+    frame MANFA { light IMPBALL   }
+    frame MANFB { light IMPBALL   }
+
+    frame MISLB { light ROCKET_X1 }
+    frame MISLC { light ROCKET_X2 }
+    frame MISLD { light ROCKET_X3 }
+}
+
+object RV_ArachnotronPlasma
+{
+    frame APLSA { light ARACHPLAS }
+    frame APLSB { light ARACHPLAS }
+
+    frame APBXA { light ARACHPLAS_X1 }
+    frame APBXB { light ARACHPLAS_X2 }
+    frame APBXC { light ARACHPLAS_X2 }
+    frame APBXD { light ARACHPLAS_X3 }
+    frame APBXE { light ARACHPLAS_X4 }
+}
+*/
+
+// items -----------------------------------------------------------------------
+// Soul Sphere
+pulselight SOULSPHERE
+{
+    color 0.0 0.0 0.2
+    size 40
+    secondarySize 32
+    interval 2.0
+    offset 0 25 0
+	//attenuate 1
+}
+flickerlight2 SOULSPHERE1
+{
+    color 0.0 0.0 0.1
+    size 11
+    secondarySize 16
+    interval 0.2
+    offset 0 0 0
+	//attenuate 1
+}
+
+object RV_SoulSphere
+{
+    frame SOUL { light SOULSPHERE }
+}
+
+object RV_SoulA
+{
+    frame SOUL { light SOULSPHERE1 }
+}
+
+object RV_SoulB
+{
+    frame SOUL { light SOULSPHERE1 }
+}
+object RV_SoulC
+{
+    frame SOUL { light SOULSPHERE1 }
+}
+object RV_SoulD
+{
+    frame SOUL { light SOULSPHERE1 }
+}
+
+// Mega Sphere
+pulselight MEGASPHERE
+{
+    color 0.4 0.3 0.2
+    size 40
+    secondarySize 32
+    interval 2.0
+    offset 0 27 0
+	//attenuate 1
+}
+flickerlight2 MEGASPHERE1
+{
+    color 0.2 0.15 0.1
+    size 11
+    secondarySize 16
+    interval 0.2
+    offset 0 0 0
+	//attenuate 1
+}
+
+object RV_MegaSphere
+{
+    frame MEGA { light MEGASPHERE }
+}
+
+object RV_MegaA
+{
+    frame MEGA { light MEGASPHERE1 }
+}
+object RV_MegaB
+{
+    frame MEGA { light MEGASPHERE1 }
+}
+object RV_MegaC
+{
+    frame MEGA { light MEGASPHERE1 }
+}
+object RV_MegaD
+{
+    frame MEGA { light MEGASPHERE1 }
+}
+
+
+// Invulnerability Sphere
+pulselight INVULN
+{
+    color 0.0 0.2 0.0
+    size 40
+    secondarySize 32
+    interval 2.0
+    offset 0 25 0
+	//attenuate 1
+}
+flickerlight2 INVULN1
+{
+    color 0.5 0.0 0.1
+    size 11
+    secondarySize 14
+    interval 0.2
+    offset 0 0 0
+	//attenuate 1
+}
+object RV_InvulnerabilitySphere
+{
+    frame PINV { light INVULN }
+}
+
+object RV_SkullA
+{
+    frame PINV { light INVULN1 }
+}
+object RV_SkullB
+{
+    frame PINV { light INVULN1 }
+}
+object RV_SkullC
+{
+    frame PINV { light INVULN1 }
+}
+object RV_SkullD
+{
+    frame PINV { light INVULN1 }
+} 
+
+
+// Blur Sphere
+pulselight BLURSPHERE1
+{
+    color 0.2 0.0 0.0
+    size 40
+    secondarySize 32
+    interval 2.0
+    offset 0 25 0
+	//attenuate 1
+}
+
+flickerlight2 BLURSPHERE2
+{
+    color 0.0 0.0 0.25
+    size 28
+    secondarySize 32
+    interval 0.2
+    offset 0 0 0
+	//attenuate 1
+}
+
+flickerlight2 BLURSPHERE3
+{
+    color 0.0 0.0 0.2
+    size 28
+    secondarySize 32
+    interval 0.2
+    offset 0 0 0
+	//attenuate 1
+}
+
+flickerlight2 BLURSPHERE4
+{
+    color 0.0 0.0 0.15
+    size 28
+    secondarySize 32
+    interval 0.2
+    offset 0 0 0
+	//attenuate 1
+}
+
+flickerlight2 BLURSPHERE5
+{
+    color 0.0 0.0 0.1
+    size 28
+    secondarySize 32
+    interval 0.2
+    offset 0 0 0
+	//attenuate 1
+}
+
+object RV_BlurSphere
+{
+    frame PINS { light BLURSPHERE1 }
+}
+
+object RV_EyeA
+{
+    frame PINS { light BLURSPHERE2 }
+}
+object RV_EyeB
+{
+    frame PINS { light BLURSPHERE3 }
+}
+object RV_EyeC
+{
+    frame PINS { light BLURSPHERE4 }
+}
+object RV_EyeD
+{
+    frame PINS { light BLURSPHERE5 }
+}
+
+
+pulselight STIMPACK
+{
+    color 0.3 0.0 0.0
+    size 6
+    secondarySize 2
+    interval 2.0
+	//attenuate 1
+	dontlightself 1
+    offset -1 4 0
+}
+object RV_Stimpack
+{
+    frame STIM { light STIMPACK }
+}
+
+pulselight MEDIKIT
+{
+    color 0.5 0.0 0.0
+    size 16
+    secondarySize 6
+    interval 2.0
+	//attenuate 1
+	dontlightself 1
+    offset 0 10 0
+}
+object RV_Medikit
+{
+    frame MEDI { light MEDIKIT }
+}
+
+// powerups --------------------------------------------------------------------
+
+
+
+pulselight BERSERK
+{
+    color 0.7 0.0 0.0
+    size 10
+    secondarySize 6
+    interval 2.0
+	//attenuate 1
+	dontlightself 1
+    offset 0 8 0
+}
+object RV_Berserk
+{
+    frame PSTR { light BERSERK }
+}
+
+pointlight COMPMAP1
+{
+    color 0.4 0.0 0.0
+    size 8
+	offset 6 4 0
+}
+pointlight COMPMAP2
+{
+    color 0.1 0.0 0.0
+    size 4
+	offset 6 4 0
+}
+pointlight COMPMAP3
+{
+    color 0.3 0.0 0.5
+    size 10
+	offset 6 4 0
+}
+flickerlight2 COMPMAP4
+{
+    color 0.05 0.3 0.0
+    size 14
+    secondarySize 16
+    interval 0.1
+	offset 14 12 0
+}
+
+object Allmap
+{
+    frame PMAP { light COMPMAP4 }
+}
+
+object RV_Allmap
+{
+    frame PMAPA { light COMPMAP1 }
+    frame PMAPB { light COMPMAP2 }
+    frame PMAPC { light COMPMAP3 }
+    frame PMAPD { light COMPMAP1 }
+}
+object RV_MapFrame
+{
+    frame PMAP { light COMPMAP4 }
+}
+
+
+pointlight GOGGLES1
+{
+    color 0.4 0.0 0.1
+    size 28
+    offset 5 5 0
+	//attenuate 1
+}
+pointlight GOGGLES2
+{
+    color 0.2 0.0 0.1
+    size 12
+    offset 4 4 0
+	//attenuate 1
+}
+pointlight GOGGLES3
+{
+    color 0.0 0.0 0.3
+    size 5
+    offset 4 6 0
+	//attenuate 1
+}
+object Infrared
+{
+    frame PVISA { light GOGGLES1 }
+    frame PVISB { light GOGGLES2 }
+}
+object RV_Infrared
+{
+    frame PVISA { light GOGGLES1 }
+    frame PVISB { light GOGGLES2 }
+}
+object RV_IRFrames
+{
+    frame PVISZ { light GOGGLES3 }
+}
+
+// bonuses ---------------------------------------------------------------------
+
+pulselight HEALTHPOTION
+{
+    color 0.0 0.0 0.3
+    size 16
+    secondarySize 20
+    interval 2.0
+	//attenuate 1
+    offset 0 10 0
+}
+
+
+pointlight HEALTHBONUS1
+{
+    color 0.0 0.0 0.3
+    size 6
+	//attenuate 1
+    offset 0 4 0
+}
+pointlight HEALTHBONUS2
+{
+    color 0.0 0.0 0.5
+    size 8
+	//attenuate 1
+    offset 0 4 0
+}
+pointlight HEALTHBONUS3
+{
+    color 0.0 0.0 0.6
+    size 10
+	//attenuate 1
+    offset 0 4 0
+}
+pointlight HEALTHBONUS4
+{
+    color 0.0 0.0 0.7
+    size 11
+	//attenuate 1
+    offset 0 4 0
+}
+object HealthBonus
+{
+    frame BON1 { light null }
+    frame BON1A { light HEALTHBONUS1 }
+    frame BON1B { light HEALTHBONUS2 }
+    frame BON1C { light HEALTHBONUS3 }
+    frame BON1D { light HEALTHBONUS4 }
+}
+
+pulselight ARMORBONUS
+{
+    color 0.0 0.6 0.0
+    size 16
+    secondarySize 20
+    interval 1.0
+	dontlightself 1
+	//attenuate 1
+    offset 0 4 0
+}
+
+
+pointlight ARMORBONUS1
+{
+    color 0.0 0.3 0.0
+    size 6
+	//attenuate 1
+    offset 0 4 0
+}
+pointlight ARMORBONUS2
+{
+    color 0.0 0.5 0.0
+    size 8
+	//attenuate 1
+    offset 0 4 0
+}
+pointlight ARMORBONUS3
+{
+    color 0.0 0.6 0.0
+    size 10
+	//attenuate 1
+    offset 0 4 0
+}
+pointlight ARMORBONUS4
+{
+    color 0.0 0.7 0.0
+    size 11
+	//attenuate 1
+    offset 0 4 0
+}
+object ArmorBonus
+{
+    frame BON2 { light null }
+    frame BON2A { light ARMORBONUS1 }
+    frame BON2B { light ARMORBONUS2 }
+    frame BON2C { light ARMORBONUS3 }
+    frame BON2D { light ARMORBONUS4 }
+}
+object RV_ArmorBonus
+{
+    frame BON2 { light null }
+    frame BON2A { light ARMORBONUS1 }
+    frame BON2B { light ARMORBONUS2 }
+    frame BON2C { light ARMORBONUS3 }
+    frame BON2D { light ARMORBONUS4 }
+}
+
+
+// keys ------------------------------------------------------------------------
+
+pulselight BLUEKEY
+{
+    color 0.0 0.0 0.3
+    size 16
+    secondarySize 20
+    interval 2.0
+	//attenuate 1
+    offset 0 10 0
+}
+object BlueCard
+{
+    frame BKEYB { light BLUEKEY }
+}
+
+object BlueSkull
+{
+    frame BSKUB { light BLUEKEY }
+}
+
+pulselight YELLOWKEY
+{
+    color 0.3 0.2 0.0
+    size 16
+    secondarySize 20
+    interval 2.0
+	//attenuate 1
+    offset 0 10 0
+}
+pulselight YELLOWSKULL
+{
+    color 0.3 0.1 0.0
+    size 16
+    secondarySize 20
+    interval 2.0
+	//attenuate 1
+    offset 0 10 0
+}
+
+object YellowCard
+{
+    frame YKEYB { light YELLOWKEY }
+}
+
+object YellowSkull
+{
+    frame YSKUB { light YELLOWSKULL }
+}
+
+pulselight REDKEY
+{
+    color 0.3 0.0 0.0
+    size 16
+    secondarySize 20
+    interval 2.0
+	//attenuate 1
+    offset 0 10 0
+}
+
+object RedCard
+{
+    frame RKEYB { light REDKEY }
+}
+
+object RedSkull
+{
+    frame RSKUB { light REDKEY }
+}
+
+
+
+/*
+// Green armour
+pointlight GREENARMOR1
+{
+    color 0.0 0.3 0.0
+    size 40
+	attenuate 1
+    offset 0 10 0
+}
+
+pointlight GREENARMOR2
+{
+    color 0.0 0.3 0.0
+    size 30
+	attenuate 1
+    offset 0 10 0
+}
+
+object GreenArmor
+{
+    frame ARM1A { light GREENARMOR1 }
+    frame ARM1B { light GREENARMOR2 }
+}
+
+// Blue armour
+pointlight BLUEARMOR1
+{
+    color 0.0 0.0 0.3
+    size 40
+	attenuate 1
+    offset 0 10 0
+}
+
+pointlight BLUEARMOR2
+{
+    color 0.0 0.0 0.3
+    size 30
+	attenuate 1
+    offset 0 10 0
+}
+
+object BlueArmor
+{
+    frame ARM2A { light BLUEARMOR1 }
+    frame ARM2B { light BLUEARMOR2 }
+}
+*/
+
+
+
+
+// props -----------------------------------------------------------------------
+
+flickerlight2 BARREL
+{
+    color 0.0 1.0 0.0
+    size 7
+    secondarySize 8
+    interval 0.1
+    offset 0 27 0
+}
+/*
+object RV_ExplosiveBarrel
+{
+    frame BAR1 { light BARREL }
+
+    frame BEXPC { light ROCKET_X1 }
+    frame BEXPD { light ROCKET_X2 }
+    frame BEXPE { light ROCKET_X3 }
+}
+*/
+pointlight LAMP
+{
+    color 0.8 0.7 0.3
+    size 128
+    offset 0 40 0
+	dontlightself 1
+	//attenuate 1
+}
+object RV_Column
+{
+    frame COLU { light LAMP }
+}
+
+pointlight SMALLLAMP1
+{
+    color 0.8 0.8 1.0
+    size 176
+    offset 0 50 0
+	//dontlightself 1
+	//attenuate 1
+}
+pointlight SMALLLAMP2
+{
+    color 0.75 0.75 0.95
+    size 172
+    offset 0 50 0
+	//dontlightself 1
+	//attenuate 1
+}
+pointlight SMALLLAMP3
+{
+    color 0.7 0.7 0.9
+    size 168
+    offset 0 50 0
+	//dontlightself 1
+	//attenuate 1
+}
+object TechLamp2
+{
+    frame TLP2A { light SMALLLAMP1 }
+    frame TLP2B { light SMALLLAMP2 }
+    frame TLP2C { light SMALLLAMP3 }
+    frame TLP2D { light SMALLLAMP2 }
+}
+object RV_TechLamp2
+{
+    frame TLP2A { light SMALLLAMP1 }
+    frame TLP2B { light SMALLLAMP2 }
+    frame TLP2C { light SMALLLAMP3 }
+    frame TLP2D { light SMALLLAMP2 }
+}
+
+pointlight BIGLAMP1
+{
+    color 0.8 0.8 1.0
+    size 200
+    offset 0 66 0
+	dontlightself 1
+	//attenuate 1
+}
+pointlight BIGLAMP2
+{
+    color 0.7 0.7 0.9
+    size 196
+    offset 0 66 0
+	dontlightself 1
+	//attenuate 1
+}
+pointlight BIGLAMP3
+{
+    color 0.6 0.6 0.8
+    size 194
+    offset 0 66 0
+	dontlightself 1
+	//attenuate 1
+}
+
+object TechLamp
+{
+    frame TLMPA { light BIGLAMP1 }
+    frame TLMPB { light BIGLAMP2 }
+    frame TLMPC { light BIGLAMP3 }
+    frame TLMPD { light BIGLAMP2 }
+}
+object RV_TechLamp
+{
+    frame TLMPA { light BIGLAMP1 }
+    frame TLMPB { light BIGLAMP2 }
+    frame TLMPC { light BIGLAMP3 }
+    frame TLMPD { light BIGLAMP2 }
+}
+
+flickerlight2 BIGREDTORCH
+{
+    color 0.7 0.3 0.2
+    size 180
+    secondarySize 198
+    interval 0.1
+    offset 0 60 0
+	dontlightself 1
+	//attenuate 1
+}
+object RV_RedTorch
+{
+    frame TSTD { light BIGREDTORCH }
+}
+
+flickerlight2 BIGGREENTORCH
+{
+    color 0.25 0.7 0.2
+    size 180
+    secondarySize 198
+    interval 0.1
+    offset 0 60 0
+	dontlightself 1
+	//attenuate 1
+}
+object RV_GreenTorch
+{
+    frame TSTD { light BIGGREENTORCH }
+}
+
+flickerlight2 BIGBLUETORCH
+{
+    color 0.15 0.2 0.7
+    size 180
+    secondarySize 198
+    interval 0.1
+    offset 0 60 0
+	dontlightself 1
+	//attenuate 1
+}
+object RV_BlueTorch
+{
+    frame TSTD { light BIGBLUETORCH }
+}
+
+flickerlight2 SMALLREDTORCH
+{
+    color 0.6 0.2 0.1
+    size 144
+    secondarySize 162
+    interval 0.1
+    offset 0 35 0
+	dontlightself 1
+	//attenuate 1
+}
+object RV_ShortRedTorch
+{
+    frame SMNT { light SMALLREDTORCH }
+}
+
+flickerlight2 SMALLGREENTORCH
+{
+    color 0.1 0.6 0.15
+    size 144
+    secondarySize 162
+    interval 0.1
+    offset 0 35 0
+	dontlightself 1
+	//attenuate 1
+}
+object RV_ShortGreenTorch
+{
+    frame SMNT { light SMALLGREENTORCH }
+}
+
+flickerlight2 SMALLBLUETORCH
+{
+    color 0.1 0.15 0.6
+    size 144
+    secondarySize 162
+    interval 0.1
+    offset 0 35 0
+	dontlightself 1
+	//attenuate 1
+}
+object RV_ShortBlueTorch
+{
+    frame SMNT { light SMALLBLUETORCH }
+}
+
+
+
+flickerlight2 FIREBARREL
+{
+    color 1.0 0.6 0.3
+    size 104
+    secondarySize 113
+    interval 0.1
+    offset 0 32 0
+	//dontlightself 1
+	//attenuate 1
+}
+
+object RV_BurningBarrel
+{
+    frame FCAN { light FIREBARREL }
+}
+
+flickerlight2 SKULLCANDLES
+{
+    color 1.0 0.5 0.1
+    size 72
+    secondarySize 77
+    interval 0.1
+    offset 0 24 0
+	//attenuate 1
+}
+
+object HeadCandles
+{
+    frame POL3 { light SKULLCANDLES }
+}
+
+flickerlight2 CANDLE
+{
+    color 0.6 0.4 0.2
+    size 44
+    secondarySize 48
+    interval 0.01
+    offset 0 13 0
+	//attenuate 1
+}
+
+object RV_Candlestick
+{
+    frame CAND { light CANDLE }
+}
+
+
+flickerlight2 CANDELABRA
+{
+    color 1.0 0.7 0.4
+    size 67
+    secondarySize 72
+    interval 0.01
+    offset 0 58 0
+	//attenuate 1
+}
+object RV_Candelabra
+{
+    frame CBRA { light CANDELABRA }
+}
+brightmap flat CEIL1_2		{map brightmaps/CEIL1_2.png		iwad	disablefullbright}
+brightmap flat CEIL1_3		{map brightmaps/CEIL1_3.png		iwad	disablefullbright}
+brightmap flat CEIL3_4		{map brightmaps/CEIL3_4.png		iwad	disablefullbright}
+brightmap flat CEIL3_6		{map brightmaps/CEIL3_6.png		iwad	disablefullbright}
+brightmap flat CEIL4_3		{map brightmaps/CEIL4_3.png		iwad	disablefullbright}
+brightmap flat CONS1_1		{map brightmaps/CONS1_1.png		iwad	disablefullbright}
+brightmap flat CONS1_5		{map brightmaps/CONS1_5.png		iwad	disablefullbright}
+brightmap flat CONS1_7		{map brightmaps/CONS1_7.png		iwad	disablefullbright}
+brightmap flat DEM1_1		{map brightmaps/DEM1_1.png		iwad	disablefullbright}
+brightmap flat DEM1_2		{map brightmaps/DEM1_2.png		iwad	disablefullbright}
+brightmap flat DEM1_3		{map brightmaps/DEM1_3.png		iwad	disablefullbright}
+brightmap flat DEM1_4		{map brightmaps/DEM1_4.png		iwad	disablefullbright}
+brightmap flat FLAT17		{map brightmaps/FLAT17.png		iwad	disablefullbright}
+brightmap flat FLAT2		{map brightmaps/FLAT2.png		iwad	disablefullbright}
+brightmap flat FLAT22		{map brightmaps/FLAT22.png		iwad	disablefullbright}
+brightmap flat FLOOR1_7		{map brightmaps/FLOOR1_7.png	iwad	disablefullbright}
+brightmap flat GATE1		{map brightmaps/GATE1.png		iwad	disablefullbright}
+brightmap flat GATE2		{map brightmaps/GATE2.png		iwad	disablefullbright}
+brightmap flat GATE3		{map brightmaps/GATE3.png		iwad	disablefullbright}
+brightmap flat GATE4		{map brightmaps/GATE4.png   	iwad	disablefullbright}
+brightmap flat GRNLITE1		{map brightmaps/GRNLITE1.png	iwad	disablefullbright}
+brightmap flat LAVA1		{map brightmaps/LAVA1.png		iwad	disablefullbright}
+brightmap flat LAVA2		{map brightmaps/LAVA2.png		iwad	disablefullbright}
+brightmap flat LAVA3		{map brightmaps/LAVA3.png		iwad	disablefullbright}
+brightmap flat LAVA4		{map brightmaps/LAVA4.png   	iwad	disablefullbright}
+brightmap flat NUKAGE1		{map brightmaps/NUKAGE1.png		iwad	disablefullbright}
+brightmap flat NUKAGE2		{map brightmaps/NUKAGE2.png		iwad	disablefullbright}
+brightmap flat NUKAGE3		{map brightmaps/NUKAGE3.png		iwad	disablefullbright}
+brightmap flat RROCK01		{map brightmaps/RROCK01.png		iwad	disablefullbright}
+brightmap flat RROCK02		{map brightmaps/RROCK02.png		iwad	disablefullbright}
+brightmap flat RROCK05		{map brightmaps/RROCK05.png		iwad	disablefullbright}
+brightmap flat RROCK06		{map brightmaps/RROCK06.png		iwad	disablefullbright}
+brightmap flat RROCK07		{map brightmaps/RROCK07.png		iwad	disablefullbright}
+brightmap flat RROCK08		{map brightmaps/RROCK08.png		iwad	disablefullbright}
+brightmap flat SLIME09		{map brightmaps/SLIME09.png		iwad	disablefullbright}
+brightmap flat SLIME10		{map brightmaps/SLIME10.png		iwad	disablefullbright}
+brightmap flat SLIME11		{map brightmaps/SLIME11.png		iwad	disablefullbright}
+brightmap flat SLIME12		{map brightmaps/SLIME12.png		iwad	disablefullbright}
+brightmap flat TLITE6_1		{map brightmaps/TLITE6_1.png	iwad	disablefullbright}
+brightmap flat TLITE6_4		{map brightmaps/TLITE6_4.png	iwad	disablefullbright}
+brightmap flat TLITE6_5		{map brightmaps/TLITE6_5.png	iwad	disablefullbright}
+brightmap flat TLITE6_6		{map brightmaps/TLITE6_6.png	iwad	disablefullbright}	
+
+brightmap texture BIGBRIK3	{map brightmaps/BIGBRIK3.png	iwad	disablefullbright}
+brightmap texture BIGDOOR2	{map brightmaps/BIGDOOR2.png	iwad	disablefullbright}
+brightmap texture BIGDOOR3	{map brightmaps/BIGDOOR3.png	iwad	disablefullbright}
+brightmap texture BIGDOOR4	{map brightmaps/BIGDOOR4.png	iwad	disablefullbright}
+brightmap texture BLODGR1	{map brightmaps/BLODGR1.png		iwad	disablefullbright}
+brightmap texture BLODGR2	{map brightmaps/BLODGR2.png		iwad	disablefullbright}
+brightmap texture BLODGR3	{map brightmaps/BLODGR3.png		iwad	disablefullbright}
+brightmap texture BLODGR4	{map brightmaps/BLODGR4.png		iwad	disablefullbright}
+brightmap texture BRICKLIT	{map brightmaps/BRICKLIT.png	iwad	disablefullbright}
+brightmap texture BRONZE4	{map brightmaps/BRONZE4.png		iwad	disablefullbright}
+brightmap texture BRNPOIS2	{map brightmaps/BRNPOIS2.png	iwad	disablefullbright}
+brightmap texture BRWINDOW	{map brightmaps/BRWINDOW.png	iwad	disablefullbright}
+brightmap texture BSTONE3	{map brightmaps/BSTONE3.png		iwad	disablefullbright}
+brightmap texture CEMENT1	{map brightmaps/CEMENT1.png		iwad	disablefullbright}
+brightmap texture CEMENT2	{map brightmaps/CEMENT2.png		iwad	disablefullbright}
+brightmap texture CEMENT3	{map brightmaps/CEMENT3.png		iwad	disablefullbright}
+brightmap texture CEMENT4	{map brightmaps/CEMENT4.png		iwad	disablefullbright}
+brightmap texture CEMENT5	{map brightmaps/CEMENT5.png		iwad	disablefullbright}
+brightmap texture CEMENT6	{map brightmaps/CEMENT6.png		iwad	disablefullbright}
+brightmap texture CEMENT8	{map brightmaps/CEMENT8.png		iwad	disablefullbright}
+brightmap texture CEMPOIS	{map brightmaps/CEMPOIS.png		iwad	disablefullbright}
+brightmap texture COMP2		{map brightmaps/COMP2.png		iwad	disablefullbright}
+brightmap texture COMPOHSO	{map brightmaps/COMPOHSO.png	iwad	disablefullbright}
+brightmap texture COMPBLUE	{map brightmaps/COMPBLUE.png	iwad	disablefullbright}
+brightmap texture COMPSTA1	{map brightmaps/COMPSTA1.png	iwad	disablefullbright}
+brightmap texture COMPSTA2	{map brightmaps/COMPSTA2.png	iwad	disablefullbright}
+brightmap texture COMPTALL	{map brightmaps/COMPTALL.png	iwad	disablefullbright}
+brightmap texture COMPTILE	{map brightmaps/COMPTILE.png	iwad	disablefullbright}
+brightmap texture COMPUTE1	{map brightmaps/COMPUTE1.png	iwad	disablefullbright}
+brightmap texture COMPUTE2	{map brightmaps/COMPUTE2.png	iwad	disablefullbright}
+brightmap texture COMPUTE3	{map brightmaps/COMPUTE3.png	iwad	disablefullbright}
+brightmap texture CRACKLE2	{map brightmaps/CRACKLE2.png	iwad	disablefullbright}
+brightmap texture CRACKLE4	{map brightmaps/CRACKLE4.png	iwad	disablefullbright}
+brightmap texture DBRAIN1	{map brightmaps/DBRAIN1.png		iwad	disablefullbright}
+brightmap texture DBRAIN2	{map brightmaps/DBRAIN2.png		iwad	disablefullbright}
+brightmap texture DBRAIN3	{map brightmaps/DBRAIN3.png		iwad	disablefullbright}
+brightmap texture DBRAIN4	{map brightmaps/DBRAIN4.png		iwad	disablefullbright}
+brightmap texture DOORBLU	{map brightmaps/DOORBLU.png		iwad	disablefullbright}
+brightmap texture DOORBLU2	{map brightmaps/DOORBLU2.png	iwad	disablefullbright}
+brightmap texture DOORRED	{map brightmaps/DOORRED.png		iwad	disablefullbright}
+brightmap texture DOORRED2	{map brightmaps/DOORRED2.png	iwad	disablefullbright}
+brightmap texture DOORYEL	{map brightmaps/DOORYEL.png		iwad	disablefullbright}
+brightmap texture DOORYEL2	{map brightmaps/DOORYEL2.png	iwad	disablefullbright}
+brightmap texture EXITDOOR	{map brightmaps/EXITDOOR.png	iwad	disablefullbright}
+brightmap texture EXITSIGN	{map brightmaps/EXITSIGN.png	iwad	disablefullbright}
+brightmap texture EXITSTON	{map brightmaps/EXITSTON.png	iwad	disablefullbright}
+brightmap texture FIREBLU1	{map brightmaps/FIREBLU1.png	iwad	disablefullbright}
+brightmap texture FIREBLU2	{map brightmaps/FIREBLU2.png	iwad	disablefullbright}
+brightmap texture FIRELAV2	{map brightmaps/FIRELAV2.png	iwad	disablefullbright}
+brightmap texture FIRELAV3	{map brightmaps/FIRELAV3.png	iwad	disablefullbright}
+brightmap texture FIRELAVA	{map brightmaps/FIRELAVA.png	iwad	disablefullbright}
+brightmap texture FIREMAG1	{map brightmaps/FIREMAG1.png	iwad	disablefullbright}
+brightmap texture FIREMAG2	{map brightmaps/FIREMAG2.png	iwad	disablefullbright}
+brightmap texture FIREMAG3	{map brightmaps/FIREMAG3.png	iwad	disablefullbright}
+brightmap texture FIREWALA	{map brightmaps/FIREWALA.png	iwad	disablefullbright}
+brightmap texture FIREWALB	{map brightmaps/FIREWALB.png	iwad	disablefullbright}
+brightmap texture FIREWALL	{map brightmaps/FIREWALL.png	iwad	disablefullbright}
+brightmap texture GRAYPOIS	{map brightmaps/GRAYPOIS.png	iwad	disablefullbright}
+brightmap texture GRNLITE1	{map brightmaps/GRNLITE1.png	iwad	disablefullbright}
+brightmap texture LITE2		{map brightmaps/LITE2.png		iwad	disablefullbright}
+brightmap texture LITE3		{map brightmaps/LITE3.png		iwad	disablefullbright}
+brightmap texture LITE4		{map brightmaps/LITE4.png		iwad	disablefullbright}
+brightmap texture LITE5		{map brightmaps/LITE5.png		iwad	disablefullbright}
+brightmap texture LITE96	{map brightmaps/LITE96.png		iwad	disablefullbright}
+brightmap texture LITEBLU1	{map brightmaps/LITEBLU1.png	iwad	disablefullbright}
+brightmap texture LITEBLU2	{map brightmaps/LITEBLU2.png	iwad	disablefullbright}
+brightmap texture LITEBLU3	{map brightmaps/LITEBLU3.png	iwad	disablefullbright}
+brightmap texture LITEBLU4	{map brightmaps/LITEBLU4.png	iwad	disablefullbright}
+brightmap texture LITEMET	{map brightmaps/LITEMET.png		iwad	disablefullbright}
+brightmap texture LITERED	{map brightmaps/LITERED.png		iwad	disablefullbright}
+brightmap texture LITESTON	{map brightmaps/LITESTON.png	iwad	disablefullbright}
+brightmap texture MARBFACE	{map brightmaps/MARBFACE.png	iwad	disablefullbright}
+brightmap texture METAL3	{map brightmaps/METAL3.png		iwad	disablefullbright}
+brightmap texture METAL6	{map brightmaps/METAL6.png		iwad	disablefullbright}
+brightmap texture METAL7	{map brightmaps/METAL7.png		iwad	disablefullbright}
+brightmap texture PANBOOK	{map brightmaps/PANBOOK.png		iwad	disablefullbright}
+brightmap texture PIPE6		{map brightmaps/PIPE6.png		iwad	disablefullbright}
+brightmap texture PIPEWAL1	{map brightmaps/PIPEWAL1.png	iwad	disablefullbright}
+brightmap texture PLANET1	{map brightmaps/PLANET1.png		iwad	disablefullbright}
+brightmap texture PLAT1		{map brightmaps/PLAT1.png		iwad	disablefullbright}
+brightmap texture ROCKRED1	{map brightmaps/ROCKRED1.png	iwad	disablefullbright}
+brightmap texture ROCKRED2	{map brightmaps/ROCKRED2.png	iwad	disablefullbright}
+brightmap texture ROCKRED3	{map brightmaps/ROCKRED3.png	iwad	disablefullbright}
+brightmap texture SFALL1	{map brightmaps/SFALL1.png		iwad	disablefullbright}
+brightmap texture SFALL2	{map brightmaps/SFALL2.png		iwad	disablefullbright}
+brightmap texture SFALL3	{map brightmaps/SFALL3.png		iwad	disablefullbright}
+brightmap texture SFALL4	{map brightmaps/SFALL4.png		iwad	disablefullbright}
+brightmap texture SILVER2	{map brightmaps/SILVER2.png		iwad	disablefullbright}
+brightmap texture SILVER3	{map brightmaps/SILVER3.png		iwad	disablefullbright}
+brightmap texture SLADRIP1	{map brightmaps/SLADRIP1.png	iwad	disablefullbright}
+brightmap texture SLADRIP2	{map brightmaps/SLADRIP2.png	iwad	disablefullbright}
+brightmap texture SLADRIP3	{map brightmaps/SLADRIP3.png	iwad	disablefullbright}
+brightmap texture SLADPOIS	{map brightmaps/SLADPOIS.png	iwad	disablefullbright}
+brightmap texture SLADSKUL	{map brightmaps/SLADSKUL.png	iwad	disablefullbright}
+brightmap texture SPACEW3	{map brightmaps/SPACEW3.png		iwad	disablefullbright}
+brightmap texture SPCDOOR1	{map brightmaps/SPCDOOR1.png	iwad	disablefullbright}
+brightmap texture SPCDOOR2	{map brightmaps/SPCDOOR2.png	iwad	disablefullbright}
+brightmap texture SPCDOOR3	{map brightmaps/SPCDOOR3.png	iwad	disablefullbright}
+brightmap texture SPCDOOR4	{map brightmaps/SPCDOOR4.png	iwad	disablefullbright}
+brightmap texture STEP5		{map brightmaps/STEP5.png		iwad	disablefullbright}
+brightmap texture STONPOIS	{map brightmaps/STONPOIS.png	iwad	disablefullbright}
+brightmap texture SW1BLUE	{map brightmaps/SW1BLUE.png		iwad	disablefullbright}
+brightmap texture SW1BRCOM	{map brightmaps/SW1BRCOM.png	iwad	disablefullbright}
+brightmap texture SW1BRIK	{map brightmaps/SW1BRIK.png		iwad	disablefullbright}
+brightmap texture SW1CMT	{map brightmaps/SW1CMT.png		iwad	disablefullbright}
+brightmap texture SW1COMM	{map brightmaps/SW1COMM.png		iwad	disablefullbright}
+brightmap texture SW1DIRT	{map brightmaps/SW1DIRT.png		iwad	disablefullbright}
+brightmap texture SW1MET2	{map brightmaps/SW1MET2.png		iwad	disablefullbright}
+brightmap texture SW1STARG	{map brightmaps/SW1STARG.png	iwad	disablefullbright}
+brightmap texture SW1STON1	{map brightmaps/SW1STON1.png	iwad	disablefullbright}
+brightmap texture SW1STRTN	{map brightmaps/SW1STRTN.png	iwad	disablefullbright}
+brightmap texture SW1WDMET	{map brightmaps/SW1WDMET.png	iwad	disablefullbright}
+brightmap texture SW2BLUE	{map brightmaps/SW2BLUE.png		iwad	disablefullbright}
+brightmap texture SW2BRCOM	{map brightmaps/SW2BRCOM.png	iwad	disablefullbright}
+brightmap texture SW2BRIK	{map brightmaps/SW2BRIK.png		iwad	disablefullbright}
+brightmap texture SW2BRN2	{map brightmaps/SW2BRN2.png		iwad	disablefullbright}
+brightmap texture SW2BRNGN	{map brightmaps/SW2BRNGN.png	iwad	disablefullbright}
+brightmap texture SW2CMT	{map brightmaps/SW2CMT.png		iwad	disablefullbright}
+brightmap texture SW2COMM	{map brightmaps/SW2COMM.png		iwad	disablefullbright}
+brightmap texture SW2COMP	{map brightmaps/SW2COMP.png		iwad	disablefullbright}
+brightmap texture SW2DIRT	{map brightmaps/SW2DIRT.png		iwad	disablefullbright}
+brightmap texture SW2EXIT	{map brightmaps/SW2EXIT.png		iwad	disablefullbright}
+brightmap texture SW2GARG	{map brightmaps/SW2GARG.png		iwad	disablefullbright}
+brightmap texture SW2GRAY	{map brightmaps/SW2GRAY.png		iwad	disablefullbright}
+brightmap texture SW2GRAY1	{map brightmaps/SW2GRAY1.png	iwad	disablefullbright}
+brightmap texture SW2GSTON	{map brightmaps/SW2GSTON.png	iwad	disablefullbright}
+brightmap texture SW2HOT	{map brightmaps/SW2HOT.png		iwad	disablefullbright}
+brightmap texture SW2LION	{map brightmaps/SW2LION.png		iwad	disablefullbright}
+brightmap texture SW2MARB	{map brightmaps/SW2MARB.png		iwad	disablefullbright}
+brightmap texture SW2MET2	{map brightmaps/SW2MET2.png		iwad	disablefullbright}
+brightmap texture SW2METAL	{map brightmaps/SW2METAL.png	iwad	disablefullbright}
+brightmap texture SW2MOD1	{map brightmaps/SW2MOD1.png		iwad	disablefullbright}
+brightmap texture SW2PANEL	{map brightmaps/SW2PANEL.png	iwad	disablefullbright}
+brightmap texture SW2ROCK	{map brightmaps/SW2ROCK.png		iwad	disablefullbright}
+brightmap texture SW2SATYR	{map brightmaps/SW2SATYR.png	iwad	disablefullbright}
+brightmap texture SW2SKULL	{map brightmaps/SW2SKULL.png	iwad	disablefullbright}
+brightmap texture SW2SLAD	{map brightmaps/SW2SLAD.png		iwad	disablefullbright}
+brightmap texture SW2STARG	{map brightmaps/SW2STARG.png	iwad	disablefullbright}
+brightmap texture SW2STON1	{map brightmaps/SW2STON1.png	iwad	disablefullbright}
+brightmap texture SW2STON6	{map brightmaps/SW2STON6.png	iwad	disablefullbright}
+brightmap texture SW2STRTN	{map brightmaps/SW2STRTN.png	iwad	disablefullbright}
+brightmap texture SW2TEK	{map brightmaps/SW2TEK.png		iwad	disablefullbright}
+brightmap texture SW2VINE	{map brightmaps/SW2VINE.png		iwad	disablefullbright}
+brightmap texture SW2WDMET	{map brightmaps/SW2WDMET.png	iwad	disablefullbright}
+brightmap texture SW2WOOD	{map brightmaps/SW2WOOD.png		iwad	disablefullbright}
+brightmap texture SW2ZIM	{map brightmaps/SW2ZIM.png		iwad	disablefullbright}
+brightmap texture TEKBRON2	{map brightmaps/TEKBRON2.png	iwad	disablefullbright}
+brightmap texture TEKGREN1	{map brightmaps/TEKGREN1.png	iwad	disablefullbright}
+brightmap texture TEKGREN3	{map brightmaps/TEKGREN3.png	iwad	disablefullbright}
+brightmap texture TEKGREN5	{map brightmaps/TEKGREN5.png	iwad	disablefullbright}
+brightmap texture TEKLITE	{map brightmaps/TEKLITE.png		iwad	disablefullbright}
+brightmap texture TEKLITE2	{map brightmaps/TEKLITE2.png	iwad	disablefullbright}
+brightmap texture TEKWALL1	{map brightmaps/TEKWALL1.png	iwad	disablefullbright}
+brightmap texture TEKWALL2	{map brightmaps/TEKWALL2.png	iwad	disablefullbright}
+brightmap texture TEKWALL5	{map brightmaps/TEKWALL5.png	iwad	disablefullbright}
+brightmap texture TEKWALL6	{map brightmaps/TEKWALL6.png	iwad	disablefullbright}
+brightmap texture WOOD4		{map brightmaps/WOOD4.png		iwad	disablefullbright}
+brightmap texture WOODGARG	{map brightmaps/WOODGARG.png	iwad	disablefullbright}
+brightmap texture ZZZFACE4	{map brightmaps/ZZZFACE4.png	iwad	disablefullbright}
+brightmap texture ZZZFACE5	{map brightmaps/ZZZFACE5.png	iwad	disablefullbright}
+brightmap texture ZZZFACE6	{map brightmaps/ZZZFACE6.png	iwad	disablefullbright}
+brightmap texture ZZZFACE7	{map brightmaps/ZZZFACE7.png	iwad	disablefullbright}
+brightmap texture ZZZFACE9	{map brightmaps/ZZZFACE9.png	iwad	disablefullbright}
+Glow
+{
+	Texture "LAVA1", 701000, 128
+	Texture "LAVA2", 702800, 128
+	Texture "LAVA3", 701800, 128
+	Texture "LAVA4", 702000, 128
+	
+	Texture "NUKAGE1", 002800, 64
+	Texture "NUKAGE2", 003000, 64
+	Texture "NUKAGE3", 003800, 64
+	
+	//teleporters
+	Texture "GATE1", 800000, 48
+	Texture "GATE2", 800000, 48
+	Texture "GATE3", 800000, 48
+	Texture "GATE4", 808080, 48
+	
+	//glowing rocks
+	Texture "RROCK01", 800000, 64
+	Texture "RROCK02", 808000, 64
+	Texture "RROCK05", 400000, 64
+	Texture "RROCK06", 300000, 64
+	Texture "RROCK07", 100000, 64
+	Texture "RROCK08", 080000, 64
+	Texture "SLIME09", 400000, 64
+	Texture "SLIME10", 300000, 64
+	Texture "SLIME11", 100000, 64
+	Texture "SLIME12", 080000, 64
+	
+	//lights
+	Texture "CEIL3_4", 5F5347, 128
+	Texture "CEIL4_3", 000010, 16
+	Texture "FLAT22", 000040, 32
+	Texture "FLOOR1_7", ff8080, 64
+	Texture "TLITE6_1", 807570, 128
+	Texture "TLITE6_4", 807570, 128
+	Texture "TLITE6_5", 804040, 128
+	Texture "TLITE6_6", 806040, 128
+	Texture "CEIL1_2", 808080, 64
+	Texture "CEIL1_3", 808080, 64
+	Texture "CEIL3_6", 404040, 32
+	Texture "FLAT2", 909090, 96
+	Texture "FLAT17", a0a0a0, 128
+	Texture "GRNLITE1", 606060, 48
+
+	Texture "F_SKY1", 604050, 256
+}

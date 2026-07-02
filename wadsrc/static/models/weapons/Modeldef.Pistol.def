@@ -1,0 +1,68 @@
+Model BrutalPistol
+{ 
+   Path "Models/Weapons/Hud/BrutalPistol"
+   Model 0 "BrutalPistol.md3"
+   Skin 0 "BrutalPistol.png"
+   Scale -1.0 1.0 1.0
+   Offset 0.0 -4.0 0.0
+   ZOffset -5
+	NoInterpolation
+   
+
+   
+	//Ready weapon
+	
+FrameIndex	PIST	A	0	0
+FrameIndex	PIST	B	0	1
+
+	//Aim and Fire
+	
+
+	FrameIndex	PIST	F	0	2
+	FrameIndex	PIST	A	0	3
+	FrameIndex	PIST	B	0	4
+	FrameIndex	PIST	C	0	5
+	FrameIndex	PIST	D	0	6
+	FrameIndex	PIST	E	0	7
+
+	//Reload
+	
+	FrameIndex	PISR	A	0	8
+	FrameIndex	PISR	B	0	9
+	FrameIndex	PISR	C	0	10
+	FrameIndex	PISR	D	0	11
+	FrameIndex	PISR	E	0	12
+	FrameIndex	PISR	F	0	13
+	FrameIndex	PISR	G	0	14
+	FrameIndex	PISR	H	0	15
+	FrameIndex	PISR	I	0	16
+	FrameIndex	PISR	J	0	17
+	FrameIndex	PISR	K	0	18
+	FrameIndex	PISR	L	0	19
+	FrameIndex	PISR	M	0	20
+	FrameIndex	PISR	N	0	21
+	FrameIndex	PISR	O	0	22
+	FrameIndex	PISR	P	0	23
+	FrameIndex	PISR	Q	0	24
+	FrameIndex	PISR	R	0	25
+	
+	
+	//Sprint
+	
+	FrameIndex	PISP	A	0	27
+	
+	
+	//Pistol Whip
+	
+	FrameIndex	PISA	A	0	28
+	FrameIndex	PISA	B	0	29
+	FrameIndex	PISA	C	0	30
+	FrameIndex	PISA	D	0	31
+	FrameIndex	PISA	E	0	32
+	FrameIndex	PISA	F	0	33
+	FrameIndex	PISA	G	0	34
+	FrameIndex	PISA	H	0	35
+	FrameIndex	PISA	I	0	36
+	FrameIndex	PISA	J	0	37
+	
+}

@@ -1,0 +1,65 @@
+HardwareShader Sprite VRDMGA0
+{
+	Shader "shaders/glsl/vr_damage_sdf.fp"
+}
+
+HardwareShader Sprite SDFGA0
+{
+	Shader "shaders/glsl/msdf_atlas.fp"
+}
+
+HardwareShader Sprite SIGLA0
+{
+	Shader "shaders/glsl/vr_sdf_procedural.fp"
+}
+
+HardwareShader PostProcess rom_load
+{
+	Shader "shaders/pp/rom_load.fp"
+}
+
+HardwareShader PostProcess fatal_exception
+{
+	Shader "shaders/pp/fatal_exception.fp"
+}
+
+// Neon Monster Outlines
+HardwareShader Sprite POSS { Shader "shaders/glsl/monster_neon.fp" }
+HardwareShader Sprite SPOS { Shader "shaders/glsl/monster_neon.fp" }
+HardwareShader Sprite CPOS { Shader "shaders/glsl/monster_neon.fp" }
+HardwareShader Sprite TROO { Shader "shaders/glsl/monster_neon.fp" }
+HardwareShader Sprite SARG { Shader "shaders/glsl/monster_neon.fp" }
+HardwareShader Sprite BOSS { Shader "shaders/glsl/monster_neon.fp" }
+HardwareShader Sprite SKUL { Shader "shaders/glsl/monster_neon.fp" }
+HardwareShader Sprite HEAD { Shader "shaders/glsl/monster_neon.fp" }
+HardwareShader Sprite CYBR { Shader "shaders/glsl/monster_neon.fp" }
+HardwareShader Sprite SPID { Shader "shaders/glsl/monster_neon.fp" }
+HardwareShader Sprite FATT { Shader "shaders/glsl/monster_neon.fp" }
+HardwareShader Sprite BSPI { Shader "shaders/glsl/monster_neon.fp" }
+HardwareShader Sprite SKEL { Shader "shaders/glsl/monster_neon.fp" }
+HardwareShader Sprite PAIN { Shader "shaders/glsl/monster_neon.fp" }
+HardwareShader Sprite VILE { Shader "shaders/glsl/monster_neon.fp" }
+
+// --- Radiance BloomBoost ---
+HardwareShader PostProcess beforebloom
+{
+	Name "BloomBoostPre"
+	Shader "shaders/radiance/gitd_bloomboost_pre.fp" 330
+	Uniform float gamma
+	Uniform float contrast
+	Uniform float brightness
+}
+HardwareShader PostProcess scene
+{
+	Name "BloomBoostPost"
+	Shader "shaders/radiance/gitd_bloomboost_post.fp" 330
+	Uniform float gamma
+	Uniform float contrast
+	Uniform float brightness
+}
+
+// --- Radiance Brightmaps ---
+#include "brightmaps/sprites/doom.bm"
+#include "brightmaps/sprites/doom2.bm"
+
+#include "vox_gldefs.txt"

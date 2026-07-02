@@ -1,0 +1,945 @@
+﻿ACTOR WallCheck
+{
+	Radius 5
+	+MISSILE
+	+THRUACTORS
+	+NOGRAVITY
+	States
+	{
+	Spawn:
+	   TNT1 A 3
+	   TNT1 A 1 A_Remove(AAPTR_DEFAULT)
+		Stop
+	death:
+	   TNT1 A 2
+	   TNT1 A 1 A_Remove(AAPTR_DEFAULT)
+		Stop
+	}
+}
+
+// items -----------------------------------------------------------------------
+ACTOR RV_StimpackSymbol
+{
+	+NOINTERACTION
+	states
+	{
+	Spawn:
+		STIM Z 2 //bright
+		stop
+	}
+}
+ACTOR RV_Stimpack : Stimpack replaces Stimpack
+{
+	States
+	{
+  	Spawn:
+		STIM A 1 A_SpawnItemEx("RV_StimpackSymbol")
+		Loop
+	}
+}
+
+ACTOR RV_MedikitSymbol
+{
+	+NOINTERACTION
+	states
+	{
+	Spawn:
+		MEDI Z 2 //bright
+		stop
+	}
+}
+ACTOR RV_Medikit : Medikit replaces Medikit
+{
+	States
+	{
+  	Spawn:
+		MEDI A 1 A_SpawnItemEx("RV_MedikitSymbol")
+		Loop
+	}
+}
+
+ACTOR RV_BerserkSymbol
+{
+	+NOINTERACTION
+	states
+	{
+	Spawn:
+		PSTR Z 2 //bright
+		stop
+	}
+}
+ACTOR RV_Berserk : Berserk replaces Berserk
+{
+	States
+	{
+	Spawn:
+		PSTR A 0 NoDelay A_JumpIf(GetCVAR("sv_wallcheck") == 0, "Idle")
+		PSTR A 2 A_SpawnItemEX("WallCheck",0,0,32,0,20,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PSTR A 0 A_CheckProximity("Turning","WallCheck",16)
+		PSTR A 2 A_SpawnItemEX("WallCheck",0,0,32,0,-20,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PSTR A 0 A_CheckProximity("Turning","WallCheck",16)
+		PSTR A 2 A_SpawnItemEX("WallCheck",0,0,32,20,0,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PSTR A 0 A_CheckProximity("Turning","WallCheck",16)
+		PSTR A 2 A_SpawnItemEX("WallCheck",0,0,32,-20,0,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PSTR A 0 A_CheckProximity("Turning","WallCheck",16)
+		PSTR A 2 A_SpawnItemEX("WallCheck",0,0,32,0,20,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PSTR A 0 A_CheckProximity("Turning","WallCheck",24)
+		PSTR A 2 A_SpawnItemEX("WallCheck",0,0,32,0,-20,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PSTR A 0 A_CheckProximity("Turning","WallCheck",24)
+		PSTR A 2 A_SpawnItemEX("WallCheck",0,0,32,20,0,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PSTR A 0 A_CheckProximity("Turning","WallCheck",24)
+		PSTR A 2 A_SpawnItemEX("WallCheck",0,0,32,-20,0,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PSTR A 0 A_CheckProximity("Turning","WallCheck",24)
+		PSTR A 2 A_SpawnItemEX("WallCheck",0,0,32,0,20,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PSTR A 0 A_CheckProximity("Turning","WallCheck",40)
+		PSTR A 2 A_SpawnItemEX("WallCheck",0,0,32,0,-20,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PSTR A 0 A_CheckProximity("Turning","WallCheck",40)
+		PSTR A 2 A_SpawnItemEX("WallCheck",0,0,32,20,0,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PSTR A 0 A_CheckProximity("Turning","WallCheck",40)
+		PSTR A 2 A_SpawnItemEX("WallCheck",0,0,32,-20,0,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PSTR A 0 A_CheckProximity("Turning","WallCheck",40)
+		PSTR A 0 A_SetAngle(270)
+		Goto Idle
+	Turning:
+		PSTR A 1 A_FaceTarget
+		PSTR A 1 A_SetAngle(180+Angle)
+		Goto Idle
+	Idle:
+		PSTR A 1 A_SpawnItemEx("RV_BerserkSymbol")
+		Loop
+	}
+}
+
+
+
+ACTOR RV_Helmet
+{
+	+NOINTERACTION
+	states
+	{
+	Spawn:
+		BON2 Z 2
+		stop
+	}
+}
+ACTOR RV_ArmorBonus : ArmorBonus replaces ArmorBonus
+{
+  RenderStyle add
+  alpha 0.6
+  States
+  {
+  Spawn:
+    BON2 AAAAAABBBBBBCCCCCCDDDDDDCCCCCCBBBBBB 1 Bright A_SpawnItemEx("RV_Helmet")
+    Loop
+  }
+}
+
+ACTOR RV_MapFrame
+{
+	+NOINTERACTION
+	states
+	{
+	Spawn:
+		PMAP Z 2
+		stop
+	}
+}
+ACTOR RV_Allmap : Allmap replaces Allmap
+{
+  RenderStyle add
+  States
+  {
+	Spawn:
+		PMAP A 0 NoDelay A_JumpIf(GetCVAR("sv_wallcheck") == 0, "Idle")
+		PMAP A 2 A_SpawnItemEX("WallCheck",0,0,32,0,20,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PMAP A 0 A_CheckProximity("Turning","WallCheck",16)
+		PMAP A 2 A_SpawnItemEX("WallCheck",0,0,32,0,-20,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PMAP A 0 A_CheckProximity("Turning","WallCheck",16)
+		PMAP A 2 A_SpawnItemEX("WallCheck",0,0,32,20,0,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PMAP A 0 A_CheckProximity("Turning","WallCheck",16)
+		PMAP A 2 A_SpawnItemEX("WallCheck",0,0,32,-20,0,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PMAP A 0 A_CheckProximity("Turning","WallCheck",16)
+		PMAP A 2 A_SpawnItemEX("WallCheck",0,0,32,0,20,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PMAP A 0 A_CheckProximity("Turning","WallCheck",24)
+		PMAP A 2 A_SpawnItemEX("WallCheck",0,0,32,0,-20,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PMAP A 0 A_CheckProximity("Turning","WallCheck",24)
+		PMAP A 2 A_SpawnItemEX("WallCheck",0,0,32,20,0,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PMAP A 0 A_CheckProximity("Turning","WallCheck",24)
+		PMAP A 2 A_SpawnItemEX("WallCheck",0,0,32,-20,0,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PMAP A 0 A_CheckProximity("Turning","WallCheck",24)
+		PMAP A 2 A_SpawnItemEX("WallCheck",0,0,32,0,20,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PMAP A 0 A_CheckProximity("Turning","WallCheck",40)
+		PMAP A 2 A_SpawnItemEX("WallCheck",0,0,32,0,-20,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PMAP A 0 A_CheckProximity("Turning","WallCheck",40)
+		PMAP A 2 A_SpawnItemEX("WallCheck",0,0,32,20,0,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PMAP A 0 A_CheckProximity("Turning","WallCheck",40)
+		PMAP A 2 A_SpawnItemEX("WallCheck",0,0,32,-20,0,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		PMAP A 0 A_CheckProximity("Turning","WallCheck",40)
+		PMAP A 0 A_SetAngle(270)
+		Goto Idle
+	Turning:
+		PMAP A 1 A_FaceTarget
+		PMAP A 1 A_SetAngle(180+Angle)
+		Goto Idle
+	Idle:
+		PMAP AAAAAABBBBBBCCCCCCDDDDDDCCCCCCBBBBBB 1 Bright A_SpawnItemEx("RV_MapFrame")
+		Loop
+  }
+}
+
+ACTOR RV_CellLights
+{
+	+NOINTERACTION
+	RenderStyle add
+	states
+	{
+	Spawn:
+		CELL Z 2 Bright
+		stop
+	}
+}
+ACTOR RV_Cell : Cell replaces Cell
+{
+  States
+  {
+  Spawn:
+    CELL A 1 A_SpawnItemEx("RV_CellLights")
+    Loop
+  }
+}
+
+ACTOR RV_CellPackLights
+{
+	+NOINTERACTION
+	RenderStyle add
+	states
+	{
+	Spawn:
+		CELP Z 2 Bright
+		stop
+	}
+}
+ACTOR RV_CellPack : CellPack replaces CellPack
+{
+  States
+  {
+  Spawn:
+    CELP A 1 A_SpawnItemEx("RV_CellPackLights")
+    Loop
+  }
+}
+
+ACTOR RV_IRFrames
+{
+	+NOINTERACTION
+	states
+	{
+	Spawn:
+		PVIS Z 2
+		stop
+	}
+}
+ACTOR RV_Infrared : Infrared replaces Infrared
+{
+  RenderStyle Translucent
+  Alpha 0.6
+  States
+  {
+  Spawn:
+    PVIS A 0 Bright A_SetRenderStyle(1.0, STYLE_Add)
+    PVIS AAAAAA 1 Bright A_SpawnItemEx("RV_IRFrames")
+    PVIS B 0 A_SetRenderStyle(0.6, STYLE_Translucent)
+    PVIS BBBBBB 1 A_SpawnItemEx("RV_IRFrames")
+    Loop
+  }
+}
+
+ACTOR RV_Sphere
+{
+	+NOINTERACTION
+	RenderStyle add
+	ALPHA 0.4
+	states
+	{
+	Spawn:
+		SOUL V 2
+		stop
+	}
+}
+ACTOR RV_SoulA
+{
+	+NOINTERACTION
+	RenderStyle translucent
+	ALPHA 0.9
+	states
+	{
+	Spawn:
+		SOUL W 2
+		stop
+	}
+}
+ACTOR RV_SoulB
+{
+	+NOINTERACTION
+	RenderStyle translucent
+	ALPHA 0.8
+	states
+	{
+	Spawn:
+		SOUL X 2
+		stop
+	}
+}
+ACTOR RV_SoulC
+{
+	+NOINTERACTION
+	RenderStyle translucent
+	ALPHA 0.7
+	states
+	{
+	Spawn:
+		SOUL Y 2
+		stop
+	}
+}
+ACTOR RV_SoulD
+{
+	+NOINTERACTION
+	RenderStyle translucent
+	ALPHA 0.6
+	states
+	{
+	Spawn:
+		SOUL Z 2
+		stop
+	}
+}
+ACTOR RV_Soulsphere : Soulsphere replaces Soulsphere
+{
+	+FORCEXYBILLBOARD
+  States
+  {
+  Spawn:
+    SOUL SSSSSS 1 {A_SpawnItemEx("RV_SoulA",0,0,27); A_SpawnItemEx("RV_Sphere");}
+    SOUL SSSSSS 1 {A_SpawnItemEx("RV_SoulB",0,0,27); A_SpawnItemEx("RV_Sphere");}
+    SOUL SSSSSS 1 {A_SpawnItemEx("RV_SoulC",0,0,27); A_SpawnItemEx("RV_Sphere");}
+    SOUL SSSSSS 1 {A_SpawnItemEx("RV_SoulD",0,0,27); A_SpawnItemEx("RV_Sphere");}
+    SOUL SSSSSS 1 {A_SpawnItemEx("RV_SoulC",0,0,27); A_SpawnItemEx("RV_Sphere");}
+    SOUL SSSSSS 1 {A_SpawnItemEx("RV_SoulB",0,0,27); A_SpawnItemEx("RV_Sphere");}
+    //SOUL AAAAAABBBBBBCCCCCCDDDDDDCCCCCCBBBBBB 1 Bright A_SpawnItemEx("RV_Sphere")
+    Loop
+  }
+}
+
+ACTOR RV_MSphere
+{
+	+NOINTERACTION
+	RenderStyle add
+	ALPHA 0.4
+	states
+	{
+	Spawn:
+		MEGA V 2
+		stop
+	}
+}
+ACTOR RV_MegaA
+{
+	+NOINTERACTION
+	RenderStyle translucent
+	ALPHA 0.98
+	states
+	{
+	Spawn:
+		MEGA W 2
+		stop
+	}
+}
+ACTOR RV_MegaB
+{
+	+NOINTERACTION
+	RenderStyle translucent
+	ALPHA 0.96
+	states
+	{
+	Spawn:
+		MEGA X 2
+		stop
+	}
+}
+ACTOR RV_MegaC
+{
+	+NOINTERACTION
+	RenderStyle translucent
+	ALPHA 0.94
+	states
+	{
+	Spawn:
+		MEGA Y 2
+		stop
+	}
+}
+ACTOR RV_MegaD
+{
+	+NOINTERACTION
+	RenderStyle translucent
+	ALPHA 0.92
+	states
+	{
+	Spawn:
+		MEGA Z 2
+		stop
+	}
+}
+ACTOR RV_Megasphere : Megasphere replaces Megasphere
+{
+	+FORCEXYBILLBOARD
+  States
+  {
+  Spawn:
+    MEGA SSSSSS 1 {A_SpawnItemEx("RV_MegaA",0,0,27); A_SpawnItemEx("RV_MSphere");}
+    MEGA SSSSSS 1 {A_SpawnItemEx("RV_MegaB",0,0,27); A_SpawnItemEx("RV_MSphere");}
+    MEGA SSSSSS 1 {A_SpawnItemEx("RV_MegaC",0,0,27); A_SpawnItemEx("RV_MSphere");}
+    MEGA SSSSSS 1 {A_SpawnItemEx("RV_MegaD",0,0,27); A_SpawnItemEx("RV_MSphere");}
+    Loop
+  }
+}
+
+ACTOR RV_VSphere
+{
+	+NOINTERACTION
+	RenderStyle add
+	ALPHA 0.4
+	states
+	{
+	Spawn:
+		PINV V 2
+		stop
+	}
+}
+ACTOR RV_SkullA
+{
+	+NOINTERACTION
+	RenderStyle translucent
+	ALPHA 0.98
+	states
+	{
+	Spawn:
+		PINV W 2
+		stop
+	}
+}
+ACTOR RV_SkullB
+{
+	+NOINTERACTION
+	RenderStyle translucent
+	ALPHA 0.96
+	states
+	{
+	Spawn:
+		PINV X 2
+		stop
+	}
+}
+ACTOR RV_SkullC
+{
+	+NOINTERACTION
+	RenderStyle translucent
+	ALPHA 0.94
+	states
+	{
+	Spawn:
+		PINV Y 2
+		stop
+	}
+}
+ACTOR RV_SkullD
+{
+	+NOINTERACTION
+	RenderStyle translucent
+	ALPHA 0.92
+	states
+	{
+	Spawn:
+		PINV Z 2
+		stop
+	}
+}
+ACTOR RV_InvulnerabilitySphere : InvulnerabilitySphere replaces InvulnerabilitySphere
+{
+	+FORCEXYBILLBOARD
+  States
+  {
+  Spawn:
+    PINV SSSSSS 1 {A_SpawnItemEx("RV_SkullA",0,0,27); A_SpawnItemEx("RV_VSphere");}
+    PINV SSSSSS 1 {A_SpawnItemEx("RV_SkullB",0,0,27); A_SpawnItemEx("RV_VSphere");}
+    PINV SSSSSS 1 {A_SpawnItemEx("RV_SkullC",0,0,27); A_SpawnItemEx("RV_VSphere");}
+    PINV SSSSSS 1 {A_SpawnItemEx("RV_SkullD",0,0,27); A_SpawnItemEx("RV_VSphere");}
+    Loop
+  }
+}
+
+ACTOR RV_BSphere
+{
+	+NOINTERACTION
+	RenderStyle add
+	ALPHA 0.4
+	states
+	{
+	Spawn:
+		PINS V 2
+		stop
+	}
+}
+ACTOR RV_EyeA
+{
+	+NOINTERACTION
+	RenderStyle translucent
+	ALPHA 0.9
+	states
+	{
+	Spawn:
+		PINS W 2
+		stop
+	}
+}
+ACTOR RV_EyeB
+{
+	+NOINTERACTION
+	RenderStyle translucent
+	ALPHA 0.75
+	states
+	{
+	Spawn:
+		PINS X 2
+		stop
+	}
+}
+ACTOR RV_EyeC
+{
+	+NOINTERACTION
+	RenderStyle translucent
+	ALPHA 0.55
+	states
+	{
+	Spawn:
+		PINS Y 2
+		stop
+	}
+}
+ACTOR RV_EyeD
+{
+	+NOINTERACTION
+	RenderStyle translucent
+	ALPHA 0.3
+	states
+	{
+	Spawn:
+		PINS Z 2
+		stop
+	}
+}
+ACTOR RV_BlurSphere : BlurSphere replaces BlurSphere
+{
+	+FORCEXYBILLBOARD
+  States
+  {
+  Spawn:
+    PINS SSSSSS 1 {A_SpawnItemEx("RV_EyeA",0,0,27); A_SpawnItemEx("RV_BSphere");}
+    PINS SSSSSS 1 {A_SpawnItemEx("RV_EyeB",0,0,27); A_SpawnItemEx("RV_BSphere");}
+    PINS SSSSSS 1 {A_SpawnItemEx("RV_EyeC",0,0,27); A_SpawnItemEx("RV_BSphere");}
+    PINS SSSSSS 1 {A_SpawnItemEx("RV_EyeD",0,0,27); A_SpawnItemEx("RV_BSphere");}
+    Loop
+  }
+}
+
+
+// lights ----------------------------------------------------------------------
+
+ACTOR RV_ColumnGlass
+{
+	+NOINTERACTION
+	RenderStyle add
+	alpha 0.5
+	states
+	{
+	Spawn:
+		COLU Z -1 bright
+		stop
+	}
+}
+ACTOR RV_Column : Column replaces Column
+{
+  States
+  {
+  Spawn:
+    COLU A -1 Bright NoDelay A_SpawnItemEx("RV_ColumnGlass")
+    Stop
+  }
+}
+
+ACTOR RV_TechGlassA
+{
+	+NOINTERACTION
+	RenderStyle add
+	alpha 0.5
+	states
+	{
+	Spawn:
+		TLMP X 2 bright
+		stop
+	}
+}
+ACTOR RV_TechGlassB
+{
+	+NOINTERACTION
+	RenderStyle add
+	alpha 0.5
+	states
+	{
+	Spawn:
+		TLMP Y 2 bright
+		stop
+	}
+}
+ACTOR RV_TechGlassC
+{
+	+NOINTERACTION
+	RenderStyle add
+	alpha 0.5
+	states
+	{
+	Spawn:
+		TLMP Z 2 bright
+		stop
+	}
+}
+ACTOR RV_TechLamp : TechLamp replaces TechLamp
+{
+  States
+  {
+  Spawn:
+    TLMP AAAA 1 Bright A_SpawnItemEx("RV_TechGlassA")
+    TLMP BBBB 1 Bright A_SpawnItemEx("RV_TechGlassB")
+    TLMP CCCC 1 Bright A_SpawnItemEx("RV_TechGlassC")
+    TLMP DDDD 1 Bright A_SpawnItemEx("RV_TechGlassB")
+    loop
+  }
+}
+
+ACTOR RV_TechGlass2A
+{
+	+NOINTERACTION
+	RenderStyle add
+	alpha 0.5
+	states
+	{
+	Spawn:
+		TLP2 X 2 bright
+		stop
+	}
+}
+ACTOR RV_TechGlass2B
+{
+	+NOINTERACTION
+	RenderStyle add
+	alpha 0.5
+	states
+	{
+	Spawn:
+		TLP2 Y 2 bright
+		stop
+	}
+}
+ACTOR RV_TechGlass2C
+{
+	+NOINTERACTION
+	RenderStyle add
+	alpha 0.5
+	states
+	{
+	Spawn:
+		TLP2 Z 2 bright
+		stop
+	}
+}
+ACTOR RV_TechLamp2 : TechLamp2 replaces TechLamp2
+{
+  States
+  {
+  Spawn:
+    TLP2 AAAA 1 A_SpawnItemEx("RV_TechGlass2A")
+	TLP2 BBBB 1 A_SpawnItemEx("RV_TechGlass2B")
+	TLP2 CCCC 1 A_SpawnItemEx("RV_TechGlass2C")
+	TLP2 DDDD 1 A_SpawnItemEx("RV_TechGlass2B")
+    loop
+  }
+}
+
+
+// flames ----------------------------------------------------------------------
+
+ACTOR RV_OrangeFlame
+{
+	+NOINTERACTION
+	RenderStyle translucent
+	alpha 0.6
+	states
+	{
+	Spawn:
+		RVRF EDCBCDEEFFGH 2 BRIGHT
+		stop
+	}
+}
+
+ACTOR RV_BurningBarrel : BurningBarrel replaces BurningBarrel
+{
+  States
+  {
+  Spawn:
+    FCAN AAAABBBBCCCC 1 //Bright
+		{
+			A_SpawnItemEx("RV_OrangeFlame", random(-8, 8), random(-3, 8), random(26, 28), 0, -1, 1);
+			A_SpawnItemEx("RV_OrangeFlame", random(-6, 6), random(-5, 10), random(26, 28), 0, -1, 1);
+			A_SpawnItemEx("RV_OrangeFlame", random(-3, 3), random(-0, 5), random(27, 29), 0, -1, 1);
+		}
+    Loop
+  }
+}
+
+
+
+ACTOR RV_BlueFlame
+{
+	+NOINTERACTION
+	RenderStyle translucent
+	alpha 0.5
+	states
+	{
+	Spawn:
+		RVFB ABCDEFFGGHH 2 BRIGHT
+		stop
+	}
+}
+
+ACTOR RV_BlueTorch : BlueTorch replaces BlueTorch
+{
+	states
+	{
+	Spawn:
+		TSTD AAAABBBBCCCCDDDD 1
+		{
+			A_SpawnItemEx("RV_BlueFlame", random(-5, 5), random(-4, 4), random(52, 55), 0, 0, 1);
+			A_SpawnItemEx("RV_BlueFlame", random(-4, 4), random(-5, 5), random(52, 55), 0, 0, 1);
+			A_SpawnItemEx("RV_BlueFlame", random(-2, 2), random(-2, 2), random(51, 57), 0, 0, random(1,2));
+		}
+		loop
+	}
+}
+
+ACTOR RV_ShortBlueTorch : ShortBlueTorch replaces ShortBlueTorch
+{
+	states
+	{
+	Spawn:
+		SMNT AAAABBBBCCCCDDDD 1
+		{
+			A_SpawnItemEx("RV_BlueFlame", random(-4, 4), random(-3, 3), random(28, 30), 0, 0, 1);
+			A_SpawnItemEx("RV_BlueFlame", random(-3, 3), random(-4, 4), random(28, 30), 0, 0, 1);
+			A_SpawnItemEx("RV_BlueFlame", random(-2, 2), random(-2, 2), random(27, 31), 0, 0, random(1,2));
+		}
+		loop
+	}
+}
+
+ACTOR RV_GreenFlame
+{
+	+NOINTERACTION
+	RenderStyle translucent
+	alpha 0.5
+	states
+	{
+	Spawn:
+		RVFG ABCDEFFGGHH 2 BRIGHT
+		stop
+	}
+}
+
+ACTOR RV_GreenTorch : GreenTorch replaces GreenTorch
+{
+	states
+	{
+	Spawn:
+		TSTD AAAABBBBCCCCDDDD 1 
+		{
+			A_SpawnItemEx("RV_GreenFlame", random(-5, 5), random(-4, 4), random(52, 55), 0, 0, 1);
+			A_SpawnItemEx("RV_GreenFlame", random(-4, 4), random(-5, 5), random(52, 55), 0, 0, 1);
+			A_SpawnItemEx("RV_GreenFlame", random(-2, 2), random(-2, 2), random(51, 57), 0, 0, random(1,2));
+		}
+		loop
+	}
+}
+
+ACTOR RV_ShortGreenTorch : ShortGreenTorch replaces ShortGreenTorch
+{
+	states
+	{
+	Spawn:
+		SMNT AAAABBBBCCCCDDDD 1
+		{
+			A_SpawnItemEx("RV_GreenFlame", random(-4, 4), random(-3, 3), random(28, 30), 0, 0, 1);
+			A_SpawnItemEx("RV_GreenFlame", random(-3, 3), random(-4, 4), random(28, 30), 0, 0, 1);
+			A_SpawnItemEx("RV_GreenFlame", random(-2, 2), random(-2, 2), random(27, 31), 0, 0, random(1,2));
+		}
+		loop
+	}
+}
+
+ACTOR RV_RedFlame
+{
+	+NOINTERACTION
+	RenderStyle translucent
+	alpha 0.5
+	states
+	{
+	Spawn:
+		RVFR ABCDEFFGGHH 2 BRIGHT
+		stop
+	}
+}
+
+ACTOR RV_RedTorch : RedTorch replaces RedTorch
+{
+	states
+	{
+	Spawn:
+		TSTD AAAABBBBCCCCDDDD 1
+		{
+			A_SpawnItemEx("RV_RedFlame", random(-5, 5), random(-4, 4), random(52, 55), 0, 0, 1);
+			A_SpawnItemEx("RV_RedFlame", random(-4, 4), random(-5, 5), random(52, 55), 0, 0, 1);
+			A_SpawnItemEx("RV_RedFlame", random(-2, 2), random(-2, 2), random(51, 57), 0, 0, random(1,2));
+		}
+		loop
+	}
+}
+
+ACTOR RV_ShortRedTorch : ShortRedTorch replaces ShortRedTorch
+{
+	states
+	{
+	Spawn:
+		SMNT AAAABBBBCCCCDDDD 1
+		{
+			A_SpawnItemEx("RV_RedFlame", random(-4, 4), random(-3, 3), random(28, 30), 0, 0, 1);
+			A_SpawnItemEx("RV_RedFlame", random(-3, 3), random(-4, 4), random(28, 30), 0, 0, 1);
+			A_SpawnItemEx("RV_RedFlame", random(-2, 2), random(-2, 2), random(27, 31), 0, 0, random(1,2));
+		}
+		loop
+	}
+}
+
+ACTOR RV_CandleFlame1
+{
+	+NOINTERACTION
+	RenderStyle add
+	alpha 0.7
+	states
+	{
+	Spawn:
+		RVRF E 2 BRIGHT
+		RVRF F 2 BRIGHT
+		stop
+	}
+}
+ACTOR RV_CandleFlame2
+{
+	+NOINTERACTION
+	RenderStyle add
+	alpha 0.7
+	states
+	{
+	Spawn:
+		RVRF F 2 BRIGHT
+		RVRF H 1 BRIGHT
+		stop
+	}
+}
+
+ACTOR RV_Candlestick : Candlestick replaces Candlestick
+{
+	states
+	{
+	Spawn:
+		CAND A 1 A_SpawnItemEx("RV_CandleFlame1", random(0, 1), random(0, -1), random(14, 13), 0, 0, 1)
+		CAND A 1 A_SpawnItemEx("RV_CandleFlame2", random(0, 1), random(0, -1), random(14, 15), 0, 0, random(0, 1))
+		loop
+	}
+}
+
+ACTOR RV_Candelabra : Candelabra replaces Candelabra
+{
+	states
+	{
+	Spawn:
+		Spawn:
+		CBRA A 0 NoDelay A_JumpIf(GetCVAR("sv_wallcheck") == 0, "Idle")
+		CBRA A 2 A_SpawnItemEX("WallCheck",0,0,32,0,20,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		CBRA A 0 A_CheckProximity("Turning","WallCheck",16)
+		CBRA A 2 A_SpawnItemEX("WallCheck",0,0,32,0,-20,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		CBRA A 0 A_CheckProximity("Turning","WallCheck",16)
+		CBRA A 2 A_SpawnItemEX("WallCheck",0,0,32,20,0,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		CBRA A 0 A_CheckProximity("Turning","WallCheck",16)
+		CBRA A 2 A_SpawnItemEX("WallCheck",0,0,32,-20,0,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		CBRA A 0 A_CheckProximity("Turning","WallCheck",16)
+		CBRA A 2 A_SpawnItemEX("WallCheck",0,0,32,0,20,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		CBRA A 0 A_CheckProximity("Turning","WallCheck",24)
+		CBRA A 2 A_SpawnItemEX("WallCheck",0,0,32,0,-20,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		CBRA A 0 A_CheckProximity("Turning","WallCheck",24)
+		CBRA A 2 A_SpawnItemEX("WallCheck",0,0,32,20,0,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		CBRA A 0 A_CheckProximity("Turning","WallCheck",24)
+		CBRA A 2 A_SpawnItemEX("WallCheck",0,0,32,-20,0,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		CBRA A 0 A_CheckProximity("Turning","WallCheck",24)
+		CBRA A 2 A_SpawnItemEX("WallCheck",0,0,32,0,20,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		CBRA A 0 A_CheckProximity("Turning","WallCheck",40)
+		CBRA A 2 A_SpawnItemEX("WallCheck",0,0,32,0,-20,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		CBRA A 0 A_CheckProximity("Turning","WallCheck",40)
+		CBRA A 2 A_SpawnItemEX("WallCheck",0,0,32,20,0,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		CBRA A 0 A_CheckProximity("Turning","WallCheck",40)
+		CBRA A 2 A_SpawnItemEX("WallCheck",0,0,32,-20,0,0,0,SXF_ISTARGET|SXF_ABSOLUTEVELOCITY)
+		CBRA A 0 A_CheckProximity("Turning","WallCheck",40)
+		CBRA A 0 A_SetAngle(270)
+		Goto Idle
+	Turning:
+		CBRA A 1 A_FaceTarget
+		CBRA A 1 A_SetAngle(180+Angle)
+		Goto Idle
+	Idle:
+		CBRA A 1 
+			{
+				A_SpawnItemEx("RV_CandleFlame1", random(0, 1), random(0, 1), random(62, 61), 0, 0, 1);
+				A_SpawnItemEx("RV_CandleFlame1", random(0, 1), random(-10, -9), random(58, 57), 0, 0, 1);
+				A_SpawnItemEx("RV_CandleFlame1", random(0, 1), random(11, 10), random(58, 57), 0, 0, 1);
+			}
+		CBRA A 1
+			{
+				A_SpawnItemEx("RV_CandleFlame2", random(0, 1), random(0, 1), random(63, 64), 0, 0, random(0, 1));
+				A_SpawnItemEx("RV_CandleFlame2", random(0, 1), random(-10, -9), random(58, 59), 0, 0, random(0, 1));
+				A_SpawnItemEx("RV_CandleFlame2", random(0, 1), random(11, 10), random(58, 59), 0, 0, random(0, 1));
+			}
+		loop
+	}
+}
+
+// misc ------------------------------------------------------------------------
+
+//ACTOR RV_ExplosiveBarrel : ExplosiveBarrel replaces ExplosiveBarrel
+
+ACTOR RV_TorchTree : TorchTree replaces TorchTree
+{
+	states
+	{
+	Spawn:
+		TRE1 A -1 nodelay A_SetAngle(random(0,359))
+		Stop
+	}
+}

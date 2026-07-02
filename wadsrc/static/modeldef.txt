@@ -1,0 +1,306 @@
+Model VRHandModel
+{
+   Path "models"
+   Model 0 "vhand.iqm"
+   Skin 0 "vhand.png"
+   Scale 1.0 1.0 1.0
+   
+   // VR Hand States (Idle, Grip, Climb, Point)
+   FrameIndex VHAN A 0 0
+   FrameIndex VHAN B 0 1
+   FrameIndex VHAN C 0 2
+   FrameIndex VHAN D 0 3
+   
+   // Map all fist weapon sprites to this model
+   
+   // Doom Fist
+   FrameIndex PUNG A 0 0
+   FrameIndex PUNG B 0 0
+   FrameIndex PUNG C 0 0
+   FrameIndex PUNG D 0 0
+   
+   // Hexen Fighter Fist
+   FrameIndex FPCH A 0 0
+   FrameIndex FPCH B 0 0
+   FrameIndex FPCH C 0 0
+   FrameIndex FPCH D 0 0
+   FrameIndex FPCH E 0 0
+}
+
+Model VR_Pistol
+{ 
+   Path "models/weapons/brutalpistol"
+   Model 0 "BrutalPistol.md3"
+   Skin 0 "brutalpistol.png"
+   Scale -1.0 1.0 1.0
+   Offset 0.0 -4.0 0.0
+   ZOffset -5
+   NoInterpolation
+   
+   // Map standard Doom Pistol sprites (PISG)
+   FrameIndex PISG A 0 0
+   FrameIndex PISG B 0 0
+   FrameIndex PISG C 0 0
+   FrameIndex PISG D 0 0
+   FrameIndex PISG E 0 0
+   
+   // Map common mod Pistol sprites (PIST)
+   FrameIndex PIST A 0 0
+   FrameIndex PIST B 0 0
+   FrameIndex PIST C 0 0
+   FrameIndex PIST D 0 0
+   FrameIndex PIST E 0 0
+   FrameIndex PIST F 0 0
+}
+
+Model VR_Shotgun
+{ 
+   Path "models/weapons/shotgun"
+   Model 0 "Shotgun.md3"
+   Skin 0 "Shotgun.png"
+   Scale -1.0 1.0 1.0
+   Offset 0.0 0.0 0.0
+   ZOffset -5
+   NoInterpolation
+   
+   // Map standard Doom Shotgun sprites (SHTG)
+   FrameIndex SHTG A 0 4
+   FrameIndex SHTG B 0 4
+   FrameIndex SHTG C 0 4
+   FrameIndex SHTG D 0 4
+   
+   // Map common mod Shotgun sprites (SHTN, SHTA, AUTS, etc.)
+   FrameIndex SHTN A 0 4
+   FrameIndex SHTA A 0 4
+   FrameIndex SHTA B 0 4
+   FrameIndex AUTS A 0 0   FrameIndex AUT2 A 0 0   FrameIndex AUT3 A 0 0
+   FrameIndex ASHW A 0 0   FrameIndex AMUZ A 0 0   FrameIndex MSBS A 0 0
+   FrameIndex PASH A 0 0
+}
+
+Model VR_Plasma
+{ 
+   Path "models/weapons/Plasma_Gun"
+   Model 0 "Plasma.md3"
+   Skin 0 "Plasma.png"
+   Scale -1.0 1.0 1.0
+   Offset 0.0 0.0 0.0
+   NoInterpolation
+   ZOffset -5
+
+   // Map standard Doom Plasma sprites (PLSG)
+   FrameIndex PLSG A 0 0
+   FrameIndex PLSG B 0 0
+   
+   // Map common mod Plasma sprites (PLS9, PLSN)
+   FrameIndex PLS9 A 0 0
+   FrameIndex PLSN A 0 0
+}
+
+Model VR_Rifle
+{
+   Path "models/weapons/hud/rifle"
+   Model 0 "m16.md3"
+   Skin 0 "WPN-M16.png"
+   Scale 1.35 1.35 1.35
+   Offset 0.0 0.0 0.0
+   ZOffset -5
+   
+   // Map common Rifle sprites (RIFL, AKAB, M16G, COLT, etc.)
+   FrameIndex RIFL A 0 0
+   FrameIndex AKAB A 0 0
+   FrameIndex M16G A 0 0
+   FrameIndex AKAF A 0 0   FrameIndex AKAR A 0 0   FrameIndex AKA2 A 0 0
+   FrameIndex AKA4 A 0 0   FrameIndex AK4I A 0 0   FrameIndex COLT A 0 0
+}
+
+Model VR_Revolver
+{
+   Path "models/weapons/hud/revolver"
+   Model 0 "rev.md3"
+   Skin 0 "WPN-REV2.png"
+   Scale 1.35 1.35 1.35
+   Offset 0.0 0.0 0.0
+   ZOffset -5
+   
+   // Map common Revolver sprites (REVL, REVO, REV2, etc.)
+   FrameIndex REVL A 0 0
+   FrameIndex REVO A 0 0
+   FrameIndex REV2 A 0 0   FrameIndex REV3 A 0 0   FrameIndex REV4 A 0 0
+   FrameIndex RMUZ A 0 0
+}
+
+Model VR_SMG
+{
+   Path "models/weapons/hud/smg"
+   Model 0 "SMG.md3"
+   Skin 0 "SMG.png"
+   Scale 1.35 1.35 1.35
+   Offset 0.0 0.0 0.0
+   ZOffset -5
+   
+   // Map common SMG sprites (SMGG, SMGS, SPGN, etc.)
+   FrameIndex SMGG A 0 0
+   FrameIndex SMGS A 0 0
+   FrameIndex SPGN A 0 4   FrameIndex SPG2 A 0 4   FrameIndex SPGM A 0 4
+   FrameIndex NAGW A 0 4
+}
+
+Model VR_Flamethrower
+{
+   Path "models/weapons/hud/flamethrower"
+   Model 0 "Flamethrower2.md3"
+   Skin 0 "Flamethrower2.png"
+   Scale 1.0 1.0 1.0
+   Offset 0.0 0.0 0.0
+   ZOffset -5
+   
+   // Map common Flamethrower sprites (FLMG)
+   FrameIndex FLMG A 0 0
+}
+
+Model VR_SuperShotgun
+{
+   Path "Models/Weapons/Hud/SSG"
+   Model 0 "ssg.md3"
+   Skin 0 "ssg.png"
+   Scale -1.1 1.0 1.0
+   Offset 0.0 0.0 0.0
+   ZOffset -5
+   
+   // Map standard Doom SSG sprites (SHT2, OUSM, etc.)
+   FrameIndex SHT2 A 0 1   FrameIndex SHT2 B 0 1   FrameIndex SHT2 C 0 1   FrameIndex SHT2 D 0 1
+   FrameIndex SHT2 E 0 1   FrameIndex SHT2 F 0 1   FrameIndex SHT2 G 0 1   FrameIndex SHT2 H 0 1
+   FrameIndex OUSM A 0 1   FrameIndex OUST A 0 1   FrameIndex OUWS A 0 1
+}
+
+Model VR_Chaingun
+{
+   Path "Models/Weapons/Hud/CHAINGUN"
+   Model 0 "Chaingun.md3"
+   Skin 0 "Chaingun.png"
+   Scale -1.0 1.0 1.0
+   Offset 0.0 0.0 0.0
+   ZOffset -5
+   
+   // Map standard Doom Chaingun sprites (CHGG)
+   FrameIndex CHGG A 0 4   FrameIndex CHGG B 0 4
+}
+
+Model VR_RocketLauncher
+{
+   Path "Models/Weapons/Hud/RPG"
+   Model 0 "RPG.md3"
+   Skin 0 "RPG.png"
+   Scale -1.0 1.0 1.0
+   Offset 0.0 0.0 0.0
+   ZOffset -5
+   
+   // Map standard Doom Rocket Launcher sprites (MISG, CANN, etc.)
+   FrameIndex MISG A 0 5   FrameIndex MISG B 0 5
+   FrameIndex CANN A 0 5   FrameIndex CAN2 A 0 5   FrameIndex CANM A 0 5
+   FrameIndex CNWD A 0 5
+}
+
+Model VR_BFG
+{
+   Path "Models/Weapons/Hud/BFG9000"
+   Model 0 "BFG.md3"
+   Skin 0 "bfg.png"
+   Scale -1.0 1.0 1.0
+   Offset 0.0 0.0 0.0
+   ZOffset -5
+   
+   // Map standard Doom BFG sprites (BFGG, RBGN, etc.)
+   FrameIndex BFGG A 0 6   FrameIndex BFGG B 0 6   FrameIndex BFGG C 0 6
+   FrameIndex RBGN A 0 6   FrameIndex RBGW A 0 6   FrameIndex RENB A 0 6
+   FrameIndex RENM A 0 6   FrameIndex SNPS A 0 6   FrameIndex SSTG A 0 6
+}
+
+Model VR_Chainsaw
+{
+   Path "Models/Weapons/Hud/Chainsaw"
+   Model 0 "Chainsaw.md3"
+   Skin 0 "Chainsaw.png"
+   Scale -1.5 1.5 1.5
+   Offset 0.0 14.0 0.0
+   ZOffset -5
+   
+   // Map standard Doom Chainsaw sprites (SAWG)
+   FrameIndex SAWG A 0 0   FrameIndex SAWG B 0 0   FrameIndex SAWG C 0 0   FrameIndex SAWG D 0 0
+}
+
+Model VRFlashModel
+{
+   Path "models/weapons/universal"
+   Model 0 "Universal-MF.md3"
+   Skin 0 "mf2.png"
+   Scale -1.0 1.0 1.0
+   Offset 0.0 0.0 0.0
+   ZOffset 0
+   NoInterpolation
+
+   FrameIndex VFLA A 0 0
+}
+
+Model HandGrenades	
+{ 
+   Path "models/weapons/hud/grenade"
+   Model 0 "nade.md3"
+   Skin 0 "nade.png"
+   Scale -1.0 1.0 1.0
+   Offset 0.0 0.0 0.0
+   NoInterpolation
+   ZOffset -10
+
+	//Ready
+
+	FrameIndex	GRHO	A	0	0
+	FrameIndex	GRHO	B	0	1
+
+	//Aim and Fire
+
+	FrameIndex	GRHO	C	0	2
+
+	FrameIndex	GRTH	A	0	3
+	FrameIndex	GRTH	B	0	4
+	FrameIndex	GRTH	C	0	5
+	FrameIndex	GRTH	D	0	6
+	FrameIndex	GRTH	E	0	7
+	FrameIndex	GRTH	F	0	8
+	FrameIndex	GRTH	G	0	9
+	
+	FrameIndex	GRTH	H	0	10
+	FrameIndex	GRTH	I	0	11
+	FrameIndex	GRTH	J	0	12
+	FrameIndex	GRTH	K	0	13
+	FrameIndex	GRTH	L	0	14
+	FrameIndex	GRTH	M	0	15
+
+}
+
+Model HandGrenade
+{ 
+   Path "models/weapons/hud/grenade"
+   Model 0 "nade.md3"
+   Skin 0 "nade.png"
+   Scale -1.0 1.0 1.0
+   Offset 0.0 0.0 0.0
+   NoInterpolation
+	
+	//Flying nade
+
+	FrameIndex	GRND	A	0	16
+	FrameIndex	GRND	B	0	17
+	FrameIndex	GRND	C	0	18
+	FrameIndex	GRND	D	0	19
+	FrameIndex	GRND	E	0	20
+	FrameIndex	GRND	F	0	21
+	FrameIndex	GRND	G	0	22
+	FrameIndex	GRND	H	0	23
+	FrameIndex	GRND	I	0	24
+	FrameIndex	GRND	J	0	25
+	FrameIndex	GRND	K	0	26
+}
+
+

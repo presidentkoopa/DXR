@@ -1,0 +1,357 @@
+﻿decal BulletHole
+{
+	pic HOLE1
+	add 1.0
+}
+
+decal BulletChip1
+{
+	pic CHIP1
+	shade "00 00 00"
+	lowerdecal BulletHole
+}
+
+decal BulletChip2
+{
+	pic CHIP2
+	shade "00 00 00"
+	lowerdecal BulletHole
+}
+
+decal BulletChip3
+{
+	pic CHIP3
+	shade "00 00 00"
+	lowerdecal BulletHole
+}
+
+decal BulletChip4
+{
+	pic CHIP4
+	shade "00 00 00"
+	lowerdecal BulletHole
+}
+
+decal BulletChip5
+{
+	pic CHIP5
+	shade "00 00 00"
+	lowerdecal BulletHole
+}
+
+decalgroup BulletChip
+{
+	BulletChip1	1
+	BulletChip2	1
+	BulletChip3	1
+	BulletChip4	1
+	BulletChip5	1
+}
+
+
+/***** Blood Decals ********************************************************/
+
+decal BloodSplat1
+{
+	pic BSPLAT1
+	shade "BloodDefault"
+	randomflipx
+	randomflipy
+}
+
+decal BloodSplat2
+{
+	pic BSPLAT2
+	shade "BloodDefault"
+	randomflipx
+	randomflipy
+}
+
+decal BloodSplat3
+{
+	pic BSPLAT3
+	shade "BloodDefault"
+	randomflipx
+	randomflipy
+}
+
+decal BloodSplat4
+{
+	pic BSPLAT4
+	shade "BloodDefault"
+	randomflipx
+	randomflipy
+}
+
+decal BloodSplat5
+{
+	pic BSPLAT5
+	shade "BloodDefault"
+	randomflipx
+	randomflipy
+}
+
+decal BloodSplat6
+{
+	pic BSPLAT6
+	shade "BloodDefault"
+	randomflipx
+	randomflipy
+}
+
+decal BloodSplat7
+{
+	pic BSPLAT7
+	shade "BloodDefault"
+	randomflipx
+	randomflipy
+}
+
+decalgroup BloodSplat
+{
+	BloodSplat1	2
+	BloodSplat2	1
+	BloodSplat3	5
+	BloodSplat4	5
+	BloodSplat5	5
+	BloodSplat6	5
+	BloodSplat7	6
+}
+
+decal BloodSmear1
+{
+	pic BSMEAR1
+	shade "BloodDefault"
+	randomflipx
+	animator BloodSmearer
+}
+
+decal BloodSmear2
+{
+	pic BSMEAR2
+	shade "BloodDefault"
+	randomflipx
+	animator BloodSmearer
+}
+
+decalgroup BloodSmear
+{
+	BloodSmear1	1
+	BloodSmear2	1
+}
+
+/***** Rocket Scorches *****************************************************/
+
+decal Scorch
+{
+	pic SCORCH1
+	shade "00 00 00"
+	randomflipx
+	randomflipy
+}
+
+
+/***** Plasma Rifle Scorches ***********************************************/
+
+decal PlasmaScorchLower1
+{
+	pic CBALSCR1
+	shade "00 00 00"
+	randomflipx
+	randomflipy
+}
+
+decal PlasmaScorch1
+{
+	pic PLSSA0
+	add 1.0
+	fullbright
+	animator GoAway
+	lowerdecal PlasmaScorchLower1
+}
+
+decal PlasmaScorchLower2
+{
+	pic CBALSCR2
+	shade "00 00 00"
+	randomflipx
+	randomflipy
+}
+
+decal PlasmaScorch2
+{
+	pic PLSSB0
+	add 1.0
+	fullbright
+	animator GoAway
+	lowerdecal PlasmaScorchLower2
+}
+
+decalgroup PlasmaScorchLower
+{
+	PlasmaScorchLower1	1
+	PlasmaScorchLower2	1
+}
+
+decalgroup PlasmaScorch
+{
+	PlasmaScorch1	1
+	PlasmaScorch2	1
+}
+
+/***** BFG Scorches ********************************************************/
+/*
+decal BFGScorch1
+{
+	pic BFGSCRC1
+	shade "00 00 00"
+	randomflipx
+	randomflipy
+}
+
+decal BFGScorch2
+{
+	pic BFGSCRC2
+	shade "00 00 00"
+	randomflipx
+	randomflipy
+}
+
+decalgroup BFGScorch
+{
+	BFGScorch1	1
+	BFGScorch2	1
+}
+
+decal BFGLightning1
+{
+	pic BFGLITE1
+	shade "80 ff 80"
+	fullbright
+	randomflipx
+	animator GoAway2
+	lowerdecal BFGScorch
+}
+
+decal BFGLightning2
+{
+	pic BFGLITE2
+	shade "80 ff 80"
+	fullbright
+	randomflipy
+	animator GoAway2
+	lowerdecal BFGScorch
+}
+
+decalgroup BFGLightning
+{
+	BFGLightning1	1
+	BFGLightning2	1
+}
+
+
+/***** Arachnotron Plasma Scorches *****************************************/
+
+decal ArachScorch1
+{
+	pic APLSA0
+	add 1.0
+	animator GoAway
+	lowerdecal PlasmaScorchLower1
+}
+
+decal ArachScorch2
+{
+	pic APLSB0
+	add 1.0
+	animator GoAway
+	lowerdecal PlasmaScorchLower2
+}
+
+decalgroup ArachnotronScorch
+{
+	ArachScorch1	1
+	ArachScorch2	1
+}
+
+/***** Baron of Hell/Hell Knight Scorches **********************************/
+
+decal BaronScorch1
+{
+	pic BAL7SCR1
+	shade "00 00 00"
+	randomflipx
+	randomflipy
+}
+
+decal BaronScorch2
+{
+	pic BAL7SCR2
+	shade "00 00 00"
+	randomflipx
+	randomflipy
+}
+
+decalgroup BaronScorch
+{
+	BaronScorch1	1
+	BaronScorch2	1
+}
+
+/***** Cacodemon Scorches **************************************************/
+
+decal CacoScorch1
+{
+	pic CBALSCR1
+	shade "00 00 00"
+	randomflipx
+	randomflipy
+}
+
+decal CacoScorch2
+{
+	pic CBALSCR2
+	shade "00 00 00"
+	randomflipx
+	randomflipy
+}
+
+decalgroup CacoScorch
+{
+	CacoScorch1	1
+	CacoScorch2	1
+}
+
+/***** Doom Imp Scorches ***************************************************/
+
+decal DImpScorch1
+{
+	pic BAL7SCR1
+	shade "00 00 00"
+	randomflipx
+	randomflipy
+}
+
+decal DImpScorch2
+{
+	pic BAL7SCR2
+	shade "00 00 00"
+	randomflipx
+	randomflipy
+}
+
+decalgroup DoomImpScorch
+{
+	DImpScorch1	1
+	DImpScorch2	1
+}
+
+/***** Revenant ************************************************************/
+
+decal RevenantScorch
+{
+	pic BLAST1
+	shade "00 00 00"
+	randomflipx
+	randomflipy
+}

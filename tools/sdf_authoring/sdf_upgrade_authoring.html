@@ -1,0 +1,158 @@
+<style>
+.ua{font-family:var(--font-mono,'Courier New',monospace);padding:1rem 0;color:#e6e9f2;font-size:12px}
+.ua h1{font-size:15px;letter-spacing:.14em;color:#fff;margin:0 0 3px}
+.ua .sub{font-size:10px;color:#8a90a0;margin-bottom:14px}
+.ua-cols{display:grid;grid-template-columns:300px 1fr;gap:16px}
+@media(max-width:640px){.ua-cols{grid-template-columns:1fr}}
+.panel{background:#0c0b14;border:1px solid rgba(0, 255, 255, .3);border-radius:10px;padding:12px}
+.panel h2{font-size:11px;letter-spacing:.12em;color:#00ffff;margin:0 0 10px}
+.fld{margin-bottom:9px}
+.fld label{display:block;font-size:9px;letter-spacing:.08em;color:#9aa0ae;margin-bottom:3px}
+.ua input,.ua select,.ua textarea{width:100%;box-sizing:border-box;background:#15131f;border:1px solid rgba(255,255,255,.14);border-radius:5px;color:#e6e9f2;font-family:inherit;font-size:11px;padding:5px 7px}
+.ua textarea{resize:vertical;min-height:42px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{background:#1c1830;border:1px solid #00ffff;color:#b3ffff;border-radius:6px;padding:6px 12px;font-family:inherit;font-size:11px;cursor:pointer;letter-spacing:.04em}
+.btn:hover{background:#251f3d}
+.btn.o{border-color:#FF9C37;color:#ffce9a}
+.btn.g{border-color:#28FF3C;color:#a6f5b0}
+.btn.sm{padding:3px 8px;font-size:10px}
+.tools{display:flex;gap:7px;flex-wrap:wrap;margin-top:4px}
+.filters{display:flex;gap:7px;margin-bottom:9px;flex-wrap:wrap}
+.filters select{width:auto;flex:1;min-width:90px}
+.cnt{font-size:9px;color:#8a90a0;margin-bottom:8px}
+.list{display:flex;flex-direction:column;gap:5px;max-height:460px;overflow:auto}
+.it{display:flex;align-items:center;gap:8px;background:#14121d;border:1px solid rgba(255,255,255,.08);border-left:3px solid #888;border-radius:5px;padding:6px 9px}
+.it .nm{font-size:11px;color:#eef1f7;font-weight:bold}
+.it .meta{font-size:9px;color:#9aa0ae;margin-top:1px}
+.it .grow{flex:1;min-width:0}
+.it .tag{font-size:8px;letter-spacing:.06em;padding:1px 6px;border-radius:4px;background:rgba(255,255,255,.08);color:#c9cfdd;white-space:nowrap}
+.it .fl{font-size:9px;color:#7d8493;font-style:italic;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.io{margin-top:14px}
+.io textarea{min-height:90px;font-size:10px}
+.hint{font-size:9px;color:#6b7280;margin-top:5px;line-height:1.4}
+</style>
+<div class="ua">
+<h2 class="sr-only">SDF Score System upgrade authoring tool: a form to define new upgrades by scope, class, tier, element, flavor and effect, a filterable list of all existing upgrades, and JSON export/import so the registry can be fed back for auto-assembly.</h2>
+<h1>SDF SCORE SYSTEM &mdash; UPGRADE AUTHORING</h1>
+<div class="sub">write upgrades &rarr; export JSON &rarr; the engine auto-assembles them in-game.</div>
+<div class="ua-cols">
+
+  <div class="panel">
+    <h2>NEW / EDIT UPGRADE</h2>
+    <div class="fld"><label>NAME</label><input id="f_name" placeholder="e.g. Hollow Points"></div>
+    <div class="row2">
+      <div class="fld"><label>SCOPE</label><select id="f_scope">
+        <option value="player">Player (global)</option>
+        <option value="weapon" selected>Weapon (any gun)</option>
+        <option value="class">Class-specific</option>
+        <option value="tier">Tier-specific</option>
+        <option value="unique">Unique</option>
+      </select></div>
+      <div class="fld"><label>CATEGORY</label><select id="f_cat">
+        <option>element</option><option>projectile</option><option>explosive</option>
+        <option>melee</option><option>damage</option><option>defensive</option>
+        <option>utility</option><option>leech</option><option>synthesis</option>
+      </select></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>CLASS (if class-specific)</label><select id="f_class">
+        <option value="">&mdash;</option><option>pistol</option><option>revolver</option><option>smg</option>
+        <option>shotgun</option><option>ssg</option><option>rifle</option><option>chaingun</option>
+        <option>rl</option><option>plasma</option><option>bfg</option><option>fist</option><option>chainsaw</option>
+      </select></div>
+      <div class="fld"><label>WEAPON TIER (if tier-specific)</label><select id="f_tier">
+        <option value="">&mdash; any &mdash;</option><option>Cursed</option><option>Trash</option><option>Basic</option>
+        <option>Common</option><option>Uncommon</option><option>Advanced</option><option>Designer</option><option>Prototype</option>
+      </select></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>ELEMENT</label><select id="f_elem">
+        <option value="">&mdash; none &mdash;</option><option>Fire</option><option>Poison</option><option>Acid</option><option>Lightning</option><option>Synthesis</option>
+      </select></div>
+      <div class="fld"><label>ELEM TIER</label><select id="f_etier">
+        <option value="">&mdash;</option><option>Apprentice</option><option>Journeyman</option><option>Master</option>
+      </select></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>PREREQ</label><input id="f_prereq" placeholder="e.g. Poison Shots Lv2"></div>
+      <div class="fld"><label>MAX LEVEL</label><input id="f_max" type="number" value="10" min="1"></div>
+    </div>
+    <div class="fld"><label>FLAVOR TEXT (field 1)</label><textarea id="f_flavor" placeholder="the fun in-world description"></textarea></div>
+    <div class="fld"><label>EFFECT / MECHANIC (field 2)</label><textarea id="f_effect" placeholder="what it actually does"></textarea></div>
+    <div class="row2">
+      <div class="fld"><label>AMMO KEYWORD</label><select id="f_ammo">
+        <option value="">&mdash;</option><option>clip</option><option>shell</option><option>rocket</option><option>cell</option><option>none</option>
+      </select></div>
+      <div class="fld"><label>SECONDARY FIRE</label><select id="f_sec">
+        <option value="">&mdash;</option><option>Fire</option><option>AltFire</option><option>AltFire2</option><option>AltFire3</option>
+      </select></div>
+    </div>
+    <div class="fld"><label>GATE (optional)</label><input id="f_gate" placeholder="e.g. role:boss"></div>
+    <div class="tools">
+      <button class="btn" id="b_add">+ Add / Update</button>
+      <button class="btn sm" id="b_clear">Clear form</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>UPGRADE REGISTRY</h2>
+    <div class="filters">
+      <select id="flt_scope"><option value="">all scopes</option><option value="player">player</option><option value="weapon">weapon</option><option value="class">class</option><option value="tier">tier</option><option value="unique">unique</option></select>
+      <select id="flt_elem"><option value="">all elements</option><option value="Fire">Fire</option><option value="Poison">Poison</option><option value="Acid">Acid</option><option value="Lightning">Lightning</option><option value="Synthesis">Synthesis</option><option value="">none</option></select>
+      <input id="flt_q" placeholder="search..." style="flex:2">
+    </div>
+    <div class="cnt" id="cnt"></div>
+    <div class="list" id="list"></div>
+    <div class="io">
+      <div class="tools">
+        <button class="btn o" id="b_export">Export JSON &darr;</button>
+        <button class="btn sm" id="b_import">Load from box</button>
+      </div>
+      <textarea id="io_box" placeholder="exported JSON appears here (editable) — paste JSON + Load from box to import"></textarea>
+      <div class="hint">Export downloads <b>sdf_upgrades.json</b> and fills the box. Paste JSON back + "Load from box" to import.</div>
+    </div>
+  </div>
+
+</div>
+</div>
+<script>
+(function(){
+  var SEED=[
+    {name:"Incendiary Shots",scope:"weapon",cat:"element",elem:"Fire",etier:"Apprentice",prereq:"",max:10,effect:"Burn enemies down to 50% HP",flavor:""},
+    {name:"Poison Shots",scope:"weapon",cat:"element",elem:"Poison",etier:"Apprentice",prereq:"",max:10,effect:"Stacking poison DoT",flavor:""},
+    {name:"Weapon Damage",scope:"weapon",cat:"damage",elem:"",etier:"",prereq:"",max:10,effect:"+20% weapon damage/level",flavor:""},
+    {name:"Player Damage",scope:"player",cat:"damage",elem:"",etier:"",prereq:"",max:10,effect:"+10% all outgoing damage/level",flavor:""}
+  ];
+  var ECOL={Fire:"#FF7A1B",Poison:"#28FF3C",Acid:"#FFEB28",Lightning:"#28B4FF",Synthesis:"#B428FF","":"#888"};
+  var items=SEED.map(function(u){return Object.assign({klass:"",tier:"",ammo:"",sec:"",gate:""},u);});
+  var editIdx=-1;
+  var $=function(id){return document.getElementById(id);};
+  function readForm(){return{name:$("f_name").value.trim(),scope:$("f_scope").value,cat:$("f_cat").value,klass:$("f_class").value,tier:$("f_tier").value,elem:$("f_elem").value,etier:$("f_etier").value,prereq:$("f_prereq").value.trim(),max:parseInt($("f_max").value)||1,flavor:$("f_flavor").value.trim(),effect:$("f_effect").value.trim(),ammo:$("f_ammo").value,sec:$("f_sec").value,gate:$("f_gate").value.trim()};}
+  function fillForm(u){$("f_name").value=u.name;$("f_scope").value=u.scope;$("f_cat").value=u.cat;$("f_class").value=u.klass||"";$("f_tier").value=u.tier||"";$("f_elem").value=u.elem||"";$("f_etier").value=u.etier||"";$("f_prereq").value=u.prereq||"";$("f_max").value=u.max;$("f_flavor").value=u.flavor||"";$("f_effect").value=u.effect||"";$("f_ammo").value=u.ammo||"";$("f_sec").value=u.sec||"";$("f_gate").value=u.gate||"";}
+  function clearForm(){fillForm({name:"",scope:"weapon",cat:"element",max:10});editIdx=-1;$("b_add").textContent="+ Add / Update";}
+  function render(){
+    var fs=$("flt_scope").value,fe=$("flt_elem").value,fq=$("flt_q").value.toLowerCase();
+    var box=$("list");box.innerHTML="";var shown=0;
+    items.forEach(function(u,i){
+      if(fs&&u.scope!==fs)return;
+      if($("flt_elem").selectedIndex>0&&(u.elem||"")!==fe)return;
+      if(fq&&(u.name+u.effect+u.flavor).toLowerCase().indexOf(fq)<0)return;
+      shown++;
+      var row=document.createElement("div");row.className="it";row.style.borderLeftColor=ECOL[u.elem||""]||"#888";
+      var tag=u.scope+(u.klass?(" / "+u.klass):"")+(u.elem?(" / "+u.elem+(u.etier?(" "+u.etier[0]):"")):"");
+      row.innerHTML='<div class="grow"><span class="nm">'+esc(u.name)+'</span> <span class="tag">'+esc(tag)+'</span><div class="meta">'+esc(u.effect)+(u.prereq?(' &middot; req '+esc(u.prereq)):'')+'</div>'+(u.flavor?('<div class="fl">&ldquo;'+esc(u.flavor)+'&rdquo;</div>'):'')+'</div>';
+      var be=document.createElement("button");be.className="btn sm";be.textContent="edit";be.onclick=function(){editIdx=i;fillForm(u);$("b_add").textContent="Update #"+(i+1);window.scrollTo(0,0);};
+      var bd=document.createElement("button");bd.className="btn sm";bd.textContent="x";bd.onclick=function(){items.splice(i,1);render();};
+      row.appendChild(be);row.appendChild(bd);box.appendChild(row);
+    });
+    $("cnt").textContent=shown+" of "+items.length+" upgrades";
+  }
+  function esc(s){return(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  $("b_add").onclick=function(){var u=readForm();if(!u.name){$("f_name").focus();return;}if(editIdx>=0){items[editIdx]=u;}else{items.push(u);}clearForm();render();};
+  $("b_clear").onclick=clearForm;
+  ["flt_scope","flt_elem","flt_q"].forEach(function(id){$(id).oninput=render;$(id).onchange=render;});
+  $("b_export").onclick=function(){var j=JSON.stringify(items,null,2);$("io_box").value=j;try{var b=new Blob([j],{type:"application/json"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="sdf_upgrades.json";a.click();}catch(e){}};
+  $("b_import").onclick=function(){try{var d=JSON.parse($("io_box").value);if(Array.isArray(d)){items=d.map(function(u){return Object.assign({klass:"",tier:"",ammo:"",sec:"",gate:""},u);});render();}}catch(e){alert("Invalid JSON");}};
+  clearForm();render();
+})();
+</script>
