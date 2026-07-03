@@ -10,7 +10,7 @@ class SDFGifEntity : Actor
         +NOGRAVITY
         +DONTSPLASH
         +CLIENTSIDEONLY
-        +BILLBOARD
+        +FORCEXYBILLBOARD
         RenderStyle "Add";
         Alpha 1.0;
         Scale 1.0;
