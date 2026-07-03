@@ -7,7 +7,7 @@
 > This project is currently undergoing a total transition from ZScript-driven proxies to high-performance, native C++ hardware implementation. Expect major architectural shifts in the rendering and physics pipelines.
 
 ## 📟 Project Vision
-To transform the Radiance Engine into a reactive, systemic "TRON" digital layer with native 3D physical presence (IQM), sub-frame VR responsiveness, and a systemic arcade economy.
+To transform the Radiance Engine into a reactive, systemic digital layer with native 3D physical presence (IQM), sub-frame VR responsiveness, and a hard pivot away from pixel based rendering into an infitely scalable, vector future.
 
 By integrating custom rendering pipelines directly into the hardware renderer, this engine allows gameplay logic (ZScript) to drive the environment's visual state in real-time.
 
