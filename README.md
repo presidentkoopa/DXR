@@ -1,13 +1,13 @@
 ![Radiance Engine](https://github.com/iAmErmac/DoomXR/blob/doomxr/branding/banner.png)
 
-# ⚡ DoomXR 2.0: "The Wired" Engine Overhaul
+# ⚡ UntitledVRLightGUnGame - Engine Overhaul
 
 > [!IMPORTANT]
-> **Status: ACTIVE ENGINE RECONSTRUCTION**
+> **Status: ACTIVE ENGINE RECONSTRUCTION** -> Currently implementing portal stacking from Eternity Engine.
 > This project is currently undergoing a total transition from ZScript-driven proxies to high-performance, native C++ hardware implementation. Expect major architectural shifts in the rendering and physics pipelines.
 
 ## 📟 Project Vision
-To transform the Radiance Engine into a reactive, systemic "TRON" digital layer with native 3D physical presence (IQM), sub-frame VR responsiveness, and a systemic arcade economy.
+To transform the Radiance Engine into a reactive, systemic digital layer with native 3D physical presence (IQM), sub-frame VR responsiveness, and a hard pivot away from pixel based rendering into an infitely scalable, vector future.
 
 By integrating custom rendering pipelines directly into the hardware renderer, this engine allows gameplay logic (ZScript) to drive the environment's visual state in real-time.
 
@@ -23,8 +23,8 @@ The heart of DoomXR's visual identity. We've bypassed traditional texture sampli
 ### 🥽 Total VR Immersion & 3D Presence
 DoomXR 2.0 isn't just GZDoom in VR; it's a dedicated VR engine fork designed for physical presence:
 *   **Skeletal IQM Hand System**: Fully rigged, animated 3D hands (`vhand.iqm`) that mirror your real-world finger placement. Features analog grip/trigger interpolation for high-fidelity interaction.
-*   **Universal 3D Weapon Shells**: Frame-accurate 3D models replace all 2D sprites. Every firing state and reload is dynamically synchronized to foreign mod logic via our native C++ Animation Time-Scaler.
-*   **Standardized Model Framework**: A high-performance C++ interception layer that synchronizes 3D animation ticks to ZScript `SetState` calls, ensuring mod compatibility without manual patching.
+*   **Universal 3D Weapon Shells**: Frame-accurate 3D models replace all 2D sprites. Every firing state and reload is dynamically synchronized to foreign mod logic via our native C++ Animation Time-Scaler. Included optional weapons: Flamethrower, Rifle, Revovler, Grenade Launcher, Grenades, IQM Rigged VR Whip, VR Sword (with deflection), dual Ice Picks for climbing.
+*   **Standardized Model Framework**: A high-performance C++ interception layer that synchronizes 3D animation ticks to ZScript `SetState` calls, ensuring mod compatibility without manual patching. - ideally this is unviersal for any loaded pk3, fire real 3d models with your favorite mod's weapon sounds, logic, damage, effects.
 *   **Dynamic Time Scaling (DTS)**: Automatically calculates and adjusts 3D animation playback speeds to match the exact tic-duration of the active 2D weapon state.
 *   **Weapon Archetype Scanner**: A dedicated VR-native UI for real-time weapon mapping. Features dual-pointer interaction support and persistent JSON configuration (`doomxr_weapons.json`).
 *   **Gravity Glove "Alyx" Mechanics**: The definitive VR interaction system for Doom. Grab objects from across the room with holographic intent cones and flick them back with physics-accurate trajectory arcs.
