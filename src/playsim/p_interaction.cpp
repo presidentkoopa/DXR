@@ -1657,7 +1657,13 @@ static int DoDamageMobj(AActor *target, AActor *inflictor, AActor *source, int d
 		}
 	}
 
-	// Locational Damage Math (Mathematical Bounding Cylinder)
+	// Locational Damage -- DISPLAY ONLY as of 2026-07-02. The ZScript VRLocationalArbiter
+	// (vr_locational_damage.zs, registered) is now the sole source of the actual head/leg/torso
+	// damage multiplier -- it does everything this block used to do (same zone math, same
+	// inflictor-Z proxy) plus an explicit torso case and per-hand tracking for the combo system.
+	// Running both would double-apply the multiplier on every headshot/legshot. This block is
+	// kept only to drive the "HEADSHOT!"/"LEGSHOT!" floating text, which VRLocationalArbiter
+	// does not replicate; it no longer touches `damage`.
 	if (vr_locational_damage && inflictor && target && ((target->flags3 & MF3_ISMONSTER) || target->player) && !(flags & DMG_EXPLOSION) && mod != NAME_Melee)
 	{
 		double headLower = target->floorz + target->Height - (target->Height * 0.20);
@@ -1668,7 +1674,6 @@ static int DoDamageMobj(AActor *target, AActor *inflictor, AActor *source, int d
 		// Some hitscans use the puff as inflictor, some projectiles use themselves.
 		if (inflictorZ >= headLower && inflictorZ <= headUpper)
 		{
-			damage = int(damage * vr_locational_head_mult); // Headshot multiplier
 			if (vr_show_locational_text)
 			{
 				FVRMSDFTextThinker::SpawnText(target->Level, target->PosPlusZ(target->Height), FName("Arcade"), "HEADSHOT!", 35, 1.0, NAME_None);
@@ -1676,7 +1681,6 @@ static int DoDamageMobj(AActor *target, AActor *inflictor, AActor *source, int d
 		}
 		else if (inflictorZ <= legUpper)
 		{
-			damage = int(damage * vr_locational_leg_mult); // Legshot penalty
 			if (vr_show_locational_text)
 			{
 				FVRMSDFTextThinker::SpawnText(target->Level, target->PosPlusZ(target->Height * 0.25), FName("Arcade"), "LEGSHOT!", 35, 0.8, NAME_None);

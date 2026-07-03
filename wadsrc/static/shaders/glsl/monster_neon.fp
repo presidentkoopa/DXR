@@ -6,10 +6,10 @@ uniform float u_NeonPulseSpeed;
 uniform vec3 u_NeonColorA;
 uniform vec3 u_NeonColorB;
 
-void main() {
+// Material shader: must return ProcessTexel(), not define main() (main.fp already has main()).
+vec4 ProcessTexel() {
     if (u_BlackoutMode < 0.5) {
-        FragColor = texture(tex, vTexCoord.st) * vColor;
-        return;
+        return texture(tex, vTexCoord.st) * vColor;
     }
 
     vec2 size = vec2(textureSize(tex, 0));
@@ -50,5 +50,5 @@ void main() {
     // Use u_NeonGlow for glow intensity
     float glow = exp(-2.0 * (1.0 - edge)) * u_NeonGlow;
     
-    FragColor = vec4(neonColor * (edge * 2.0 + glow), edge * vColor.a);
+    return vec4(neonColor * (edge * 2.0 + glow), edge * vColor.a);
 }

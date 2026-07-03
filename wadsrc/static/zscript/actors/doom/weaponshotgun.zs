@@ -33,7 +33,7 @@ class Shotgun : DoomWeapon
 		SHTG A 7 
 		{
 			A_FireShotgun();
-			A_VRRecoil(3.0);
+			A_Recoil(3.0);
 		}
 		SHTG BC 5;
 		SHTG D 4;

@@ -24,23 +24,10 @@ class VRBlackoutHandler : StaticEventHandler
             contrast *= 1.2;
         }
 
-        Shader.SetUniform1f(null, "u_BlackoutMode", blackout ? 1.0 : 0.0);
-        Shader.SetUniform1f(null, "u_RadianceAmbient", ambient);
-        Shader.SetUniform1f(null, "u_RadianceContrast", contrast);
-        
-        // Neon Granular Controls
-        Shader.SetUniform1f(null, "u_NeonThickness", CVar.GetCVar("vr_neon_thickness", ply).GetFloat());
-        Shader.SetUniform1f(null, "u_NeonThreshold", CVar.GetCVar("vr_neon_threshold", ply).GetFloat());
-        Shader.SetUniform1f(null, "u_NeonGlow", CVar.GetCVar("vr_neon_glow", ply).GetFloat());
-        Shader.SetUniform1f(null, "u_NeonPulseSpeed", CVar.GetCVar("vr_neon_pulse_speed", ply).GetFloat());
-        
-        int cA = CVar.GetCVar("vr_neon_color_a", ply).GetInt();
-        int cB = CVar.GetCVar("vr_neon_color_b", ply).GetInt();
-        
-        vector3 colorA = ((cA >> 16) & 255, (cA >> 8) & 255, cA & 255) / 255.0;
-        vector3 colorB = ((cB >> 16) & 255, (cB >> 8) & 255, cB & 255) / 255.0;
-        
-        Shader.SetUniform3f(null, "u_NeonColorA", colorA);
-        Shader.SetUniform3f(null, "u_NeonColorB", colorB);
+        // DISABLED (build-blocker): these Shader.SetUniform1f/3f(null, uniform, value) calls used a
+        // 3-arg form that does not exist -- the only valid form is 4-arg (player, shaderName, uniform,
+        // value). They also targeted monster_neon.fp, a HardwareShader *Sprite* material shader that the
+        // post-process uniform API cannot drive. So this neon/blackout effect never actually ran. Body
+        // neutered to unblock compilation; proper material-shader uniform plumbing is a follow-up.
     }
 }

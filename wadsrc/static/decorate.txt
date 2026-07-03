@@ -1,2 +1,1 @@
-﻿version "4.14.2"
-#include "vox_decorate.txt"
+﻿#include "vox_decorate.txt"

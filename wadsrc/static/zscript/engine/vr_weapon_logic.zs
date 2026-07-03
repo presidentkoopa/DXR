@@ -1,6 +1,6 @@
 class WeaponReplacementHandler : StaticEventHandler
 {
-	override void CheckReplacement(CheckReplacementEvent e)
+	override void CheckReplacement(ReplaceEvent e)
 	{
 		// Replacement logic based on CVars
 		

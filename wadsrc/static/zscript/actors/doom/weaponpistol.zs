@@ -31,10 +31,36 @@ class Pistol : DoomWeapon
 		Loop;
 	Fire:
 		PISG A 4;
-		PISG B 6 
+		PISG B 6
 		{
 			A_FirePistol();
-			A_VRRecoil(0.8);
+			A_Recoil(0.8);
+		}
+		PISG C 4;
+		PISG B 5 A_ReFire;
+		Goto Ready;
+	// 3-round burst, tight grouping: same tight spread as the normal single shot, fired
+	// three times back to back with steady (not escalating) recoil compensation.
+	// Toggle: vr_altfire_pistol -- if off, alt-fire is a no-op (no ammo consumed).
+	AltFire:
+		TNT1 A 0 A_JumpIf(!CVar.FindCVar("vr_altfire_pistol") || CVar.FindCVar("vr_altfire_pistol").GetBool(), "AltFireGo");
+		Goto Ready;
+	AltFireGo:
+		PISG A 2;
+		PISG B 3
+		{
+			A_FirePistol();
+			A_Recoil(0.8);
+		}
+		PISG B 3
+		{
+			A_FirePistol();
+			A_Recoil(0.8);
+		}
+		PISG B 3
+		{
+			A_FirePistol();
+			A_Recoil(0.8);
 		}
 		PISG C 4;
 		PISG B 5 A_ReFire;

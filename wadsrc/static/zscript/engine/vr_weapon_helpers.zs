@@ -52,31 +52,38 @@ extend class StateProvider
 //
 // --------------------------------------------------------------------------
 
+// High-speed laser: much faster and thinner than the base PlasmaBall (speed 25) so it reads
+// as a beam weapon, not just a quicker blob. Trails a fading cyan-white particle streak and
+// punches a bright energy-flash glow panel on impact (matches the project's neon aesthetic).
 class PlasmaBeam : Actor
 {
 	Default
 	{
-		Radius 13;
-		Height 8;
-		Speed 60;
+		Radius 8;
+		Height 6;
+		Speed 140;
 		Damage 7;
 		Projectile;
 		+BRIGHT
 		+FORCEXYBILLBOARD
 		+SPAWNSOUNDSOURCE
 		RenderStyle "Add";
-		Alpha 0.8;
-		Scale 0.25;
+		Alpha 0.9;
+		Scale 0.15;
 		DamageType "PlasmaDamage";
 		Decal "Scorch";
 	}
 	States
 	{
 	Spawn:
-		PLBA ABCDEF 2 Bright;
+		PLBA ABCDEF 1 Bright A_SpawnParticle("LightBlue", SPF_FULLBRIGHT, 6, 3, startalphaf: 0.8, fadestepf: 0.15);
 		Loop;
 	Death:
-		PLSE ABCDE 2 Bright;
+		PLSE A 2 Bright
+		{
+			level.AddGlowPanel(Color(255, 190, 230, 255), 24.0, pos.x, pos.y, pos.z, 15, 1.0, 0.0, 0.0, 0);
+		}
+		PLSE BCDE 2 Bright;
 		Stop;
 	}
 }
@@ -99,7 +106,7 @@ extend class StateProvider
 		
 		A_StartSound("weapons/plasma/fire", CHAN_WEAPON, CHANF_OVERLAP);
 		SpawnPlayerMissile ("PlasmaBeam", aimflags:hand ? ALF_ISOFFHAND : 0);
-		A_VRRecoil(0.2);
+		A_Recoil(0.2);
 	}
 }
 
@@ -189,7 +196,7 @@ extend class StateProvider
 
 			if (flash)
 			{
-				player.SetSafeFlash(weap, weap.FindState('Flash'), i: (player.refire ? 1 : 0));
+				player.SetSafeFlash(weap, weap.FindState('Flash'), index: (player.refire ? 1 : 0));
 			}
 		}
 
@@ -210,7 +217,7 @@ extend class StateProvider
 				{
 					projectile.pitch = pit;
 					projectile.master = weap;
-					projectile.Damage = damage;
+					projectile.SetDamage(damage);
 					projectile.gravity = gravity;
 					projectile.speed = speed;
 					// Re-calculate velocity since we changed speed
@@ -219,11 +226,16 @@ extend class StateProvider
 			}
 			else
 			{
-				player.mo.A_FireBullets(spread_x, spread_y, 1, damage, "BulletPuff", FBF_NORANDOM, aimflags:hand ? ALF_ISOFFHAND : 0);
+				// A_FireBullets is declared on StateProvider (Inventory-derived), not Actor -- calling
+				// it as player.mo.A_FireBullets(...) tried to invoke it on the player's Actor, which
+				// doesn't have it at all ("Unknown function"). Every real call site elsewhere in this
+				// codebase (e.g. weaponsmg.zs) calls it bare, inheriting this function's own implicit
+				// StateProvider-context self (A_BallisticFire is itself extended onto StateProvider).
+				A_FireBullets(spread_x, spread_y, 1, damage, "BulletPuff", FBF_NORANDOM);
 			}
 		}
 		
-		A_VRRecoil(recoil);
+		A_Recoil(recoil);
 	}
 }
 

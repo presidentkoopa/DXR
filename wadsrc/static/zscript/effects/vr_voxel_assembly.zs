@@ -22,7 +22,7 @@ class VoxelParticle : Actor
             {
                 Actor pmo = players[consoleplayer].mo;
                 // Simple attraction logic
-                Vector3 target = pmo.Pos + (0, 0, pmo.viewheight - 10);
+                Vector3 target = pmo.Pos + (0, 0, players[consoleplayer].viewheight - 10);
                 Vector3 dir = target - Pos;
                 double dist = dir.Length();
                 

@@ -98,7 +98,6 @@ class Actor : Thinker native
 	native readonly vector3 Pos;
 	native vector3 Prev;
 	native uint ThruBits;
-	native String monsterKeywords;
 	native vector2 SpriteOffset;
 	native vector3 WorldOffset;
 	native double spriteAngle;
@@ -221,7 +220,7 @@ class Actor : Thinker native
 
 	native float msdf_enabled;
 	native float msdf_glitch;
-	native vector3 msdf_color;
+	native FVector3 msdf_color;
 	native Inventory Inv;
 	native uint8 smokecounter;
 	native uint8 FriendPlayer;

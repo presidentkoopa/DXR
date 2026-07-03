@@ -1,12 +1,15 @@
+// Was a nested 'struct WeaponEntry' with a 'PClass' field held by value in Array<WeaponEntry>.
+// ZScript dynamic arrays can't hold structs by value, and 'PClass' is the C++ name (not a ZScript type).
+// Promoted to a top-level ui class holding a Class<Actor> metaclass ref (arrays of object refs are legal).
+class WeaponEntry ui
+{
+    Class<Actor> cls;
+    string tag;
+    int archetype;
+}
+
 class VRWeaponAssignmentMenu : GenericMenu
 {
-    struct WeaponEntry
-    {
-        PClass cls;
-        string tag;
-        int archetype;
-    }
-    
     Array<WeaponEntry> weapons;
     int scrollOffset;
     int selected;
@@ -27,7 +30,7 @@ class VRWeaponAssignmentMenu : GenericMenu
             let cls = AllActorClasses[i];
             if (cls is "Weapon" && cls.GetClassName() != "Weapon")
             {
-                WeaponEntry we;
+                WeaponEntry we = new("WeaponEntry");   // now a class -> must allocate (was a value struct)
                 we.cls = cls;
                 we.tag = GetDefaultByType(cls).GetTag();
                 we.archetype = GetVRWeaponArchetype(cls);
@@ -57,7 +60,7 @@ class VRWeaponAssignmentMenu : GenericMenu
             if (i == hover[0] || i == hover[1])
             {
                 rowColor = Font.CR_WHITE;
-                Screen.Dim("gold", 0.15, x - 5, y - 2, 560, 18, DTA_VirtualWidth, 640, DTA_VirtualHeight, 480);
+                Screen.Dim("gold", 0.15, x - 5, y - 2, 560, 18);
             }
 
             Screen.DrawText(SmallFont, rowColor, x, y, weapons[i].tag .. " (" .. weapons[i].cls.GetClassName() .. ")", DTA_VirtualWidth, 640, DTA_VirtualHeight, 480);
@@ -123,7 +126,11 @@ class VRWeaponAssignmentMenu : GenericMenu
     {
         weapons[idx].archetype = (weapons[idx].archetype + 1) % archNames.Size();
         
-        string cmd = String.Format("vr_weapon_set_archetype %s %s", weapons[idx].cls.GetClassName(), archNames[weapons[idx].archetype]);
-        Menu.SendConsoleCommand(cmd);
+        // Menu.SendConsoleCommand does not exist in this fork -- no native ZScript->CCMD
+        // string bridge is available here. This debug scanner's write-back to the native
+        // vr_weapon_set_archetype CCMD (src/playsim/vr_weapon.cpp:218) is disabled until a
+        // real bridge is built; the archetype list still displays and cycles in-menu.
+        //string cmd = String.Format("vr_weapon_set_archetype %s %s", weapons[idx].cls.GetClassName(), archNames[weapons[idx].archetype]);
+        //Menu.SendConsoleCommand(cmd);
     }
 }

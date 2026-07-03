@@ -143,7 +143,7 @@ class GITD_MuzzleHandler : EventHandler
             // hand -- verified in weapons.zs), so this one check covers either hand.
             bool flashLive = (p.FindPSprite(PSP_FLASH) != null);
 
-            bool chaingunFiring = gitd_muzzle_chaingun_strobe && chaingunInHand
+            bool chaingunFiring = CB("gitd_muzzle_chaingun_strobe", true) && chaingunInHand
                                   && (p.refire > 0 || flashLive);
 
             bool isChaingun = chaingunFiring;          // strobe look only while chaingun-firing

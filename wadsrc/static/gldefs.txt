@@ -13,14 +13,23 @@ HardwareShader Sprite SIGLA0
 	Shader "shaders/glsl/vr_sdf_procedural.fp"
 }
 
-HardwareShader PostProcess rom_load
+// Only 3 valid postprocess targets exist in this engine (gldefs.cpp:1526-1528): beforebloom,
+// scene, screen. Both of these are full-screen overlay effects that sample the already-rendered
+// image (InputTexture/TexCoord/ScreenSize) -- "screen" is the correct target, not their original
+// invalid custom names. Also added the explicit "name" field (gldefs.cpp:1546-1549) -- PPShader.
+// SetEnabled/SetUniform1f (vr_rom_load.zs, vr_death_effects.zs) match against shader.Name, a
+// separate field from Target that was never set at all in the original entries, so those ZScript
+// enable/disable calls were already non-functional before this fix, for a different reason.
+HardwareShader PostProcess screen
 {
-	Shader "shaders/pp/rom_load.fp"
+	Name "rom_load"
+	Shader "shaders/pp/rom_load.fp" 330
 }
 
-HardwareShader PostProcess fatal_exception
+HardwareShader PostProcess screen
 {
-	Shader "shaders/pp/fatal_exception.fp"
+	Name "fatal_exception"
+	Shader "shaders/pp/fatal_exception.fp" 330
 }
 
 // Neon Monster Outlines

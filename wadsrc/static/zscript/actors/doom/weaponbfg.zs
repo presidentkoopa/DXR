@@ -35,7 +35,7 @@ class BFG9000 : DoomWeapon
 		BFGG B 10 
 		{
 			A_FireBFG();
-			A_VRRecoil(8.0);
+			A_Recoil(8.0);
 		}
 		BFGG B 20 A_ReFire;
 		Goto Ready;

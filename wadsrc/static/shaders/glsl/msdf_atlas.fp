@@ -5,7 +5,17 @@ float median(float r, float g, float b) {
     return max(min(r, g), min(max(r, g), b));
 }
 
-void main() {
+// Canonical MSDF screen-pixel-range. Was called below but never defined -- an undeclared-symbol
+// error latent behind the double-main() error until now. Self-contained (tex/textureSize/fwidth).
+float screenPxRange(vec2 atlasUV) {
+    const float pxRange = 2.0; // distance-field pixel range the atlas was generated with
+    vec2 unitRange = vec2(pxRange) / vec2(textureSize(tex, 0));
+    vec2 screenTexSize = vec2(1.0) / fwidth(atlasUV);
+    return max(0.5 * dot(unitRange, screenTexSize), 1.0);
+}
+
+// Material shader: must return ProcessTexel(), not define main() (main.fp already has main()).
+vec4 ProcessTexel() {
     // Basic setup
     vec2 uv = vTexCoord.st;
     
@@ -24,7 +34,7 @@ void main() {
     float sd = median(msd.r, msd.g, msd.b);
     
     // Screen-space derivative for sharp edges
-    float screenPxDistance = screenPxRange() * (sd - 0.5);
+    float screenPxDistance = screenPxRange(atlasUV) * (sd - 0.5);
     float opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
 
     // Glitch effect
@@ -32,5 +42,5 @@ void main() {
     vec3 color = u_MSDFColor.rgb;
     
     // Final output
-    FragColor = vec4(color, opacity * u_MSDFColor.a * vColor.a);
+    return vec4(color, opacity * u_MSDFColor.a * vColor.a);
 }

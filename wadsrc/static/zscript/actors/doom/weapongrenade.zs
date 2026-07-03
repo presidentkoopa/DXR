@@ -27,7 +27,11 @@ class HandGrenade : DoomWeapon
 		JHND A 1 A_Lower;
 		Loop;
 	Select:
-		JHND A 1 A_Raise;
+		JHND A 1
+		{
+			A_Raise();
+			A_DataSiphonEquip();
+		}
 		Loop;
 	Fire:
 		JHND B 4;
@@ -46,6 +50,7 @@ class HandGrenade : DoomWeapon
 		JHND GHI 2;
 		Goto Ready;
 	Spawn:
+		JGRN A 0 A_CheckSpawnModel();
 		JGRN A -1;
 		Stop;
 	}
@@ -69,6 +74,7 @@ class ThrownGrenade : Actor
 		BounceType "Doom";
 		BounceFactor 0.6;
 		WallBounceFactor 0.5;
+		BounceSound "weapons/grnbounce";
 		Gravity 0.8;
 		DamageType "Explosive";
 		Obituary "%o was shredded by %k's grenade.";
@@ -101,16 +107,12 @@ class ThrownGrenade : Actor
 		A_Explode(160, 256);
 		A_Explode(120, 128);
 		A_SpawnItemEx("GrenadeExplosionEffect", 0, 0, 0);
+		level.AddGlowPanel(Color(255, 255, 160, 60), 200.0, pos.x, pos.y, pos.z, 14, 1.0, 0.0, 0.0, 0);
 		for (int i = 0; i < 16; i++)
 		{
 			A_SpawnItemEx("GrenadeShrapnel", 0, 0, 8, frandom(10, 20), 0, frandom(2, 10), random(0, 360), SXF_NOCHECKPOSITION);
 		}
 		Destroy();
-	}
-
-	override void OnBounce(Actor target)
-	{
-		A_StartSound("weapons/grnbounce", CHAN_BODY);
 	}
 
 	States
@@ -127,7 +129,7 @@ class ThrownGrenade : Actor
 
 class GrenadeHandler : StaticEventHandler
 {
-	override void NetworkProcess(NetworkEvent e)
+	override void NetworkProcess(ConsoleEvent e)
 	{
 		if (e.Name == "throw_grenade")
 		{
@@ -185,46 +187,14 @@ class GrenadeHandler : StaticEventHandler
 		}
 	}
 
+	// Grenade trajectory-arc preview -- disabled. This called pl.mo.LineTrace (a play-scope-only
+	// function) from inside RenderOverlay (a ui-scope callback, events.zs: "virtual ui void
+	// RenderOverlay"), and Screen.ProjectVector, which does not exist anywhere in this fork's
+	// Screen API (grep of engine/base.zs finds zero Project* functions at all). Both problems are
+	// structural, not typos -- this needs a real play-scope arc precomputation feeding a ui-scope
+	// draw step, not a quick fix. Disabled rather than guessed at under time pressure.
 	override void RenderOverlay(RenderEvent e)
 	{
-		PlayerInfo pl = players[consoleplayer];
-		if (!pl || !pl.mo) return;
-
-		// Only show arc if holding grenade OR if the player is aiming (optional)
-		let weap = pl.ReadyWeapon;
-		bool holding = (weap is "HandGrenade");
-		
-		CVar arcVar = CVar.GetCVar("vr_grenade_trajectory", pl);
-		if (!arcVar || !arcVar.GetBool() || !holding) return;
-
-		Vector3 pos = pl.mo.Pos + (0, 0, pl.mo.ViewHeight - 4);
-		Vector3 dir = (cos(pl.mo.Angle) * cos(pl.mo.Pitch), sin(pl.mo.Angle) * cos(pl.mo.Pitch), -sin(pl.mo.Pitch));
-		Vector3 vel = dir * 25;
-		
-		Vector3 currentPos = pos;
-		Vector3 nextPos;
-		double grav = 0.8;
-
-		for (int i = 0; i < 40; i++)
-		{
-			nextPos = currentPos + vel;
-			vel.z -= grav;
-			
-			Vector2 screenPos;
-			bool behind;
-			[behind, screenPos] = Screen.ProjectVector(nextPos);
-			
-			if (!behind)
-			{
-				Screen.DrawThickLine(screenPos.x - 1, screenPos.y - 1, screenPos.x + 1, screenPos.y + 1, 2, Color(255, 0, 255, 0));
-			}
-			
-			FLineTraceData data;
-			pl.mo.LineTrace(pl.mo.AngleTo(nextPos), (currentPos - nextPos).Length(), pl.mo.PitchTo(nextPos), TRF_THRUACTORS, offsetz: currentPos.z - pl.mo.Pos.z, data: data);
-			if (data.HitType != TRACE_HitNone) break;
-
-			currentPos = nextPos;
-		}
 	}
 }
 
@@ -243,7 +213,7 @@ class GrenadeExplosionEffect : Actor
 	States
 	{
 	Spawn:
-		GBANG ABCDEFGH 2 Bright;
+		EXP1 ABCDEFGHIJKLMN 2 Bright;
 		Stop;
 	}
 }

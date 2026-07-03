@@ -365,7 +365,7 @@ class Menu : Object native ui version("2.4")
 		screen.DrawText (OptionFont(), color, x, y, text, DTA_CleanNoMove_1, true, DTA_ColorOverlay, overlay, DTA_Localize, localize);
 	}
 
-	native static int GetVRWeaponArchetype(PClass cls);
+	native static int GetVRWeaponArchetype(Class<Actor> cls);
 }
 
 class MenuDescriptor : Object native ui version("2.4")

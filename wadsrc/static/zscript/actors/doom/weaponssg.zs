@@ -33,7 +33,7 @@ class SuperShotgun : DoomWeapon
 		SHT2 A 7 
 		{
 			A_FireShotgun2();
-			A_VRRecoil(4.0);
+			A_Recoil(4.0);
 		}
 		SHT2 B 7;
 		SHT2 C 7 A_CheckReload;
@@ -44,8 +44,16 @@ class SuperShotgun : DoomWeapon
 		SHT2 H 6 A_CloseShotgun2;
 		SHT2 A 5 A_ReFire;
 		Goto Ready;
+	// Single-barrel, fired twice: one barrel at a time instead of both at once --
+	// two separate individual shots (2 shells total) rather than one combined blast.
+	// Toggle: vr_altfire_ssg -- if off, alt-fire is a no-op (no ammo consumed).
 	AltFire:
+		TNT1 A 0 A_JumpIf(!CVar.FindCVar("vr_altfire_ssg") || CVar.FindCVar("vr_altfire_ssg").GetBool(), "AltFireGo");
+		Goto Ready;
+	AltFireGo:
 		SHT2 A 3;
+		SHT2 A 7 A_FireShotgunIndividual;
+		SHT2 A 4;
 		SHT2 A 7 A_FireShotgunIndividual;
 		SHT2 B 7;
 		SHT2 C 7 A_CheckReload;

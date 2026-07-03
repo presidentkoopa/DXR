@@ -12,7 +12,7 @@ class VRSigilGraphic : Actor
         +DONTSPLASH
         +NOINTERACTION
         +CLIENTSIDEONLY
-        +BILLBOARD
+        +FORCEXYBILLBOARD
         RenderStyle "Add";
         Alpha 1.0;
         Scale 0.2;
@@ -46,7 +46,7 @@ class VRSigilGraphic : Actor
     }
 }
 
-class VRSigilManager
+class VRSigilManager play
 {
     static void SpawnSigil(Actor target, String keywords, String weaponKeywords)
     {
@@ -56,7 +56,7 @@ class VRSigilManager
         bool doRandom = CVar.GetCVar("vr_sigil_randomize_patterns", players[consoleplayer]).GetBool();
         
         float complexity = baseComplexity;
-        vector3 clr = CVar.GetCVar("vr_sigil_color_default", players[consoleplayer]).GetColor();
+        vector3 clr = (0.0, 0.0, 0.0);   // was CVar.GetColor() (no such method); real value is set from GetInt() at line ~66
         
         // Convert color int to vector3 float
         int cDefault = CVar.GetCVar("vr_sigil_color_default", players[consoleplayer]).GetInt();

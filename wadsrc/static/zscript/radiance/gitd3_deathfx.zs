@@ -84,7 +84,7 @@ class GITD_MonsterSilhouette : Actor
     int    bornTic, lifeTics;
     int    sprId;          // the dead monster's sprite sheet (e.g. TROO)
     double baseAlpha;
-    double vx, vy, speed;  // forward drift (0 = stay put)
+    double vx, vy, driftSpd;  // forward drift (0 = stay put); was 'speed' -- collides with native Actor.Speed (case-insensitive)
 
     Default
     {
@@ -100,7 +100,7 @@ class GITD_MonsterSilhouette : Actor
         Super.Tick();
         int age = level.totaltime - bornTic;
         if (lifeTics > 0 && age >= lifeTics) { Destroy(); return; }   // expire with its parent effect
-        if (speed != 0.0) SetOrigin((pos.x + vx * speed, pos.y + vy * speed, pos.z), true);  // ghost drift
+        if (driftSpd != 0.0) SetOrigin((pos.x + vx * driftSpd, pos.y + vy * driftSpd, pos.z), true);  // ghost drift
         sprite = sprId;                                               // force the dead monster's sprite sheet
         frame  = (age / 5) % 4;   // full A/B/C/D walk cycle -- keeps striding the whole time
         double t = double(age) / double(max(1, lifeTics));            // 0..1 life fraction
@@ -236,7 +236,7 @@ class GITD_DeathEffect : Actor
         // glowing = bright tinted ghost; otherwise an opaque PURE BLACK cutout (negative-space silhouette)
         if (glowing) { s.bBRIGHT = true; s.baseAlpha = 0.9; s.SetShade(tint); }
         else         { s.baseAlpha = 1.0; s.SetShade(Color(255, 0, 0, 0)); }  // PURE BLACK cutout, opaque
-        if (driftSpeed != 0.0) { s.vx = cos(faceAngle); s.vy = sin(faceAngle); s.speed = driftSpeed; }  // walk forward
+        if (driftSpeed != 0.0) { s.vx = cos(faceAngle); s.vy = sin(faceAngle); s.driftSpd = driftSpeed; }  // walk forward
     }
 
     // How much to scale a flat silhouette so it stays on the corpse's flat ground (1.0 = no step

@@ -70,7 +70,7 @@ class SDFComboArbiter : StaticEventHandler
 		if (!killer || !killer.player) return; 
 		
 		// Extract keywords from victim + locational data + hand data
-		String fullContext = victim.GetTag() + "," + victim.lastHitZone + "," + victim.lastHitHand;
+		String fullContext = victim.GetTag() .. "," .. victim.lastHitZone .. "," .. victim.lastHitHand;
 		
 		Console.Printf("\cj[SDF ARBITER]\c- Evaluating kill: \cc%s\c- (\cy%s\c-)", victim.GetClassName(), fullContext);
 		

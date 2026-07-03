@@ -244,7 +244,7 @@ CCMD(vr_weapon_set_archetype)
     FVRWeaponResolver::SaveJSONOverrides();
 }
 
-DEFINE_ACTION_FUNCTION(Menu, GetVRWeaponArchetype)
+DEFINE_ACTION_FUNCTION(DMenu, GetVRWeaponArchetype)
 {
     PARAM_PROLOGUE;
     PARAM_CLASS(cls, AActor);

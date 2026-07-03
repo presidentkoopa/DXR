@@ -605,10 +605,16 @@ DEFINE_PROPERTY(tag, S, Actor)
 //==========================================================================
 //
 //==========================================================================
-DEFINE_PROPERTY(keywords, S, Actor)
+// TEMPORARILY STRIPPED (to confirm boot): assigning defaults->Keywords crashed because the FString
+// isn't constructed in default objects (native-field construction issue), and the single-string 'S'
+// format also rejected the mod's comma-separated keyword lists ("Too many values"). Format is now 'L'
+// (accepts a variable string list) and the body is a NO-OP, so every existing `Keywords "..."` line
+// parses harmlessly and nothing is stored. REIMPLEMENT later: declare `native String Keywords;` in
+// actor.zs (and rename the colliding GITD_DeathEffect 'keywords' field), then restore the assignment
+// below (concatenating the list into defaults->Keywords).
+DEFINE_PROPERTY(keywords, L, Actor)
 {
-	PROP_STRING_PARM(str, 0);
-	defaults->Keywords = str;
+	// no-op: keywords intentionally not stored while the construction path is being reworked.
 }
 
 //==========================================================================

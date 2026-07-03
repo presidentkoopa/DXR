@@ -65,7 +65,7 @@ class GITD_ComboTag : Actor
 		CVar cc = CVar.FindCVar("gitd_damage_numbers_color");
 		if (cc)
 		{
-			Color c = cc.GetColor();
+			Color c = cc.GetInt();
 			br = c.r; bg = c.g; bb = c.b;
 		}
 		else if (cidx == 0) { br =  60; bg = 210; bb = 255; }   // cyan
@@ -110,7 +110,7 @@ class GITD_ComboTag : Actor
 			// fire the kill-reward score display at the spot the chain ended
 			Vector3 sp = (burstAt.x == 0 && burstAt.y == 0 && burstAt.z == 0) ? pos : burstAt;
 			GITD_ScoreBurst b = GITD_ScoreBurst(Actor.Spawn("GITD_ScoreBurst", sp));
-			if (b) { b.score = peak; b.owner = owner; b.maxlife = 90; }
+			if (b) { b.burstScore = peak; b.owner = owner; b.maxlife = 90; }
 		}
 		Destroy();
 	}

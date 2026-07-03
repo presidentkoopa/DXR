@@ -64,8 +64,12 @@ class ID24Incinerator : DoomWeapon // Incinerator
 	}
 }
 
-class ID24IncineratorFlame : Actor // Incinerator Flame 
+class ID24IncineratorFlame : Actor // Incinerator Flame
 {
+	// Optional "light on fire" behavior (vr_incinerator_ignite). Off by default so the
+	// vanilla weapon is untouched unless the player opts in via the menu.
+	bool ignite;
+
 	Default
 	{
 		Damage 5;
@@ -82,12 +86,20 @@ class ID24IncineratorFlame : Actor // Incinerator Flame
 	States
 	{
 	Spawn:
-		TNT1 A 1 BRIGHT;
+		TNT1 A 1 BRIGHT NoDelay
+		{
+			CVar ig = CVar.GetCVar("vr_incinerator_ignite", players[consoleplayer]);
+			ignite = (ig && ig.GetBool());
+		}
 		IFLM A 2 BRIGHT;
 		IFLM B 2 BRIGHT A_StartSound("weapons/incinerator/burn", CHAN_BODY);
 		IFLM CDEFGH 2 BRIGHT;
 		Stop;
 	Death:
+		IFLM A 0 BRIGHT
+		{
+			if (ignite) A_SpawnItemEx("IncineratorBurn", 0, 0, 0, 0, 0, 0, 0, SXF_NOCHECKPOSITION);
+		}
 		IFLM A 0 BRIGHT A_Jump(128, "DeathSoundAlt");
 		IFLM A 0 BRIGHT A_StartSound("weapons/incinerator/hot1", CHAN_BODY);
 		Goto DeathExplosion;
@@ -109,6 +121,35 @@ class ID24IncineratorFlame : Actor // Incinerator Flame
 		IFLM N 2 BRIGHT A_RadiusDamage(5, 64);
 		IFLM ONO 2 BRIGHT;
 		IFLM POP 2 BRIGHT;
+		Stop;
+	}
+}
+
+// Short-lived ground fire left by the incinerator when vr_incinerator_ignite is on. Reuses the
+// project's own flamethrower flame sprites (FLME) and deals Fire-type area damage a few times,
+// so anything standing in it keeps burning for ~1.2s. Never touches the vanilla flame's own logic.
+class IncineratorBurn : Actor
+{
+	Default
+	{
+		+NOBLOCKMAP
+		+NOGRAVITY
+		+FORCEXYBILLBOARD
+		+NOTELEPORT;
+		RenderStyle "Add";
+		Alpha 0.9;
+		Scale 0.7;
+		DamageType "Fire";
+	}
+	States
+	{
+	Spawn:
+		FLME A 3 BRIGHT A_Explode(4, 56, 0, false, 0, 0, 0, "BulletPuff", "Fire");
+		FLME BCD 3 BRIGHT;
+		FLME E 3 BRIGHT A_Explode(4, 56, 0, false, 0, 0, 0, "BulletPuff", "Fire");
+		FLME FGH 3 BRIGHT;
+		FLME I 3 BRIGHT A_Explode(4, 56, 0, false, 0, 0, 0, "BulletPuff", "Fire");
+		FLME JKLMN 3 BRIGHT A_FadeOut(0.06);
 		Stop;
 	}
 }

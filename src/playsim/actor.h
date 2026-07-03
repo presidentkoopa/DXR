@@ -1662,6 +1662,11 @@ public:
 
 	bool				hasmodel;
 
+	// Runtime voxel-display override: when true, this actor renders via its VOXELDEF voxel
+	// (if it has one) even when r_drawvoxels is globally off. Used by the VR grab-cone so a
+	// grab candidate stays visually distinct regardless of the player's voxel preference.
+	bool				bForceShowVoxel = false;
+
 	//For VR, override firing position - Thank-you Fishbiter for this code!!
 	bool OverrideAttackPosDir;
 

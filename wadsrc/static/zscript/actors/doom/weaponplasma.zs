@@ -31,11 +31,15 @@ class PlasmaRifle : DoomWeapon
 		PLSG A 3 
 		{
 			A_FirePlasma();
-			A_VRRecoil(0.15);
+			A_Recoil(0.15);
 		}
 		PLSG B 20 A_ReFire;
 		Goto Ready;
+	// Toggle: vr_altfire_plasma -- if off, alt-fire is a no-op (no ammo consumed).
 	AltFire:
+		TNT1 A 0 A_JumpIf(!CVar.FindCVar("vr_altfire_plasma") || CVar.FindCVar("vr_altfire_plasma").GetBool(), "AltFireGo");
+		Goto Ready;
+	AltFireGo:
 		PLSG A 1 A_FirePlasmaBeam;
 		PLSG B 0 A_ReFire;
 		Goto Ready;
@@ -67,6 +71,7 @@ class PlasmaBall : Actor
 		SeeSound "weapons/plasmaf";
 		DeathSound "weapons/plasmax";
 		Obituary "$OB_MPPLASMARIFLE";
+		Keywords "ballistics:plasmaball";
 	}
 	States
 	{

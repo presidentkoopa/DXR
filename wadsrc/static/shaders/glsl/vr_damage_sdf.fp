@@ -39,7 +39,13 @@ float digitSDF(vec2 p, int digit) {
     return d;
 }
 
-void main() {
+// Material shaders in this engine must define ProcessTexel() -- the engine's main.fp already
+// supplies main() and calls this to build the base texel. Defining our own main() here produced
+// "'main': function already has a body". Return the texel instead of writing FragColor.
+// NOTE: do NOT write the words S-e-t-u-p-M-a-t-e-r-i-a-l / P-r-o-c-e-s-s-M-a-t-e-r-i-a-l in this
+// file -- the engine's shader combiner does a naive substring scan for them (gl_shader.cpp:458)
+// and, if found, skips injecting the default material setup, causing a link error.
+vec4 ProcessTexel() {
     vec2 uv = vTexCoord.st * 2.0 - 1.0;
     uv.x *= 1.5; // Aspect ratio for 3-4 digits
 
@@ -68,5 +74,5 @@ void main() {
     // Flicker / Glitch from StreamData
     float flicker = sin(timer * 20.0) * u_MSDFGlitch + (1.0 - u_MSDFGlitch);
     
-    FragColor = vec4(color * flicker, alpha * u_MSDFColor.a * vColor.a);
+    return vec4(color * flicker, alpha * u_MSDFColor.a * vColor.a);
 }

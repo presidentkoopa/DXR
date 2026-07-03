@@ -30,7 +30,7 @@ class GITD_BuckShard : Actor
 	int    slice;        // the score slice this shard carries (shown on the fragment)
 	int    life;
 	int    maxl;         // total lifetime in tics
-	Vector3 vel;
+	Vector3 pvel;
 	bool   embedded;     // has stuck to a surface?
 	int    embedLife;    // tics since embed (drives the stuck-glow fade)
 	double nx, ny;       // fixed surface normal once embedded (dir for AddGlowPanel)
@@ -51,7 +51,7 @@ class GITD_BuckShard : Actor
 		if (!embedded)
 		{
 			// --- in-flight: trace the step we're about to take for a world hit ---
-			Vector3 step = vel;
+			Vector3 step = pvel;
 			double slen = step.Length();
 			if (slen > 0.01)
 			{
@@ -98,9 +98,9 @@ class GITD_BuckShard : Actor
 
 			if (!embedded)
 			{
-				SetOrigin(pos + vel, true);
-				vel.z  -= 0.62;        // gravity arc
-				vel.xy *= 0.965;       // light air drag (shards keep their punch)
+				SetOrigin(pos + pvel, true);
+				pvel.z  -= 0.62;        // gravity arc
+				pvel.xy *= 0.965;       // light air drag (shards keep their punch)
 			}
 
 			// bright, hot fragment streaking out
@@ -301,7 +301,7 @@ class GITD_Buckshot play
 
 			double sp = speed * frandom[gbuck](0.82, 1.18);    // per-pellet speed variance
 			if (toFace) sp *= 1.15;                            // face-whippers travel a touch faster
-			sh.vel  = (dir.x * sp, dir.y * sp, dir.z * sp + 1.6);   // slight upward kick
+			sh.pvel  = (dir.x * sp, dir.y * sp, dir.z * sp + 1.6);   // slight upward kick
 			sh.maxl = 16 + random[gbuck](0, 6);
 			sh.sz   = 7.0 + frandom[gbuck](0.0, 2.5);
 			sh.rgb  = rgb;

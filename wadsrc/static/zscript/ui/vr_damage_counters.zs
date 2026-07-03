@@ -11,7 +11,7 @@ class VRDamageCounter : Actor
         +DONTSPLASH
         +NOINTERACTION
         +CLIENTSIDEONLY
-        +BILLBOARD
+        +FORCEXYBILLBOARD
         RenderStyle "Add";
         Alpha 1.0;
         Scale 0.15;
@@ -82,7 +82,7 @@ class VRDamageHandler : StaticEventHandler
         {
             counter.damageTotal += e.Damage;
             counter.lifeTimer = 60; // Reset timer (approx 1.7s at 35fps)
-            counter.Scale = 0.2; // Pop scale
+            counter.Scale = (0.2, 0.2); // Pop scale
         }
         else
         {

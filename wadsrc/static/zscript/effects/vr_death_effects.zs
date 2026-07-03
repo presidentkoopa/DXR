@@ -37,7 +37,7 @@ class FatalErrorActor : Actor
         {
             Actor pmo = players[consoleplayer].mo;
             Vector3 front = (cos(pmo.angle), sin(pmo.angle), 0) * 128;
-            SetOrigin(pmo.Pos + (0, 0, pmo.viewheight) + front, true);
+            SetOrigin(pmo.Pos + (0, 0, players[consoleplayer].viewheight) + front, true);
             Angle = pmo.angle + 180; // Face player
         }
     }

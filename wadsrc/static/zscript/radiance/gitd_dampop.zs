@@ -12,7 +12,7 @@ class GITD_DamPop : Actor
 {
 	int dmg;
 	int life;
-	Vector3 vel;
+	Vector3 pvel;
 	Color col;
 
 	Default { +NOINTERACTION +NOGRAVITY +NOBLOCKMAP +DONTSPLASH +NOTONAUTOMAP; RenderStyle "None"; }
@@ -25,10 +25,10 @@ class GITD_DamPop : Actor
 		p.dmg = damage;
 		p.life = 0;
 		// jumpy up-and-out spread
-		p.vel = (frandom(-1.2, 1.2), frandom(-1.2, 1.2), frandom(3.0, 5.5));
+		p.pvel = (frandom(-1.2, 1.2), frandom(-1.2, 1.2), frandom(3.0, 5.5));
 		
 		CVar cc = CVar.FindCVar("gitd_damage_numbers_color");
-		p.col = cc ? cc.GetColor() : Color(255, 255, 240, 190);
+		p.col = cc ? Color(cc.GetInt()) : Color(255, 255, 240, 190);
 	}
 
 	override void Tick()
@@ -39,9 +39,9 @@ class GITD_DamPop : Actor
 		if (life > maxl) { Destroy(); return; }
 
 		// integrate the little arc
-		SetOrigin(pos + vel, true);
-		vel.z  -= 0.45;     // gravity pull
-		vel.xy *= 0.93;     // horizontal drag
+		SetOrigin(pos + pvel, true);
+		pvel.z  -= 0.45;     // gravity pull
+		pvel.xy *= 0.93;     // horizontal drag
 
 		double fade = 1.0 - double(life) / double(maxl);
 		fade = clamp(fade, 0.0, 1.0);

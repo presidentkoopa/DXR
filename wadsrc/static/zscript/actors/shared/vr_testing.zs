@@ -64,7 +64,7 @@ class VRTestingRig : StaticEventHandler
 				else if (j % 3 == 1)
 					Actor.Spawn("VRTestingGrabbable", spawnPos);
 				else
-					Actor.Spawn("HandGrenades", spawnPos);
+					Actor.Spawn("HandGrenade", spawnPos);
 			}
 			
 			Console.Printf("VR Testing Rig Spawned around you!");

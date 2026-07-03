@@ -47,9 +47,10 @@ float obeliskSDF(vec2 p, vec2 sz) {
     return max(d, abs(p.y) - sz.y * 0.5);
 }
 
-void main() {
+// Material shader: must return ProcessTexel(), not define main() (main.fp already has main()).
+vec4 ProcessTexel() {
     vec2 uv = vTexCoord.st * 2.0 - 1.0;
-    
+
     // u_IsMSDF is our "Visual Hash"
     // u_MSDFGlitch is "Complexity"
     // u_MSDFColor is Color
@@ -118,5 +119,5 @@ void main() {
     // Glow
     float glow = exp(-5.0 * abs(d));
     
-    FragColor = vec4(color * (alpha + glow * 0.5), (alpha + glow * 0.3) * vColor.a * u_MSDFColor.a);
+    return vec4(color * (alpha + glow * 0.5), (alpha + glow * 0.3) * vColor.a * u_MSDFColor.a);
 }

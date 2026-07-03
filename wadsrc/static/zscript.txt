@@ -22,7 +22,6 @@ version "4.14.2"
 #include "zscript/ui/vr_rom_load.zs"
 #include "zscript/ui/vr_sdf_procedural.zs"
 #include "zscript/effects/vr_death_effects.zs"
-#include "zscript/effects/vr_voxel_assembly.zs"
 #include "zscript/engine/ui/menu/menucustomize.zs"
 #include "zscript/engine/ui/menu/menuitembase.zs"
 #include "zscript/engine/ui/menu/messagebox.zs"
@@ -49,16 +48,9 @@ version "4.14.2"
 #include "zscript/mapdata.zs"
 #include "zscript/constants.zs"
 
-// New Weapons
-#include "zscript/actors/doom/weaponflame.zs"
-#include "zscript/actors/doom/weaponrifle.zs"
-#include "zscript/actors/doom/weaponrevolver.zs"
-#include "zscript/actors/doom/weaponsmg.zs"
-#include "zscript/actors/doom/weapongrenade.zs"
 
 // Weapon Logic
 #include "zscript/engine/vr_weapon_logic.zs"
-#include "zscript/engine/vr_locational_damage.zs"
 #include "zscript/engine/vr_blackout.zs"
 #include "zscript/events.zs"
 #include "zscript/destructible.zs"
@@ -83,6 +75,13 @@ version "4.14.2"
 #include "zscript/actors/inventory/ammo.zs"
 #include "zscript/actors/inventory/health.zs"
 #include "zscript/actors/inventory/powerups.zs"
+
+// Moved down from earlier in the list: these use 'extend class Actor' / 'extend class StateProvider',
+// which require Actor and StateProvider (both #included above) to already be parsed in this
+// translation unit. Action-function calls (e.g. A_DataSiphonEquip from the weapons) resolve in a
+// later semantic pass, so the definitions arriving here is fine.
+#include "zscript/engine/vr_locational_damage.zs"
+#include "zscript/effects/vr_voxel_assembly.zs"
 
 #include "zscript/actors/player/player.zs"
 #include "zscript/actors/player/player_cheat.zs"
@@ -137,6 +136,17 @@ version "4.14.2"
 #include "zscript/actors/doom/spidermaster.zs"
 #include "zscript/actors/doom/keen.zs"
 #include "zscript/actors/doom/bossbrain.zs"
+#include "zscript/engine/vr_weapon_helpers.zs"
+
+// New Weapons -- must come after vr_weapon_helpers.zs (A_CheckSpawnModel/A_DataSiphonEquip/
+// ThrownWeapon) and after actor.zs (StateProvider) -- moved down from the top of this file,
+// where they previously sat before either dependency was available.
+#include "zscript/actors/doom/weaponflame.zs"
+#include "zscript/actors/doom/weaponrifle.zs"
+#include "zscript/actors/doom/weaponrevolver.zs"
+#include "zscript/actors/doom/weaponsmg.zs"
+#include "zscript/actors/doom/weapongrenade.zs"
+
 #include "zscript/actors/doom/weaponfist.zs"
 #include "zscript/actors/doom/weaponpistol.zs"
 #include "zscript/actors/doom/weaponshotgun.zs"
@@ -146,7 +156,6 @@ version "4.14.2"
 #include "zscript/actors/doom/weaponrlaunch.zs"
 #include "zscript/actors/doom/weaponplasma.zs"
 #include "zscript/actors/doom/weaponbfg.zs"
-#include "zscript/actors/doom/weapongrenade.zs"
 #include "zscript/actors/doom/dehacked.zs"
 
 #include "zscript/actors/doom/id24/id24ammo.zs"
@@ -287,7 +296,8 @@ version "4.14.2"
 #include "zscript/actors/strife/weaponcrossbow.zs"
 #include "zscript/actors/strife/weaponassault.zs"
 #include "zscript/actors/strife/weaponmissile.zs"
-#include "zscript/actors/strife/weaponflamer.zs"
+// weaponflamer.zs removed: its FlameThrower/FlameMissile collide (case-insensitively) with the HF Doom
+// weaponflame.zs classes (#included above). HF runs Doom, not Strife, so the Strife flamer is unused.
 #include "zscript/actors/strife/weapongrenade.zs"
 #include "zscript/actors/strife/weaponmauler.zs"
 #include "zscript/actors/strife/sigil.zs"

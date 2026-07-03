@@ -1162,4 +1162,11 @@ generator AssaultGun			BulletChip
 generator MiniMissile			Scorch
 generator Mauler			RailScorchLower
 
-#include "vox_decaldef.txt"
+// #include "vox_decaldef.txt" -- DECALDEF has no #include directive at all (unlike ZScript/
+// DECORATE); 43 of vox_decaldef.txt's 44 decal/decalgroup names were already duplicates of ones
+// defined above in this same file. Only BulletHole was genuinely missing -- merged directly below.
+decal BulletHole
+{
+	pic HOLE1
+	add 1.0
+}

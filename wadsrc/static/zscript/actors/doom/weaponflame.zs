@@ -45,6 +45,9 @@ class Flamethrower : DoomWeapon
 			{
 				A_SpawnItemEx("FlameParticle", 0, 0, 32, frandom(15, 25), frandom(-2, 2), frandom(-2, 2), 0, SXF_NOCHECKPOSITION);
 			}
+			// Light, sustained kick from the fuel pressure -- was previously the only
+			// weapon with zero recoil at all.
+			A_Recoil(0.1);
 		}
 		HBFT D 1 Bright A_TakeInventory("Fuel", 1);
 		HBFT B 1 Bright A_ReFire("Hold");
@@ -52,6 +55,7 @@ class Flamethrower : DoomWeapon
 		HBFT A 0 A_StartSound("weapons/flamestop", CHAN_WEAPON);
 		Goto Ready;
 	Spawn:
+		HBFT A 0 A_CheckSpawnModel();
 		HBFT A -1;
 		Stop;
 	}
@@ -70,6 +74,7 @@ class FlameMissile : Actor
 		+FORCEXYBILLBOARD
 		+THRUACTORS
 		DamageType "Fire";
+		Obituary "%o was incinerated by %k's flamethrower.";
 		Scale 0.6;
 		Alpha 1.0;
 		RenderStyle "Add";
@@ -83,7 +88,7 @@ class FlameMissile : Actor
 		{
 			A_FadeOut(0.04);
 			A_SetScale(scale.x * 1.1);
-			if (i % 2 == 0) A_SpawnItemEx("FlameSmoke", frandom(-4, 4), frandom(-4, 4), frandom(-4, 4), 0, 0, frandom(1, 2), 0, SXF_NOCHECKPOSITION);
+			if (level.time % 2 == 0) A_SpawnItemEx("FlameSmoke", frandom(-4, 4), frandom(-4, 4), frandom(-4, 4), 0, 0, frandom(1, 2), 0, SXF_NOCHECKPOSITION);
 		}
 		Stop;
 	Death:

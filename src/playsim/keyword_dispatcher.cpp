@@ -5,6 +5,8 @@
 #include "rapidjson/document.h"
 #include "rapidjson/error/en.h"
 #include <sstream>
+#include <algorithm>
+#include <cctype>
 
 std::unordered_map<std::string, KeywordProfile> KeywordDispatcher::profiles;
 
@@ -168,11 +170,40 @@ void KeywordDispatcher::Init() {
             }
         }
 
-        // Parse weapons namespace
+        // Parse ballistics namespace. Keyed "ballistics:x" (lowercase) to match the Keywords
+        // token now carried by the matching projectile actor (Rocket/ThrownGrenade/PlasmaBall).
+        // Previously this namespace was never parsed at all, so bullet_drop could never
+        // become non-zero regardless of what the JSON said.
+        if (ns.HasMember("ballistics") && ns["ballistics"].IsObject()) {
+            const auto& ballisticsObj = ns["ballistics"];
+            for (auto it = ballisticsObj.MemberBegin(); it != ballisticsObj.MemberEnd(); ++it) {
+                std::string rawName = std::string(it->name.GetString());
+                std::string lowerName = rawName;
+                std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(),
+                    [](unsigned char c) { return std::tolower(c); });
+                std::string name = "ballistics:" + lowerName;
+                const auto& val = it->value;
+                if (val.IsObject()) {
+                    KeywordProfile prof;
+                    if (val.HasMember("bullet_drop") && val["bullet_drop"].IsNumber()) prof.bullet_drop = val["bullet_drop"].GetFloat();
+                    if (val.HasMember("air_resistance") && val["air_resistance"].IsNumber()) prof.air_resistance = val["air_resistance"].GetFloat();
+                    profiles[name] = prof;
+                }
+            }
+        }
+
+        // Parse weapons namespace. Keyed to match the actual "class:x" tokens weapons carry in
+        // their ZScript Keywords (e.g. Pistol's Keywords include "class:pistol") -- NOT
+        // "weapons:X", which no weapon has ever carried, and NOT case-sensitive to the JSON's
+        // capitalized names (e.g. "Pistol"), which never matched the lowercase ZScript token either.
         if (ns.HasMember("weapons") && ns["weapons"].IsObject()) {
             const auto& weaponsObj = ns["weapons"];
             for (auto it = weaponsObj.MemberBegin(); it != weaponsObj.MemberEnd(); ++it) {
-                std::string name = "weapons:" + std::string(it->name.GetString());
+                std::string rawName = std::string(it->name.GetString());
+                std::string lowerName = rawName;
+                std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(),
+                    [](unsigned char c) { return std::tolower(c); });
+                std::string name = "class:" + lowerName;
                 const auto& val = it->value;
                 if (val.IsObject()) {
                     KeywordProfile prof;
@@ -266,6 +297,8 @@ bool KeywordDispatcher::ResolveMetadata(const FString& keywords, KeywordProfile&
             if (it->second.rarity > 0) out_profile.rarity = it->second.rarity;
             if (it->second.value > 0) out_profile.value = it->second.value;
             if (it->second.points > 0) out_profile.points = it->second.points;
+            if (it->second.bullet_drop > 0) out_profile.bullet_drop = it->second.bullet_drop;
+            if (it->second.air_resistance > 0) out_profile.air_resistance = it->second.air_resistance;
             found = true;
         }
     }

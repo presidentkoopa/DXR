@@ -33,7 +33,7 @@ class RocketLauncher : DoomWeapon
 		MISG B 12 
 		{
 			A_FireMissile();
-			A_VRRecoil(6.0);
+			A_Recoil(6.0);
 		}
 		MISG B 0 A_ReFire;
 		Goto Ready;
@@ -65,6 +65,7 @@ class Rocket : Actor
 		SeeSound "weapons/rocklf";
 		DeathSound "weapons/rocklx";
 		Obituary "$OB_MPROCKET";
+		Keywords "ballistics:rocket";
 	}
 	States
 	{

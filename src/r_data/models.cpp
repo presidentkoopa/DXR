@@ -1177,7 +1177,7 @@ void ParseModelDefLump(int Lump)
 //
 //===========================================================================
 
-FSpriteModelFrame * FindModelFrameRaw(const AActor * actorDefaults, const PClass * ti, int sprite, int frame, bool dropped)
+FSpriteModelFrame * FindModelFrameRaw(const AActor * actorDefaults, const PClass * ti, int sprite, int frame, bool dropped, bool forceVoxel = false)
 {
 	if(actorDefaults->hasmodel)
 	{
@@ -1199,7 +1199,7 @@ FSpriteModelFrame * FindModelFrameRaw(const AActor * actorDefaults, const PClass
 	}
 
 	// Check for voxel replacements
-	if (r_drawvoxels)
+	if (r_drawvoxels || forceVoxel)
 	{
 		spritedef_t *sprdef = &sprites[sprite];
 		if (frame < sprdef->numframes)
@@ -1233,7 +1233,7 @@ FSpriteModelFrame * FindModelFrame(const PClass * ti, int sprite, int frame, boo
 	return FindModelFrameRaw(def, ti, sprite, frame, dropped);
 }
 
-FSpriteModelFrame * FindModelFrame(const PClass * ti, bool is_decoupled, int sprite, int frame, bool dropped)
+FSpriteModelFrame * FindModelFrame(const PClass * ti, bool is_decoupled, int sprite, int frame, bool dropped, bool forceVoxel)
 {
 	if(!ti) return nullptr;
 
@@ -1243,7 +1243,7 @@ FSpriteModelFrame * FindModelFrame(const PClass * ti, bool is_decoupled, int spr
 	}
 	else
 	{
-		return FindModelFrameRaw(GetDefaultByType(ti), ti, sprite, frame, dropped);
+		return FindModelFrameRaw(GetDefaultByType(ti), ti, sprite, frame, dropped, forceVoxel);
 	}
 }
 
@@ -1251,7 +1251,7 @@ FSpriteModelFrame * FindModelFrame(AActor * thing, int sprite, int frame, bool d
 {
 	if(!thing) return nullptr;
 
-	return FindModelFrame((thing->modelData != nullptr && thing->modelData->modelDef != nullptr) ? thing->modelData->modelDef : thing->GetClass(), (thing->flags9 & MF9_DECOUPLEDANIMATIONS), sprite, frame, dropped);
+	return FindModelFrame((thing->modelData != nullptr && thing->modelData->modelDef != nullptr) ? thing->modelData->modelDef : thing->GetClass(), (thing->flags9 & MF9_DECOUPLEDANIMATIONS), sprite, frame, dropped, thing->bForceShowVoxel);
 }
 
 //===========================================================================

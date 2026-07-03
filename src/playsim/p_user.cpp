@@ -1590,6 +1590,12 @@ void VR_UpdateGravityGloves(player_t* player)
 						}
 					}
 				}
+				AActor* prevCandidate = player->vr_grab_candidate[hand];
+				if (prevCandidate != bestItem)
+				{
+					if (prevCandidate) prevCandidate->bForceShowVoxel = false;
+					if (bestItem) bestItem->bForceShowVoxel = true;
+				}
 				player->vr_grab_candidate[hand] = bestItem;
 
 				if (vr_grab_debug)

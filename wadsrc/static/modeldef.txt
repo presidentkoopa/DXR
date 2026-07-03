@@ -27,11 +27,11 @@ Model VRHandModel
    FrameIndex FPCH E 0 0
 }
 
-Model VR_Pistol
-{ 
-   Path "models/weapons/brutalpistol"
-   Model 0 "BrutalPistol.md3"
-   Skin 0 "brutalpistol.png"
+Model Pistol
+{
+   Path "models/weapons/pistol"
+   Model 0 "Pistol.md3"
+   Skin 0 "pistol.png"
    Scale -1.0 1.0 1.0
    Offset 0.0 -4.0 0.0
    ZOffset -5
@@ -53,7 +53,7 @@ Model VR_Pistol
    FrameIndex PIST F 0 0
 }
 
-Model VR_Shotgun
+Model Shotgun
 { 
    Path "models/weapons/shotgun"
    Model 0 "Shotgun.md3"
@@ -69,16 +69,12 @@ Model VR_Shotgun
    FrameIndex SHTG C 0 4
    FrameIndex SHTG D 0 4
    
-   // Map common mod Shotgun sprites (SHTN, SHTA, AUTS, etc.)
-   FrameIndex SHTN A 0 4
-   FrameIndex SHTA A 0 4
-   FrameIndex SHTA B 0 4
-   FrameIndex AUTS A 0 0   FrameIndex AUT2 A 0 0   FrameIndex AUT3 A 0 0
-   FrameIndex ASHW A 0 0   FrameIndex AMUZ A 0 0   FrameIndex MSBS A 0 0
-   FrameIndex PASH A 0 0
+   // (Removed: speculative "common mod" sprite entries -- SHTN/SHTA/AUTS/AUT2/AUT3/ASHW/AMUZ/
+   // MSBS/PASH were never used by any actual state anywhere in this project or doom2.wad; a
+   // mod that was never actually included, not a real compatibility need.)
 }
 
-Model VR_Plasma
+Model PlasmaRifle
 { 
    Path "models/weapons/Plasma_Gun"
    Model 0 "Plasma.md3"
@@ -92,45 +88,64 @@ Model VR_Plasma
    FrameIndex PLSG A 0 0
    FrameIndex PLSG B 0 0
    
-   // Map common mod Plasma sprites (PLS9, PLSN)
-   FrameIndex PLS9 A 0 0
-   FrameIndex PLSN A 0 0
+   // (Removed: PLS9/PLSN never used anywhere -- same speculative-mod pattern as Shotgun above.)
 }
 
-Model VR_Rifle
+// Model index 0 = m16.md3 (idle/hold pose), index 1 = m16f.md3 (dedicated firing-pose asset,
+// binds the Fire/AltFire sprites RIFL B/C/D/E so the gun model doesn't drop out during every shot).
+// Merged from two separate top-level blocks (VR_Rifle / VR_Rifle_Firing) that each tried to bind
+// to a nonexistent actor named "VR_Rifle" -- the real class is just "Rifle" (weaponrifle.zs),
+// and a single actor can only have one Model block, with multiple poses as indexed Model N entries.
+Model Rifle
 {
    Path "models/weapons/hud/rifle"
    Model 0 "m16.md3"
+   Model 1 "m16f.md3"
    Skin 0 "WPN-M16.png"
+   Skin 1 "WPN-M16.png"
    Scale 1.35 1.35 1.35
    Offset 0.0 0.0 0.0
    ZOffset -5
-   
-   // Map common Rifle sprites (RIFL, AKAB, M16G, COLT, etc.)
+
+   // Idle pose (model 0). AKAB/M16G/AKAF/AKAR/AKA2/AKA4/AK4I/COLT removed -- speculative
+   // "common mod" sprites never used anywhere; RIFL is the only one this project actually uses.
    FrameIndex RIFL A 0 0
-   FrameIndex AKAB A 0 0
-   FrameIndex M16G A 0 0
-   FrameIndex AKAF A 0 0   FrameIndex AKAR A 0 0   FrameIndex AKA2 A 0 0
-   FrameIndex AKA4 A 0 0   FrameIndex AK4I A 0 0   FrameIndex COLT A 0 0
+
+   // Fire-cycle sprites -- firing pose (model 1)
+   FrameIndex RIFL B 1 0
+   FrameIndex RIFL C 1 0
+   FrameIndex RIFL D 1 0
+   FrameIndex RIFL E 1 0
 }
 
-Model VR_Revolver
+// Model index 0 = rev.md3 (idle/hold pose), index 1 = revf.md3 (dedicated firing-pose asset,
+// binds the Fire sprites REVL E/F/G/H/I so the gun model doesn't drop out during every shot).
+// Merged from two separate top-level blocks for the same reason as Rifle above -- the real
+// class is just "Revolver" (weaponrevolver.zs), one Model block, poses as indexed Model N entries.
+Model Revolver
 {
    Path "models/weapons/hud/revolver"
    Model 0 "rev.md3"
+   Model 1 "revf.md3"
    Skin 0 "WPN-REV2.png"
+   Skin 1 "WPN-REV2.png"
    Scale 1.35 1.35 1.35
    Offset 0.0 0.0 0.0
    ZOffset -5
-   
-   // Map common Revolver sprites (REVL, REVO, REV2, etc.)
+
+   // Idle pose (model 0). REVO/REV2/REV3/REV4/RMUZ removed -- speculative "common mod" sprites
+   // never used anywhere; REVL is the only one this project actually uses.
    FrameIndex REVL A 0 0
-   FrameIndex REVO A 0 0
-   FrameIndex REV2 A 0 0   FrameIndex REV3 A 0 0   FrameIndex REV4 A 0 0
-   FrameIndex RMUZ A 0 0
+
+   // Fire-cycle sprites -- firing pose (model 1)
+   FrameIndex REVL E 1 0
+   FrameIndex REVL F 1 0
+   FrameIndex REVL G 1 0
+   FrameIndex REVL H 1 0
+   FrameIndex REVL I 1 0
 }
 
-Model VR_SMG
+Model SMG
 {
    Path "models/weapons/hud/smg"
    Model 0 "SMG.md3"
@@ -138,15 +153,16 @@ Model VR_SMG
    Scale 1.35 1.35 1.35
    Offset 0.0 0.0 0.0
    ZOffset -5
-   
-   // Map common SMG sprites (SMGG, SMGS, SPGN, etc.)
+
+   // SPGN/SPG2/SPGM/NAGW removed -- speculative "common mod" sprites never used anywhere;
+   // SMGG/SMGS are the ones this project's own weaponsmg.zs actually uses.
    FrameIndex SMGG A 0 0
+   FrameIndex SMGG B 0 0
    FrameIndex SMGS A 0 0
-   FrameIndex SPGN A 0 4   FrameIndex SPG2 A 0 4   FrameIndex SPGM A 0 4
-   FrameIndex NAGW A 0 4
 }
 
-Model VR_Flamethrower
+// FLMG sprite belongs to ID24Incinerator (id24incinerator.zs), not our own Flamethrower weapon.
+Model ID24Incinerator
 {
    Path "models/weapons/hud/flamethrower"
    Model 0 "Flamethrower2.md3"
@@ -154,12 +170,24 @@ Model VR_Flamethrower
    Scale 1.0 1.0 1.0
    Offset 0.0 0.0 0.0
    ZOffset -5
-   
-   // Map common Flamethrower sprites (FLMG)
+
    FrameIndex FLMG A 0 0
 }
 
-Model VR_SuperShotgun
+// Our actual Flamethrower weapon (weaponflame.zs) uses sprite HBFT, not FLMG.
+Model Flamethrower
+{
+   Path "models/weapons/hud/flamethrower"
+   Model 0 "Flamethrower2.md3"
+   Skin 0 "Flamethrower2.png"
+   Scale 1.0 1.0 1.0
+   Offset 0.0 0.0 0.0
+   ZOffset -5
+
+   FrameIndex HBFT A 0 0
+}
+
+Model SuperShotgun
 {
    Path "Models/Weapons/Hud/SSG"
    Model 0 "ssg.md3"
@@ -171,10 +199,10 @@ Model VR_SuperShotgun
    // Map standard Doom SSG sprites (SHT2, OUSM, etc.)
    FrameIndex SHT2 A 0 1   FrameIndex SHT2 B 0 1   FrameIndex SHT2 C 0 1   FrameIndex SHT2 D 0 1
    FrameIndex SHT2 E 0 1   FrameIndex SHT2 F 0 1   FrameIndex SHT2 G 0 1   FrameIndex SHT2 H 0 1
-   FrameIndex OUSM A 0 1   FrameIndex OUST A 0 1   FrameIndex OUWS A 0 1
+   // OUSM/OUST/OUWS removed -- speculative "common mod" sprites never used anywhere.
 }
 
-Model VR_Chaingun
+Model Chaingun
 {
    Path "Models/Weapons/Hud/CHAINGUN"
    Model 0 "Chaingun.md3"
@@ -187,7 +215,7 @@ Model VR_Chaingun
    FrameIndex CHGG A 0 4   FrameIndex CHGG B 0 4
 }
 
-Model VR_RocketLauncher
+Model RocketLauncher
 {
    Path "Models/Weapons/Hud/RPG"
    Model 0 "RPG.md3"
@@ -196,28 +224,26 @@ Model VR_RocketLauncher
    Offset 0.0 0.0 0.0
    ZOffset -5
    
-   // Map standard Doom Rocket Launcher sprites (MISG, CANN, etc.)
+   // Map standard Doom Rocket Launcher sprites (MISG)
    FrameIndex MISG A 0 5   FrameIndex MISG B 0 5
-   FrameIndex CANN A 0 5   FrameIndex CAN2 A 0 5   FrameIndex CANM A 0 5
-   FrameIndex CNWD A 0 5
+   // CANN/CAN2/CANM/CNWD removed -- speculative "common mod" sprites never used anywhere.
 }
 
-Model VR_BFG
+Model BFG9000
 {
-   Path "Models/Weapons/Hud/BFG9000"
+   Path "models/weapons/hud/bfg"
    Model 0 "BFG.md3"
-   Skin 0 "bfg.png"
+   Skin 0 "BFG.png"
    Scale -1.0 1.0 1.0
    Offset 0.0 0.0 0.0
    ZOffset -5
    
-   // Map standard Doom BFG sprites (BFGG, RBGN, etc.)
+   // Map standard Doom BFG sprites (BFGG)
    FrameIndex BFGG A 0 6   FrameIndex BFGG B 0 6   FrameIndex BFGG C 0 6
-   FrameIndex RBGN A 0 6   FrameIndex RBGW A 0 6   FrameIndex RENB A 0 6
-   FrameIndex RENM A 0 6   FrameIndex SNPS A 0 6   FrameIndex SSTG A 0 6
+   // RBGN/RBGW/RENB/RENM/SNPS/SSTG removed -- speculative "common mod" sprites never used anywhere.
 }
 
-Model VR_Chainsaw
+Model Chainsaw
 {
    Path "Models/Weapons/Hud/Chainsaw"
    Model 0 "Chainsaw.md3"
@@ -243,8 +269,14 @@ Model VRFlashModel
    FrameIndex VFLA A 0 0
 }
 
-Model HandGrenades	
-{ 
+// Reference frame layout (from the source asset's own Modeldef.Grenade.def) preserved in
+// comments; FrameIndex letters remapped from the reference's GRHO/GRTH/GRND sprites to our
+// actual HandGrenade weapon's real sprites (JHND in-hand, JGRN thrown -- see weapongrenade.zs).
+// The JHND mapping below is a first-pass timing estimate (9 real states spread across the
+// reference's 16-frame throw animation) -- sanity-check in VR and retune if the motion reads
+// off; JGRN->GRND is an exact 1:1 letter match (8 letters each), no guessing involved there.
+Model HandGrenade
+{
    Path "models/weapons/hud/grenade"
    Model 0 "nade.md3"
    Skin 0 "nade.png"
@@ -253,54 +285,44 @@ Model HandGrenades
    NoInterpolation
    ZOffset -10
 
-	//Ready
+	// Ready / Deselect / Select (JHND A) -- reference frame 0 (GRHO A, ready pose)
+	FrameIndex	JHND	A	0	0
 
-	FrameIndex	GRHO	A	0	0
-	FrameIndex	GRHO	B	0	1
+	// Fire: pull-pin windup (JHND B/C/D) -- reference frames 1-3 (GRHO B/C aim, GRTH A throw-start)
+	FrameIndex	JHND	B	0	1
+	FrameIndex	JHND	C	0	2
+	FrameIndex	JHND	D	0	3
 
-	//Aim and Fire
+	// Throw: windup + release (JHND E/F) -- reference frames 6, 9 (GRTH D mid-swing, GRTH G release)
+	FrameIndex	JHND	E	0	6
+	FrameIndex	JHND	F	0	9
 
-	FrameIndex	GRHO	C	0	2
-
-	FrameIndex	GRTH	A	0	3
-	FrameIndex	GRTH	B	0	4
-	FrameIndex	GRTH	C	0	5
-	FrameIndex	GRTH	D	0	6
-	FrameIndex	GRTH	E	0	7
-	FrameIndex	GRTH	F	0	8
-	FrameIndex	GRTH	G	0	9
-	
-	FrameIndex	GRTH	H	0	10
-	FrameIndex	GRTH	I	0	11
-	FrameIndex	GRTH	J	0	12
-	FrameIndex	GRTH	K	0	13
-	FrameIndex	GRTH	L	0	14
-	FrameIndex	GRTH	M	0	15
-
+	// Throw: follow-through (JHND G/H/I) -- reference frames 11, 13, 15 (GRTH I/K/M settle)
+	FrameIndex	JHND	G	0	11
+	FrameIndex	JHND	H	0	13
+	FrameIndex	JHND	I	0	15
 }
 
-Model HandGrenade
-{ 
+// This block's frames (JGRN) belong to the thrown projectile, not the weapon -- real class is
+// ThrownGrenade (weapongrenade.zs), not HandGrenade (that name is used by the in-hand block below).
+Model ThrownGrenade
+{
    Path "models/weapons/hud/grenade"
    Model 0 "nade.md3"
    Skin 0 "nade.png"
    Scale -1.0 1.0 1.0
    Offset 0.0 0.0 0.0
    NoInterpolation
-	
-	//Flying nade
 
-	FrameIndex	GRND	A	0	16
-	FrameIndex	GRND	B	0	17
-	FrameIndex	GRND	C	0	18
-	FrameIndex	GRND	D	0	19
-	FrameIndex	GRND	E	0	20
-	FrameIndex	GRND	F	0	21
-	FrameIndex	GRND	G	0	22
-	FrameIndex	GRND	H	0	23
-	FrameIndex	GRND	I	0	24
-	FrameIndex	GRND	J	0	25
-	FrameIndex	GRND	K	0	26
+	// Flying nade (JGRN A-H, ThrownGrenade.Spawn) -- exact 1:1 match to reference GRND A-H (frames 16-23)
+	FrameIndex	JGRN	A	0	16
+	FrameIndex	JGRN	B	0	17
+	FrameIndex	JGRN	C	0	18
+	FrameIndex	JGRN	D	0	19
+	FrameIndex	JGRN	E	0	20
+	FrameIndex	JGRN	F	0	21
+	FrameIndex	JGRN	G	0	22
+	FrameIndex	JGRN	H	0	23
 }
 
 

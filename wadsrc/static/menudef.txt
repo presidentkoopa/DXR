@@ -4316,7 +4316,20 @@ OptionValue "SpriteShadowModes"
 	2, "$OPTVAL_SPRSHADALWAYS"
 }
 
-#include "vox_menudef.txt"
+// #include "vox_menudef.txt" -- MENUDEF has no #include directive (confirmed: zero "#include"/
+// "include" entries in menudef.cpp's keyword table, unlike DECORATE/GLDEFS which do have it).
+// Content merged directly below (only 11 lines, no name collisions).
+AddOptionMenu "OptionsMenu"
+{
+   SubMenu "Voxel Options",   "RV_Options"
+}
+
+OptionMenu "RV_Options"
+{
+	Title "Reikall's Voxels"
+	//Option "Voxel rendering", r_drawvoxels, "OnOff"
+	Option "Auto-rotate decorations (next map)", sv_wallcheck, "OnOff"
+}
 
 OptionValue VisualFidelity
 {
@@ -4335,7 +4348,8 @@ OptionMenu VRDoomXRGameplayOptions
 	StaticText ""
 	StaticText "Visual Fidelity", gold
 	Option "System Performance / Effects", "vr_visual_fidelity", "VisualFidelity"
-	
+	Option "Vanilla Barrel Explosion", "vr_barrel_vanilla_explosion", "OnOff"
+
 	StaticText ""
 	StaticText "Weapon Replacement Rates", gold
 	Slider "Flamethrower replaces Chainsaw %", "vr_chainsaw_flame_chance", 0, 100, 5, 0
@@ -4343,6 +4357,7 @@ OptionMenu VRDoomXRGameplayOptions
 	Slider "SMG replaces Chaingun %", "vr_chaingun_smg_chance", 0, 100, 5, 0
 	Slider "Revolver replaces Pistol/Rifle %", "vr_weapon_revolver_chance", 0, 100, 5, 0
 	Option "Ballistic Bullet Drop (Realism)", "vr_ballistic_drop", "OnOff"
+	Option "Incinerator Leaves Fire", "vr_incinerator_ignite", "OnOff"
 	
 	StaticText ""
 	StaticText "Starting Gear", gold
@@ -4356,9 +4371,7 @@ OptionMenu VRDoomXRGameplayOptions
 	Option "Show Throw Trajectory Arc", "vr_grenade_trajectory", "OnOff"
 	
 	StaticText ""
-	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_visual_fidelity vr_chainsaw_flame_chance vr_chaingun_rifle_chance vr_chaingun_smg_chance vr_weapon_revolver_chance vr_start_with_rifle vr_grenade_trajectory vr_weapon_throwable vr_spawn_models"
-}
-
+	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_visual_fidelity vr_barrel_vanilla_explosion vr_chainsaw_flame_chance vr_chaingun_rifle_chance vr_chaingun_smg_chance vr_weapon_revolver_chance vr_incinerator_ignite vr_start_with_rifle vr_grenade_trajectory vr_weapon_throwable vr_spawn_models"
 }
 
 // ============================================================================

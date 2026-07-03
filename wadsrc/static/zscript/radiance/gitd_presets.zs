@@ -6,9 +6,13 @@
 // works in-game (VR, no console). gitd_preset_apply <n>.
 //
 // Presets:
-//   1 = BLACKOUT  -- pure-black DarkDoom; base glow OFF; only COMBAT lights the
-//                    void: death FX, enemy-hit glows, reactive killstreak floor.
-//                    The signature look - an arena that's painted by violence.
+//   1  = BLACKOUT     -- pure-black DarkDoom; base glow OFF; only COMBAT lights
+//                        the void: death FX, enemy-hit glows, reactive killstreak.
+//   3  = NEON CHAOS    -- every room its own wild colour, breathing over time.
+//   4  = RED ALERT      -- the whole arena throbs alarm-red.
+//   5  = COLD FRONT      -- deep-blue floors fading to icy-white ceilings.
+//   6  = NEON UNISON      -- one synchronized colour, gently pulsing.
+//   21 = ATOMIC PILE       -- sickly green-yellow radioactive glow, slow heavy pulse.
 // ============================================================================
 //
 // ROLE IN GITD: This is the user-facing "front door" to the whole
@@ -32,68 +36,29 @@ class GITD_PresetHandler : EventHandler   // EventHandler so it can receive nete
             switch (which)
             {
                 case 1:  ApplyBlackout();    break;
-                case 2:  ApplyAurora();      break; // Added
-                case 3:  ApplyNeonChaos();   break; // Added
+                case 3:  ApplyNeonChaos();   break;
                 case 4:  ApplyRedAlert();    break;
                 case 5:  ApplyColdFront();   break;
                 case 6:  ApplyNeonUnison();  break;
-                case 7:  ApplyInferno();     break; // Added
-                case 8:  ApplyVaporwave();   break; // Added
-                case 9:  ApplySolarFlare();  break; // Added (Meltdown)
-                case 10: ApplyGhost();       break; // Added
-                case 11: ApplySynthwaveDusk(); break;
-                case 12: ApplyCyberpunkRain(); break;
-                case 13: ApplySystemShock();  break; // NEW
-                case 14: ApplyTron();         break; // NEW
-                case 15: ApplyVaporwaveChill(); break;
-                case 16: ApplyOverdriveRainbow(); break;
-                case 17: ApplyMeltdown();     break; // NEW (Chroma Overdrive based)
-                case 18: ApplyNebulaDream();  break;
-                case 19: ApplyChromaOverdrive(); break;
-                case 20: ApplyGridSweep();    break;
+                case 21: ApplyAtomicPile();  break;
             }
         }
     }
 
-    // ... (SetI, SetF, ApplyBlackout, GlowBase, ApplyNeonUnison, ApplyNeonChaos, ApplyRedAlert, ApplyColdFront, ApplyVaporwave, ApplyAurora, ApplyInferno, ApplyGhost, ApplySynthwaveDusk, ApplyCyberpunkRain, ApplyVaporwaveChill, ApplyOverdriveRainbow, ApplySolarFlare, ApplyNebulaDream, ApplyChromaOverdrive, ApplyGridSweep already there)
-
-    void ApplyMeltdown()
+    // --- CVar write helpers. Every preset writes through these so the class
+    // has one place that resolves the cvar and one place a typo would surface. ---
+    void SetI(string name, int val)
     {
-        ApplyChromaOverdrive();
-        SetF("vr_neon_glow", 8.0);
-        SetF("vr_neon_pulse_speed", 5.0);
-        SetI("vr_blackout_mode", 1);
-        Console.Printf("\c[Orange]GITD: MELTDOWN.");
+        CVar cv = CVar.GetCVar(name, players[consoleplayer]);
+        if (!cv) cv = CVar.FindCVar(name);
+        if (cv) cv.SetInt(val);
     }
 
-    void ApplySystemShock()
+    void SetF(string name, double val)
     {
-        ApplyBlackout();
-        SetI("vr_blackout_mode", 1);
-        SetI("vr_neon_color_a", 0x00FF00); // Matrix Green
-        SetI("vr_neon_color_b", 0x008000);
-        SetF("vr_neon_thickness", 1.5);
-        SetI("gitd_wall_pattern", 2);      // Light Grid
-        SetI("gitd_floor_mode", 0);        // Static
-        SetI("gitd_floor_enabled", 1);
-        SetI("gitd_floor_color", 0x002000);
-        Console.Printf("\c[Green]GITD: SYSTEM SHOCK.");
-    }
-
-    void ApplyTron()
-    {
-        ApplyBlackout();
-        SetI("vr_blackout_mode", 1);
-        SetI("vr_neon_color_a", 0x00FFFF); // Tron Cyan
-        SetI("vr_neon_color_b", 0xFF8000); // Tron Orange
-        SetF("vr_neon_thickness", 1.2);
-        SetI("gitd_wall_pattern", 2);      // Light Grid
-        SetI("gitd_floor_mode", 0);
-        SetI("gitd_floor_enabled", 1);
-        SetI("gitd_floor_color", 0x001020);
-        SetI("gitd_ceil_enabled", 1);
-        SetI("gitd_ceil_color", 0x001020);
-        Console.Printf("\c[Cyan]GITD: TRON.");
+        CVar cv = CVar.GetCVar(name, players[consoleplayer]);
+        if (!cv) cv = CVar.FindCVar(name);
+        if (cv) cv.SetFloat(val);
     }
 
     // Applies the BLACKOUT preset: kill all ambient light, leave only combat to
@@ -184,7 +149,6 @@ class GITD_PresetHandler : EventHandler   // EventHandler so it can receive nete
         SetF("gitd_floor_speed",     1.0);
         SetF("gitd_ceil_speed",      1.0);
         SetF("gitd_wall_speed",      1.0);
-        SetI("gitd_gridsweep",       0);
     }
 
     // One unified complementary color pair on planes, gently pulsing.
@@ -192,7 +156,7 @@ class GITD_PresetHandler : EventHandler   // EventHandler so it can receive nete
     {
         GlowBase();
         SetI("ddz_preset",          3);
-        
+
         // Pick a synchronized beautiful starting color
         int pair = random[PresetUnison](0, 2);
         int col = 0x28DCFF; // electric cyan
@@ -263,234 +227,24 @@ class GITD_PresetHandler : EventHandler   // EventHandler so it can receive nete
         Console.Printf("\c[Cyan]GITD: Cold Front.");
     }
 
-    // Magenta floor, cyan ceiling, dreamy breathing gradient.
-    void ApplyVaporwave()
+    // Atomic Pile: sickly green-yellow radioactive floor & walls, dull olive
+    // ceiling, slow heavy pulse like a reactor breathing. First-pass values --
+    // retune via the sliders in Floor/Ceiling/Wall Glow or Advanced.
+    void ApplyAtomicPile()
     {
         GlowBase();
-        SetI("ddz_preset",          3);
-        SetI("gitd_floor_color",    0xFF2DC6);   // magenta floor
-        SetI("gitd_ceil_color",     0x29E6FF);   // cyan ceiling
-        SetI("gitd_wall_color",     0xFF2DC6);   // magenta walls
-        SetI("gitd_floor_mode",     2);          // breathe
-        SetI("gitd_ceil_mode",      2);
-        SetI("gitd_wall_mode",      2);
-        SetF("gitd_floor_speed",    0.6);
-        SetF("gitd_ceil_speed",     0.6);
-        SetF("gitd_wall_speed",     0.6);
-        Console.Printf("\c[Cyan]GITD: Vaporwave.");
+        SetI("ddz_preset",          4);          // darker canvas, radioactive glow reads hot
+        SetI("gitd_floor_color",    0x9ACD00);   // radioactive green-yellow
+        SetI("gitd_ceil_color",     0x4B5A00);   // dull olive ceiling
+        SetI("gitd_wall_color",     0x9ACD00);   // radioactive green-yellow
+        SetI("gitd_floor_mode",     1);          // pulse
+        SetI("gitd_ceil_mode",      2);          // breathe
+        SetI("gitd_wall_mode",      1);          // pulse
+        SetF("gitd_floor_speed",    0.35);       // slow, heavy
+        SetF("gitd_ceil_speed",     0.25);
+        SetF("gitd_wall_speed",     0.35);
+        SetF("gitd_floor_intensity", 1.3);
+        SetF("gitd_wall_intensity",  1.3);
+        Console.Printf("\c[Green]GITD: Atomic Pile.");
     }
-
-
-    // Hues drift smoothly room to room like northern lights.
-    void ApplyAurora()
-    {
-        GlowBase();
-        SetI("ddz_preset",           2);         // dim, soft
-        SetI("hf_glow_random",       1);
-        SetI("hf_glow_random_mode",  2);         // hue drift (cohesive)
-        SetF("hf_glow_random_drift", 18.0);
-        SetI("hf_glow_mode",         2);         // breathe
-        Console.Printf("\c[Cyan]GITD: Aurora.");
-    }
-
-    // Fast, churning hue-drift -- dark and intense.
-    void ApplyInferno()
-    {
-        GlowBase();
-        SetI("ddz_preset",           4);          // darker, high contrast
-        SetI("hf_glow_random",       1);
-        SetI("hf_glow_random_mode",  2);          // hue drift (cohesive room-to-room sweep)
-        SetF("hf_glow_random_drift", 30.0);       // fast churn between rooms
-        SetI("hf_glow_mode",         1);          // pulse / flicker
-        SetF("hf_glow_intensity",    1.2);
-        Console.Printf("\c[Cyan]GITD: Inferno.");
-    }
-
-    // Slow, faint hue-drift in near-total black. Eerie and minimal.
-    void ApplyGhost()
-    {
-        GlowBase();
-        SetI("ddz_preset",           6);          // murky, near-black
-        SetI("hf_glow_random",       1);
-        SetI("hf_glow_random_mode",  2);          // hue drift (cohesive room-to-room sweep)
-        SetF("hf_glow_random_drift", 6.0);        // slow, barely-there shift
-        SetI("hf_glow_mode",         2);          // slow breathe
-        SetF("hf_glow_intensity",    0.6);        // faint
-        Console.Printf("\c[Cyan]GITD: Ghost.");
-    }
-
-    // Synthwave Dusk: Hot orange ceiling, deep violet floor, neon magenta walls.
-    void ApplySynthwaveDusk()
-    {
-        GlowBase();
-        SetI("ddz_preset",           3);          // dark canvas
-        SetI("gitd_floor_color",      0x6A0DAD);   // violet
-        SetI("gitd_ceil_color",       0xFF5A14);   // hot orange
-        SetI("gitd_wall_color",       0xFF007F);   // neon magenta
-        SetI("gitd_floor_mode",      2);          // breathe
-        SetI("gitd_ceil_mode",       2);          // breathe
-        SetI("gitd_wall_mode",       1);          // pulse
-        SetF("gitd_floor_speed",     0.5);
-        SetF("gitd_ceil_speed",      0.5);
-        SetF("gitd_wall_speed",      1.2);
-        
-        // BloomBoost settings
-        SetI("gitd_bloom",           1);
-        SetF("gitd_bloom_strength",  1.0);
-        SetF("gitd_bloomboost_gamma", 1.0);
-        SetF("gitd_bloomboost_contrast", 140.0);
-        SetF("gitd_bloomboost_brightness", 15.0);
-        
-        Console.Printf("\c[Pink]GITD: Synthwave Dusk.");
-    }
-
-
-    // Cyberpunk Rain: Neon magenta floor, electric cyan ceiling, yellow walls, rapid breathe.
-    void ApplyCyberpunkRain()
-    {
-        GlowBase();
-        SetI("ddz_preset",           3);
-        SetI("gitd_floor_color",      0xFF007F);   // neon magenta
-        SetI("gitd_ceil_color",       0x00F0FF);   // electric cyan
-        SetI("gitd_wall_color",       0xFFFF00);   // yellow
-        SetI("gitd_floor_mode",      2);          // breathe
-        SetI("gitd_ceil_mode",       2);          // breathe
-        SetI("gitd_wall_mode",       1);          // pulse
-        SetF("gitd_floor_speed",     2.5);        // rapid
-        SetF("gitd_ceil_speed",      2.5);
-        SetF("gitd_wall_speed",      3.0);
-        
-        // BloomBoost settings
-        SetI("gitd_bloom",           1);
-        SetF("gitd_bloom_strength",  1.2);
-        SetF("gitd_bloomboost_gamma", 1.0);
-        SetF("gitd_bloomboost_contrast", 150.0);
-        SetF("gitd_bloomboost_brightness", 20.0);
-        
-        Console.Printf("\c[Pink]GITD: Cyberpunk Rain.");
-    }
-
-    // Vaporwave Chill: Dreamy lavender floor, peach ceiling, hot-pink walls, slow relaxing breath.
-    void ApplyVaporwaveChill()
-    {
-        GlowBase();
-        SetI("ddz_preset",           3);
-        SetI("gitd_floor_color",      0x9370DB);   // lavender
-        SetI("gitd_ceil_color",       0xFFB07C);   // peach
-        SetI("gitd_wall_color",       0xFF69B4);   // hot-pink
-        SetI("gitd_floor_mode",      2);          // breathe
-        SetI("gitd_ceil_mode",       2);          // breathe
-        SetI("gitd_wall_mode",       2);          // breathe
-        SetF("gitd_floor_speed",     0.2);        // very slow chill
-        SetF("gitd_ceil_speed",      0.2);
-        SetF("gitd_wall_speed",      0.15);
-        
-        // BloomBoost settings
-        SetI("gitd_bloom",           1);
-        SetF("gitd_bloom_strength",  0.8);
-        SetF("gitd_bloomboost_gamma", 1.1);
-        SetF("gitd_bloomboost_contrast", 120.0);
-        SetF("gitd_bloomboost_brightness", 10.0);
-        
-        Console.Printf("\c[Cyan]GITD: Vaporwave Chill.");
-    }
-
-    // Overdrive Rainbow: Shifting rainbow cycles on all three planes chasing each other.
-    void ApplyOverdriveRainbow()
-    {
-        GlowBase();
-        SetI("ddz_preset",           4);          // dark high contrast
-        SetI("gitd_floor_mode",      4);          // rainbow cycle
-        SetI("gitd_ceil_mode",       4);          // rainbow cycle
-        SetI("gitd_wall_mode",       4);          // rainbow cycle
-        SetF("gitd_floor_speed",     1.5);        // offset speeds
-        SetF("gitd_ceil_speed",      1.2);
-        SetF("gitd_wall_speed",      1.8);
-        
-        // BloomBoost settings
-        SetI("gitd_bloom",           1);
-        SetF("gitd_bloom_strength",  1.6);
-        SetF("gitd_bloomboost_gamma", 0.95);
-        SetF("gitd_bloomboost_contrast", 160.0);
-        SetF("gitd_bloomboost_brightness", 22.0);
-        
-        Console.Printf("\c[Orange]GITD: Overdrive Rainbow.");
-    }
-
-    // Solar Flare: Molten crimson floor, roaring gold ceiling, and pulsing solar orange walls.
-    void ApplySolarFlare()
-    {
-        GlowBase();
-        SetI("ddz_preset",           4);          // high-contrast dark canvas
-        SetI("gitd_floor_color",      0x500000);   // molten crimson/maroon
-        SetI("gitd_ceil_color",       0xFFD700);   // roaring gold/yellow
-        SetI("gitd_wall_color",       0xFF4500);   // solar orange
-        SetI("gitd_floor_mode",      1);          // pulse (molten bubbling)
-        SetI("gitd_ceil_mode",       2);          // breathe (slow solar hum)
-        SetI("gitd_wall_mode",       1);          // pulse
-        SetF("gitd_floor_speed",     0.4);        // sluggish molten flow
-        SetF("gitd_ceil_speed",      0.3);        // massive scale
-        SetF("gitd_wall_speed",      1.5);        // active heat
-        
-        // BloomBoost settings (Solar flare is super bright)
-        SetI("gitd_bloom",           1);
-        SetF("gitd_bloom_strength",  1.8);
-        SetF("gitd_bloomboost_gamma", 0.85);
-        SetF("gitd_bloomboost_contrast", 175.0);
-        SetF("gitd_bloomboost_brightness", 25.0);
-        
-        Console.Printf("\c[Orange]GITD: Solar Flare.");
-    }
-
-    // Nebula Dream: Deep stardust pink ceiling, cosmic indigo walls, and deep teal floor.
-    void ApplyNebulaDream()
-    {
-        GlowBase();
-        SetI("ddz_preset",           3);          // soft dark canvas
-        SetI("gitd_floor_color",      0x008080);   // deep teal floor
-        SetI("gitd_ceil_color",       0xFF69B4);   // stardust pink ceiling
-        SetI("gitd_wall_color",       0x4B0082);   // indigo walls
-        SetI("gitd_floor_mode",      2);          // breathe
-        SetI("gitd_ceil_mode",       2);          // breathe
-        SetI("gitd_wall_mode",       2);          // breathe
-        SetF("gitd_floor_speed",     0.25);       // slow stardust float
-        SetF("gitd_ceil_speed",      0.2);
-        SetF("gitd_wall_speed",      0.15);
-        
-        // BloomBoost settings
-        SetI("gitd_bloom",           1);
-        SetF("gitd_bloom_strength",  1.1);
-        SetF("gitd_bloomboost_gamma", 1.05);
-        SetF("gitd_bloomboost_contrast", 135.0);
-        SetF("gitd_bloomboost_brightness", 12.0);
-        
-        Console.Printf("\c[Pink]GITD: Nebula Dream.");
-    }
-
-    // Chroma Overdrive: Blazing magenta ceiling, hot purple floor, and screaming neon-lime walls.
-    void ApplyChromaOverdrive()
-    {
-        GlowBase();
-        SetI("ddz_preset",           4);          // dark canvas
-        SetI("gitd_floor_color",      0x9400D3);   // hot purple floor
-        SetI("gitd_ceil_color",       0xFF00FF);   // blazing magenta ceiling
-        SetI("gitd_wall_color",       0x00FF00);   // neon-lime walls
-        SetI("gitd_floor_mode",      1);          // pulse
-        SetI("gitd_ceil_mode",       2);          // breathe
-        SetI("gitd_wall_mode",       1);          // pulse
-        SetF("gitd_floor_speed",     2.2);        // high-frequency throb
-        SetF("gitd_ceil_speed",      2.0);
-        SetF("gitd_wall_speed",      2.5);
-        
-        // BloomBoost settings (Heavy, blinding over-saturated contrast)
-        SetI("gitd_bloom",           1);
-        SetF("gitd_bloom_strength",  2.0);
-        SetF("gitd_bloomboost_gamma", 0.75);
-        SetF("gitd_bloomboost_contrast", 195.0);
-        SetF("gitd_bloomboost_brightness", 32.0);
-        
-        Console.Printf("\c[Green]GITD: Chroma Overdrive.");
-    }
-
-
 }

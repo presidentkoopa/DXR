@@ -25,7 +25,7 @@ class GITD_ShaderBridge : StaticEventHandler
 		if (!e.Thing) return;
 		
 		// Catch common impact/explosion markers
-		if (e.Thing is "RocketExplosion" || e.Thing is "BulletPuff" || e.Thing is "Explosion")
+		if (e.Thing is "BulletPuff" || e.Thing is "GrenadeExplosionEffect" || e.Thing is "BFGExtra")
 		{
 			lastImpactPos = e.Thing.Pos;
 			lastImpactTime = level.maptime;
@@ -43,7 +43,7 @@ class GITD_ShaderBridge : StaticEventHandler
 			lastHealth = pi.health;
 
 			// Firing detection
-			if (pi.WeaponState & WF_WEAPONREADYINV) { /* not firing */ }
+			if (pi.WeaponState & WF_WEAPONREADY) { /* not firing */ }
 			else if (pi.mo.player.ReadyWeapon && pi.mo.player.WeaponState & WF_WEAPONBOBBING) { /* not firing */ }
 			else { lastFireTime = level.maptime; }
 		}
@@ -52,58 +52,17 @@ class GITD_ShaderBridge : StaticEventHandler
 	// Sync every UI tick to ensure sliders and reactive effects feel responsive.
 	override void UiTick()
 	{
-		// --- Atmospheric Fog Suite ---
-		Shader.SetUniformInt("main", "u_gitd_fog_mode",      CVar.GetCVar("gitd_fog_mode").GetInt());
-		Shader.SetUniformFloat("main", "u_gitd_fog_density",  CVar.GetCVar("gitd_fog_density").GetFloat());
-		Shader.SetUniformFloat("main", "u_gitd_fog_height",   CVar.GetCVar("gitd_fog_height").GetFloat());
-		Shader.SetUniformFloat("main", "u_gitd_fog_quantize", CVar.GetCVar("gitd_fog_quantize").GetFloat());
-		Shader.SetUniformFloat("main", "u_gitd_fog_rim_power", CVar.GetCVar("gitd_fog_rim_power").GetFloat());
-		Shader.SetUniformInt("main", "u_gitd_fog_lightlink",  CVar.GetCVar("gitd_fog_lightlink").GetBool());
-		Shader.SetUniformFloat("main", "u_gitd_fog_speed",    CVar.GetCVar("gitd_fog_speed").GetFloat());
-
-		// --- Global Visual Regimes ---
-		Shader.SetUniformInt("main", "u_vr_visual_regime",    CVar.GetCVar("vr_visual_regime").GetInt());
-		Shader.SetUniformFloat("main", "u_vr_regime_param1",  CVar.GetCVar("vr_regime_param1").GetFloat());
-		Shader.SetUniformFloat("main", "u_vr_regime_param2",  CVar.GetCVar("vr_regime_param2").GetFloat());
-		Shader.SetUniformFloat("main", "u_vr_regime_speed",   CVar.GetCVar("vr_regime_speed").GetFloat());
-		
-		// Reactive CVars
-		Shader.SetUniformInt("main", "u_vr_regime_react",     CVar.GetCVar("vr_regime_react").GetBool());
-		Shader.SetUniformInt("main", "u_vr_regime_center_mask", CVar.GetCVar("vr_regime_center_mask").GetBool());
-		Shader.SetUniformFloat("main", "u_vr_regime_bubble_size", CVar.GetCVar("vr_regime_bubble_size").GetFloat());
-		Shader.SetUniformFloat("main", "u_vr_regime_jitter",   CVar.GetCVar("vr_regime_jitter").GetFloat());
-		Shader.SetUniformInt("main", "u_vr_regime_speed_link", CVar.GetCVar("vr_regime_speed_link").GetBool());
-		Shader.SetUniformFloat("main", "u_vr_regime_ping_inten", CVar.GetCVar("vr_regime_ping_inten").GetFloat());
-
-		// Advanced Customization
-		Shader.SetUniformVec3("main", "u_vr_blueprint_col",   CVar.GetCVar("vr_regime_blueprint_col").GetColor());
-		Shader.SetUniformFloat("main", "u_vr_thermal_inten",  CVar.GetCVar("vr_regime_thermal_inten").GetFloat());
-		Shader.SetUniformFloat("main", "u_vr_noir_sat",       CVar.GetCVar("vr_regime_noir_sat").GetFloat());
-		Shader.SetUniformInt("main", "u_vr_ripples_enabled",  CVar.GetCVar("vr_regime_ripples").GetBool());
-		Shader.SetUniformFloat("main", "u_vr_ripple_scale",   CVar.GetCVar("vr_regime_ripple_scale").GetFloat());
-
-		// Impact Data Sync
-		Shader.SetUniformVec3("main", "u_gitd_last_impact_pos", lastImpactPos);
-		Shader.SetUniformFloat("main", "u_gitd_last_impact_time", float(lastImpactTime) / 35.0);
-
-		// --- Gameplay Event Uniforms ---
-		Shader.SetUniformFloat("main", "u_gitd_last_hit_time",  float(lastHitTime) / 35.0);
-		Shader.SetUniformFloat("main", "u_gitd_last_fire_time", float(lastFireTime) / 35.0);
-		
-		PlayerInfo pi = players[consoleplayer];
-		if (pi && pi.mo)
-		{
-			Shader.SetUniformFloat("main", "u_gitd_player_speed", pi.mo.Vel.Length() / 32.0); // Normalized speed
-		}
-		
-		// Sync Killstreak Heat
-		Shader.SetUniformFloat("main", "u_gitd_kill_streak",  CVar.GetCVar("hf_glow_killstreak").GetBool() ? GetKillstreakHeat() : 0.0);
+		// GITD fog / visual-regime / impact / gameplay-event uniforms were pushed here via
+		// Shader.SetUniform{Int,Float,Vec3}("main", ...) -- methods that DO NOT EXIST for the scene
+		// shader (and would target a post-process path that can't reach main.fp anyway). Those uniforms
+		// now live in the StreamData UBO (hw_renderstate.h + vk_shader.cpp), defaulting to OFF. A live
+		// per-frame feed (cvars + events -> a C++ global copied in FRenderState::Reset) is the B2 follow-up.
 
 		// --- BloomBoost & Adrenaline Bloom ---
 		syncBloomBoost();
 	}
 
-	void syncBloomBoost()
+	ui void syncBloomBoost()
 	{
 		PlayerInfo pi = players[consoleplayer];
 		if (!pi) return;
@@ -151,9 +110,10 @@ class GITD_ShaderBridge : StaticEventHandler
 
 	float GetKillstreakHeat()
 	{
-		// Find the global handler to get smooth heat value
-		ThinkerIterator it = ThinkerIterator.Create("HF_GlowHandler", Stat_Static);
-		HF_GlowHandler h = HF_GlowHandler(it.Next());
+		// HF_GlowHandler is an EventHandler singleton, not a Thinker -- ThinkerIterator can never
+		// see it. The real native lookup for a StaticEventHandler/EventHandler instance is
+		// StaticEventHandler.Find() (events.zs), which is clearscope.
+		HF_GlowHandler h = HF_GlowHandler(StaticEventHandler.Find("HF_GlowHandler"));
 		return h ? h.ksHeat : 0.0;
 	}
 }

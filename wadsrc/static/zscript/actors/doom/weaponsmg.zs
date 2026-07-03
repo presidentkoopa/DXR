@@ -14,6 +14,7 @@ class SMG : DoomWeapon
 		Weapon.AmmoType "Clip";
 		Inventory.PickupMessage "Picked up an SMG!";
 		Tag "SMG";
+		Obituary "%o was cut down by %k's SMG.";
 		Keywords "mass:40", "grab", "class:smg", "dmg:ballistic", "style:rapid", "weight:medium", "range:short", "fire:auto", "role:skirmisher";
 	}
 	States
@@ -25,22 +26,25 @@ class SMG : DoomWeapon
 		SMGS A 1 A_Lower;
 		Loop;
 	Select:
-		SMGS A 1 
+		SMGS A 1
 		{
 			A_Raise();
 			A_DataSiphonEquip();
 		}
 		Loop;
 	Fire:
-		SMGG A 2 Bright 
+		SMGG A 2
 		{
 			A_FireBullets(2.5, 2.5, -1, 5, "BulletPuff");
-			A_StartSound("weapons/smg", CHAN_WEAPON);
-			A_VRRecoil(0.15);
+			A_StartSound("weapons/smgfire", CHAN_WEAPON);
+			A_Recoil(0.15);
 		}
-		SMGG B 2 Bright;
+		SMGG B 2;
 		SMGG B 0 A_ReFire;
 		Goto Ready;
+	Flash:
+		TNT1 A 2 Bright A_Light1;
+		Goto LightDone;
 	Spawn:
 		SMP1 A 0 A_CheckSpawnModel();
 		SMP1 A -1;

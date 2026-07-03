@@ -293,3 +293,29 @@ weapons/gbang5          gbang5
 weapons/gbang6          gbang6
 weapons/gbang7          gbang7
 weapons/gbang8          gbang8
+
+//===========================================================================
+//
+// Burn-death & barrel-explosion sounds
+//
+//===========================================================================
+
+$random hf/burndeath { hf/burnzob1 hf/burnzob2 hf/burnzob3 hf/burnzom1 hf/burnzom2 hf/burnzom3 }
+hf/burnzob1             hf_burnzob1
+hf/burnzob2             hf_burnzob2
+hf/burnzob3             hf_burnzob3
+hf/burnzom1             hf_burnzom1
+hf/burnzom2             hf_burnzom2
+hf/burnzom3             hf_burnzom3
+
+hf/burnloop              hf_burnloop
+hf/burnloopsmall         hf_burnloopsm
+
+$random world/barrelx { world/barrelx1 world/barrelx2 world/barrelx3 world/barrelx4 world/barrelx5 world/barrelx6 world/barrelx7 }
+world/barrelx1          dsbarex1
+world/barrelx2          dsbarex2
+world/barrelx3          dsbarex3
+world/barrelx4          dsbarex4
+world/barrelx5          dsbarex5
+world/barrelx6          dsbarex6
+world/barrelx7          dsbarex7

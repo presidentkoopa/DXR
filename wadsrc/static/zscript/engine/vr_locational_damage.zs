@@ -14,14 +14,19 @@ class VRLocationalArbiter : StaticEventHandler
         // We only care about attacks on shootable actors (monsters/players)
         if (!e.Thing.bShootable) return;
 
-        // Calculate the hit ratio along the mathematical cylinder height
-        // HitLocation is populated by the engine during LineAttack/FastProjectile impact
+        // Calculate the hit ratio along the mathematical cylinder height.
+        // WorldThingDamaged carries no per-shot hit point (DamagePosition is only populated
+        // for WorldHitscanFired/WorldRailgunFired, not this event) -- e.Thing.HitLocation was
+        // never a real field (Actor has none by that name). Use e.Inflictor's height instead,
+        // the same proxy the live native C++ locational system (p_interaction.cpp) already uses.
+        if (!e.Inflictor) return;
+
         double victimZ = e.Thing.Pos.Z;
         double victimHeight = e.Thing.Height;
-        
+
         if (victimHeight <= 0) return;
 
-        double hitZ = e.Thing.HitLocation.Z;
+        double hitZ = e.Inflictor.Pos.Z;
         double zRatio = (hitZ - victimZ) / victimHeight;
 
         // Fetch dynamic bounds from CVars
@@ -30,7 +35,7 @@ class VRLocationalArbiter : StaticEventHandler
         double headMult = CVar.GetCVar("vr_locational_head_mult").GetFloat();
         double legMult = CVar.GetCVar("vr_locational_leg_mult").GetFloat();
 
-        int damageMultiplier = 1.0;
+        int damageMultiplier = 1;
         String zoneTag = "torso";
 
         // Dynamic Bounding Logic
@@ -38,7 +43,7 @@ class VRLocationalArbiter : StaticEventHandler
         {
             // HEADSHOT
             zoneTag = "head";
-            e.NewDamage = e.Damage * headMult;
+            e.NewDamage = int(e.Damage * headMult);
             
             // Detect Hand Source for Combo System
             String handTag = "hand:main";
@@ -60,7 +65,7 @@ class VRLocationalArbiter : StaticEventHandler
         {
             // LEGSHOT
             zoneTag = "legs";
-            e.NewDamage = e.Damage * legMult;
+            e.NewDamage = int(e.Damage * legMult);
             
             e.Thing.lastHitZone = "legs";
             

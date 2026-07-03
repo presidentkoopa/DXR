@@ -10,6 +10,26 @@ server float vr_locational_head_threshold = 0.8;
 server float vr_locational_leg_threshold = 0.3;
 user bool vr_debug_locational = false;
 
+// --- Barrel Explosion ---
+// Pretty grenade-style fireball (at 60% scale) is layered on the barrel by default. Set this
+// true to get the plain stock BEXP-only explosion instead. Declared here (engine CVARINFO)
+// rather than a mod's cvarinfo because doommisc.zs references it directly.
+user bool vr_barrel_vanilla_explosion = false;
+
+// --- Reikall's Voxels auto-rotate (vox_decorate.txt / vox_menudef.txt) ---
+// Referenced via GetCVAR("sv_wallcheck") in vox_decorate.txt (RV_Berserk/RV_Allmap/
+// RV_Candelabra gate their WallCheck-based auto-rotate logic on it) and exposed as a menu
+// toggle, but was never declared anywhere -- that gate has always silently defaulted to "off".
+server bool sv_wallcheck = true;
+
+// --- Visual Fidelity (particle-count scaling) ---
+// Referenced via CVar.GetCVar(...).GetInt() with no null-check in weaponflame.zs,
+// weaponrlaunch.zs, vr_voxel_assembly.zs, and vr_rom_load.zs -- was never declared anywhere,
+// so GetCVar returned null and the chained .GetInt() call would null-deref crash the instant
+// any of those code paths ran (firing the flamethrower/rocket launcher, voxel assembly, or
+// map load). 0-3 matches the "1 + fidelity" particle-count scaling already used at each site.
+user int vr_visual_fidelity = 1;
+
 // --- Procedural Sigil Customization ---
 user color vr_sigil_color_head = "ff 19 19"; // Sharp Red
 user color vr_sigil_color_legs = "33 ff 33"; // Green
@@ -150,6 +170,10 @@ user float vr_neon_glow = 3.0;
 user color vr_neon_color_a = "00 ff ff"; // Cyan
 user color vr_neon_color_b = "ff 00 ff"; // Pink
 user float vr_neon_pulse_speed = 2.0;
+
+// Optional: incinerator (vanilla weapon) leaves a burning fire patch on impact, like our
+// flamethrower. Off by default -- opt-in so the vanilla weapon stays untouched otherwise.
+server bool vr_incinerator_ignite = false;
 
 server float vr_chainsaw_flame_chance = 0.0;
 server float vr_chaingun_rifle_chance = 0.0;

@@ -26,8 +26,8 @@ class GITD_BrassCasing : Actor
 	int    dmg;          // the damage number stamped on this casing
 	int    life;
 	int    maxl;
-	Vector3 vel;
-	double  floorZ;      // resting plane (player-foot height near where it lands)
+	Vector3 pvel;
+	double  restZ;      // resting plane (player-foot height near where it lands)
 	double  spin;        // accumulated tumble angle (radians)
 	double  spinRate;    // radians per tic
 	int     bounces;     // how many times it has clinked
@@ -43,20 +43,20 @@ class GITD_BrassCasing : Actor
 		if (life > maxl) { Destroy(); return; }
 
 		// ---- integrate motion ----
-		Vector3 np = pos + vel;
+		Vector3 np = pos + pvel;
 
 		bool grounded = (bounces >= 3) || (restTimer > 0);
 		if (!grounded)
 		{
-			vel.z  -= 1.05;     // gravity (heavier than a dampop -> a real little casing)
-			vel.xy *= 0.985;    // light air drag
+			pvel.z  -= 1.05;     // gravity (heavier than a dampop -> a real little casing)
+			pvel.xy *= 0.985;    // light air drag
 
 			// ---- BOUNCE off the floor ----
-			if (np.z <= floorZ && vel.z < 0)
+			if (np.z <= restZ && pvel.z < 0)
 			{
-				np.z = floorZ;
-				vel.z = -vel.z * 0.42;          // damp the rebound
-				vel.xy *= 0.55;                 // scrub sideways speed on impact
+				np.z = restZ;
+				pvel.z = -pvel.z * 0.42;          // damp the rebound
+				pvel.xy *= 0.55;                 // scrub sideways speed on impact
 				spinRate *= 0.6;                // tumble slows on each hit
 				bounces++;
 
@@ -64,14 +64,14 @@ class GITD_BrassCasing : Actor
 				GITD_BrassShard.Fire(np, color(255, 255, 244, 210));
 
 				// once it's barely moving, let it settle
-				if (abs(vel.z) < 1.2 && bounces >= 1) { vel.z = 0; bounces = 3; }
+				if (abs(pvel.z) < 1.2 && bounces >= 1) { pvel.z = 0; bounces = 3; }
 			}
 		}
 		else
 		{
 			// resting on the pile: kill residual drift, count down to fade-out
-			vel = (0, 0, 0);
-			np.z = floorZ;
+			pvel = (0, 0, 0);
+			np.z = restZ;
 			restTimer++;
 		}
 
@@ -142,7 +142,7 @@ class GITD_BrassCasing : Actor
 			if (L > 1.0) toPly = (d.x / L, d.y / L, 0);
 		}
 		// resting plane: just above the player's feet (so the pile sits at the boots).
-		c.floorZ = rz + 1.5;
+		c.restZ = rz + 1.5;
 
 		double side = frandom[gbrass](2.4, 4.2);          // sideways flick
 		double up   = frandom[gbrass](4.0, 6.5);          // pop up
@@ -152,7 +152,7 @@ class GITD_BrassCasing : Actor
 		Vector3 flick = (cos(a) * side + toPly.x * towardPlayer,
 		                 sin(a) * side + toPly.y * towardPlayer,
 		                 up);
-		c.vel = flick;
+		c.pvel = flick;
 
 		c.spin     = frandom[gbrass](0.0, 6.2831);
 		c.spinRate = frandom[gbrass](0.22, 0.46) * (random[gbrass](0,1) == 0 ? 1.0 : -1.0);
