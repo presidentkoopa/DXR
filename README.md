@@ -1,9 +1,9 @@
 ![Radiance Engine](https://github.com/iAmErmac/DoomXR/blob/doomxr/branding/banner.png)
 
-# ⚡ DoomXR 2.0: "The Wired" Engine Overhaul
+# ⚡ UntitledVRLightGUnGame - Engine Overhaul
 
 > [!IMPORTANT]
-> **Status: ACTIVE ENGINE RECONSTRUCTION**
+> **Status: ACTIVE ENGINE RECONSTRUCTION** -> Currently implementing portal stacking from Eternity Engine.
 > This project is currently undergoing a total transition from ZScript-driven proxies to high-performance, native C++ hardware implementation. Expect major architectural shifts in the rendering and physics pipelines.
 
 ## 📟 Project Vision
