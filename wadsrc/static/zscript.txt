@@ -51,7 +51,8 @@ version "4.14.2"
 
 // Weapon Logic
 #include "zscript/engine/vr_weapon_logic.zs"
-#include "zscript/engine/vr_blackout.zs"
+// vr_blackout.zs / VRBlackoutHandler moved to the Radiance Control Panel mod (its ZScript body is
+// empty/dormant anyway -- the actual monster-neon-outline feed is now pure C++, see hw_drawinfo.cpp).
 #include "zscript/events.zs"
 #include "zscript/destructible.zs"
 #include "zscript/level_postprocessor.zs"
@@ -344,31 +345,14 @@ version "4.14.2"
 
 #include "zscript/ui/intermission.zs"
 
-// --- Radiance & Glow In The Dark (GITD) ---
+// --- GunBonsai tooltip library (TFLV_TooltipOptionMenu/TFLV_Tooltip) -- kept here even though
+// GITD (which used it most) moved out to the standalone Radiance Control Panel mod, because ~29
+// OTHER non-GITD OptionMenu blocks in menudef.txt (VRCombatOptions etc.) also use these classes.
+// ZScript classes are visible across all loaded pk3s regardless of which one defines them, so the
+// mod's own GITD_Options menu (also class TFLV_TooltipOptionMenu) resolves this fine as long as
+// both pk3s are loaded together.
 #include "zscript/radiance/ca.ancilla.bonsai/libtooltipmenu/Tooltips.zsc"
 #include "zscript/radiance/ca.ancilla.bonsai/libtooltipmenu/TooltipOptionMenu.zsc"
-#include "zscript/radiance/gitd3_deathfx.zs"
-#include "zscript/radiance/gitd_glow.zs"
-#include "zscript/radiance/gitd_dark.zs"
-#include "zscript/radiance/gitd_presets.zs"
-#include "zscript/radiance/gitd_bloom.zs"
-#include "zscript/radiance/gitd_muzzle.zs"
-#include "zscript/radiance/gy_EventHandler.zs"
-#include "zscript/radiance/gy_Death.zs"
-#include "zscript/radiance/gy_Storage.zs"
-#include "zscript/radiance/gy_Stone.zs"
-#include "zscript/radiance/gy_VmAbortHandler.zs"
-#include "zscript/radiance/gitd_flatglow.zs"
-#include "zscript/radiance/gitd_gallery.zs"
-#include "zscript/radiance/gitd_combo.zs"
-#include "zscript/radiance/gitd_scoreburst.zs"
-#include "zscript/radiance/gitd_dampop.zs"
-#include "zscript/radiance/gitd_brand.zs"
-#include "zscript/radiance/gitd_brassstorm.zs"
-#include "zscript/radiance/gitd_buckshot.zs"
-#include "zscript/radiance/gitd_hud.zs"
-#include "zscript/radiance/gitd_junkerscan.zs"
-#include "zscript/radiance/gitd_shaderbridge.zs"
 
 #include "zscript/compatibility.zs"
 #include "zscript/scriptutil/scriptutil.zs"

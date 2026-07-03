@@ -49,25 +49,10 @@ HardwareShader Sprite SKEL { Shader "shaders/glsl/monster_neon.fp" }
 HardwareShader Sprite PAIN { Shader "shaders/glsl/monster_neon.fp" }
 HardwareShader Sprite VILE { Shader "shaders/glsl/monster_neon.fp" }
 
-// --- Radiance BloomBoost ---
-HardwareShader PostProcess beforebloom
-{
-	Name "BloomBoostPre"
-	Shader "shaders/radiance/gitd_bloomboost_pre.fp" 330
-	Uniform float gamma
-	Uniform float contrast
-	Uniform float brightness
-}
-HardwareShader PostProcess scene
-{
-	Name "BloomBoostPost"
-	Shader "shaders/radiance/gitd_bloomboost_post.fp" 330
-	Uniform float gamma
-	Uniform float contrast
-	Uniform float brightness
-}
-
-// --- Radiance Brightmaps ---
+// BloomBoostPre/Post moved to the Radiance Control Panel mod (shaders/radiance/gitd_bloomboost_*.fp
+// moved with them). Brightmaps below deliberately NOT moved -- vanilla monster-sprite fullbright
+// detail textures, not glow-in-the-dark effect content; moving them would change default
+// rendering even without the mod loaded.
 #include "brightmaps/sprites/doom.bm"
 #include "brightmaps/sprites/doom2.bm"
 

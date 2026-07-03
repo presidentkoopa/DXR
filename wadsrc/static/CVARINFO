@@ -21,14 +21,8 @@ server float vr_locational_leg_threshold = 0.3;
 // (head_mult / leg_mult live in C++ hw_vrmodes.cpp with defaults 2.0 / 0.5 -- do not redeclare.)
 user bool vr_debug_locational = false;
 
-// --- Graveyard persistent storage (gy_Storage.zs) ---
-// These hold the serialized death-marker dictionaries across sessions. gy_Storage.of() reads them
-// CHAINED (.GetString() on a null cvar) every WorldTick -> the VM-abort that dropped you to console
-// ~1s into a map. Must exist. server-scoped so they persist in the config (the graves survive
-// between sessions, which is the whole point of the graveyard).
-server string gy_hashes = "";
-server string gy_locations = "";
-server string gy_obituaries = "";
+// (Graveyard persistent-storage cvars gy_hashes/gy_locations/gy_obituaries, plus every other
+// GITD/glow-in-the-dark cvar, moved to the Radiance Control Panel mod's own cvarinfo.txt.)
 
 // --- Barrel Explosion ---
 // Pretty grenade-style fireball (at 60% scale) is layered on the barrel by default. Set this
@@ -59,131 +53,20 @@ user bool vr_sigil_randomize_patterns = true;
 
 // --- Gameplay Modes ---
 // --- Radiance & Blackout (GITD / DarkDoomZ) ---
-server bool  gitd_combo_enabled = true;
-server int   gitd_combo_target  = 0;
-server int   gitd_combo_fade    = 70;
-server float gitd_combo_radius  = 56.0;
-server float gitd_combo_scoremul= 1.0;
-server int   gitd_combo_color   = 1;
-server int   gitd_combo_style   = 0;
 
-server int   gitd_damage_numbers_mode = 0;
-server int   gitd_damage_numbers_window = 15;
-server color gitd_damage_numbers_color = "white";
 
-user bool  gitd_glow_enabled     = false;
-user bool  gitd_floor_enabled    = true;
-user color gitd_floor_color      = "ff b0 28";
-user float gitd_floor_intensity  = 1.0;
-user float gitd_floor_height     = 64.0;
-user int   gitd_floor_mode       = 1;
-user float gitd_floor_speed      = 1.0;
 
-user bool  gitd_ceil_enabled     = true;
-user color gitd_ceil_color       = "30 30 30";
-user float gitd_ceil_intensity   = 1.0;
-user float gitd_ceil_height      = 64.0;
-user int   gitd_ceil_mode        = 2;
-user float gitd_ceil_speed       = 0.5;
 
-user bool  gitd_wall_enabled     = true;
-user color gitd_wall_color       = "ff b0 28";
-user float gitd_wall_intensity   = 1.0;
-user float gitd_wall_height      = 64.0;
-user int   gitd_wall_mode        = 0;
-user float gitd_wall_speed       = 1.0;
 
-user bool  gitd_blend_enabled    = false;
-user float gitd_blend_rate       = 0.15;
 
-user int   gitd_flashlight_mode  = 0;
-user float gitd_flashlight_intensity = 1.0;
-user color gitd_flashlight_color = "ff ff ff";
-user int   gitd_flashlight_attach = 0;
-server bool gitd_flashlight_on = false;
 
-user int   ddz_mode      = 0;
-user int   ddz_preset    = 3;
-user int   ddz_pregain   = 0;
-user int   ddz_postgain  = 0;
-user float ddz_skymode   = 1.0;
-user int   ddz_fog       = 0;
-user int   ddz_minlight  = 0;
-user bool  ddz_lighting  = false;
 
-user bool  hf_glow_liquid_priority = true;
-user bool  hf_glow_random      = false;
-user int   hf_glow_random_rate = 0;
-user bool  hf_glow_killstreak = false;
-user int   hf_glow_ks_window = 105;
-user float hf_glow_ks_radius = 256.0;
-user int   hf_glow_ks_max = 10;
-user color hf_glow_color_floor = "ff b0 28";
-user color hf_glow_color_ceil  = "30 30 30";
-user int   hf_glow_random_mode    = 0;
-user int   hf_glow_random_palette = 0;
 
-user bool gitd_death_enabled = true;
-server int gitd_death_style=0;
-server int gitd_death_color_mode=0;
-server int gitd_death_planes=0;
-server int gitd_death_persist=0;
-server int gitd_death_accent=0;
-server int gitd_wall_pattern=0;
-server bool gitd_heatmap=false;
-server int  gitd_heatmap_budget=10;
-server bool gitd_killcounter=false;
-server int gitd_kill_color=0;
-server int gitd_kill_milestone=25;
-server int gitd_kill_count_mode=0;
-server int gitd_kill_window=90;
-server bool gitd_kill_billboard=true;
-server int gitd_impact_style=1;
-server int gitd_impact_size=96;
-server int gitd_impact_max=14;
-server int gitd_hitlight=0;
-server int gitd_hitlight_size=140;
-server int gitd_impactspark=0;
-server int hf_impact_intensity=1;
-server bool hf_impact_double=false;
-server color gitd_death_color="00 c8 ff";
-server float gitd_death_intensity=1.0;
-server int gitd_death_pulse=0;
-server float gitd_death_pulse_speed=2.0;
-server float gitd_death_pulse_depth=0.5;
-server int gitd_death_grad=0;
-server color gitd_death_grad_color="ff 20 00";
 
-user bool    gitd_bloom               = true;
-user float   gitd_bloom_strength      = 1.0;
-user float   gitd_bloomboost_gamma    = 1.0;
-user float   gitd_bloomboost_contrast = 140.0;
-user float   gitd_bloomboost_brightness = 15.0;
-user bool    gitd_bloom_reactive      = true;
-user float   gitd_bloom_react_amt     = 0.35;
-user float   gitd_bloom_react_speed   = 0.15;
 
-user bool   gy_enabled        = true;
-user int    gy_marker_type    = 0;
-user bool   gy_anim_enabled   = true;
-user float  gy_bounce_amount  = 0.06;
-user float  gy_bounce_speed   = 6.0;
-user bool   gy_popin_enabled  = true;
-user bool   gy_light_enabled  = true;
-user int    gy_light_radius   = 104;
-user int    gy_light_bright   = 95;
-user int    gy_light_cull     = 512;
-user bool   gy_light_flicker  = true;
-user bool   gy_sdf_enabled    = true;
-user float  gy_sdf_glow       = 1.0;
-user float  gy_sdf_shiver     = 0.2;
 
-server float gitd_flatglow_cull   = 900.0;
-server int   gitd_flatglow_max    = 14;
-server float gitd_flatglow_radius = 128.0;
 
 // --- Monster Neon & Outlines (World Render) ---
-user bool vr_blackout_mode = false;
 user float vr_neon_thickness = 1.0;
 user float vr_neon_threshold = 0.2;
 user float vr_neon_glow = 3.0;
@@ -211,65 +94,25 @@ user int hf_hud_ammo_color_off = 0;
 user bool hf_condition = true;
 
 // --- Junker Scan & Procedural UI ---
-user bool  gitd_junker_enabled    = true;
-user bool  gitd_junker_demo       = true;
-user float gitd_junker_skulltime  = 28.0;
-user int   gitd_junker_synctime   = 30;
-user int   gitd_junker_grantedtime = 35;
-user float gitd_junker_skullradius = 30.0;
-user float gitd_junker_dist        = 96.0;
-user int   gitd_junker_loopgap     = 70;
 
 // --- Extra Tuning ---
-user float gitd_flashlight_complexity = 1.0;
-user int   gitd_damage_numbers_style = 0;
 
 // --- Junker Scan Fine Tuning ---
-user float gitd_junker_wf_amp    = 1.0;
-user float gitd_junker_wf_freq   = 1.0;
-user float gitd_junker_sp_height = 1.0;
-user float gitd_junker_sp_speed  = 1.0;
-user float gitd_junker_bracket_size = 0.30;
-user float gitd_junker_smoke_billow = 1.0;
 
 
-user float gitd_junker_vitals = 87.0;
-user float gitd_junker_threat = 42.0;
-user float gitd_junker_score  = 13370.0;
 
 
 // --- Atmospheric Fog Suite ---
-user int   gitd_fog_mode      = 0;
-user float gitd_fog_density   = 0.002;
-user float gitd_fog_height    = 64.0;
-user float gitd_fog_quantize  = 16.0;
-user float gitd_fog_rim_power = 2.0;
-user float gitd_fog_speed     = 1.0;
-user bool  gitd_fog_lightlink = true;
 
 // --- Global Visual Regimes ---
-user float vr_regime_param1    = 1.0;
-user float vr_regime_param2    = 1.0;
-user float vr_regime_speed     = 1.0;
 
 
 // --- Reactive Regime Settings ---
-user bool  vr_regime_react      = true;
-user bool  vr_regime_center_mask = true;
-user float vr_regime_jitter     = 0.2;
-user bool  vr_regime_speed_link = true;
-user float vr_regime_ping_inten  = 1.0;
 
 
 // --- Advanced Regime Customization ---
-user color vr_regime_blueprint_col = "ff ff ff";
-user float vr_regime_thermal_inten = 1.0;
-user float vr_regime_noir_sat      = 0.0;
-user bool  vr_regime_ripples       = true;
-user float vr_regime_ripple_scale  = 1.0;
 
 
-user float vr_regime_bubble_size = 1.0;
 
 // --- Shield Saw (ported from the RLVR devbuild prototype) ---
 // Defaults carried over 1:1 from the source project, not re-tuned. shieldsaw_range is a
