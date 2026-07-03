@@ -258,6 +258,7 @@ void AActor::Serialize(FSerializer &arc)
 		A("height", Height)
 		A("ppassheight", projectilepassheight)
 		A("vel", Vel)
+		A("gravitydir", GravityDir)
 		A("tics", tics)
 		A("state", state)
 		A("damage", DamageVal)
@@ -3018,13 +3019,14 @@ void AActor::FallAndSink(double grav, double oldfloorz)
 		{
 			// [RH] Double gravity only if running off a ledge. Coming down from
 			// an upward thrust (e.g. a jump) should not double it.
-			if (Vel.Z == 0 && oldfloorz > floorz && Z() == oldfloorz)
+			double gmag = (Vel.Z == 0 && oldfloorz > floorz && Z() == oldfloorz) ? grav + grav : grav;
+			if (GravityDir.isZero())
 			{
-				Vel.Z -= grav + grav;
+				Vel.Z -= gmag;
 			}
 			else
 			{
-				Vel.Z -= grav;
+				Vel += GravityDir * gmag;	// [XR] per-actor gravity direction (unit "down")
 			}
 		}
 		if (player == NULL)

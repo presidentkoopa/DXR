@@ -44,9 +44,10 @@ class PlasmaRifle : DoomWeapon
 		PLSG B 0 A_ReFire;
 		Goto Ready;
 	Flash:
-		PLSF A 4 Bright A_Light1;
+		// VR: muzzle-flash sprite suppressed, muzzle light kept.
+		TNT1 A 4 Bright A_Light1;
 		Goto LightDone;
-		PLSF B 4 Bright A_Light1;
+		TNT1 A 4 Bright A_Light1;
 		Goto LightDone;
 	Spawn:
 		PLAS A 0 A_CheckSpawnModel();

@@ -137,6 +137,7 @@ version "4.14.2"
 #include "zscript/actors/doom/keen.zs"
 #include "zscript/actors/doom/bossbrain.zs"
 #include "zscript/engine/vr_weapon_helpers.zs"
+#include "zscript/engine/vr_manual_reload.zs"
 
 // New Weapons -- must come after vr_weapon_helpers.zs (A_CheckSpawnModel/A_DataSiphonEquip/
 // ThrownWeapon) and after actor.zs (StateProvider) -- moved down from the top of this file,
@@ -154,8 +155,15 @@ version "4.14.2"
 #include "zscript/actors/doom/weaponchaingun.zs"
 #include "zscript/actors/doom/weaponchainsaw.zs"
 #include "zscript/actors/doom/weaponrlaunch.zs"
+#include "zscript/actors/doom/weaponm79.zs"
 #include "zscript/actors/doom/weaponplasma.zs"
 #include "zscript/actors/doom/weaponbfg.zs"
+#include "zscript/actors/doom/weaponshieldsaw.zs"
+#include "zscript/actors/doom/vr_blade_profile.zs"
+#include "zscript/actors/doom/vr_sword.zs"
+#include "zscript/actors/doom/vr_whip_profile.zs"
+#include "zscript/actors/doom/vr_whip.zs"
+#include "zscript/actors/doom/vr_gravity_path.zs"
 #include "zscript/actors/doom/dehacked.zs"
 
 #include "zscript/actors/doom/id24/id24ammo.zs"

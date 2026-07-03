@@ -42,8 +42,9 @@ class Shotgun : DoomWeapon
 		SHTG A 7 A_ReFire;
 		Goto Ready;
 	Flash:
-		SHTF A 4 Bright A_Light1;
-		SHTF B 3 Bright A_Light2;
+		// VR: muzzle-flash sprite suppressed, muzzle light kept.
+		TNT1 A 4 Bright A_Light1;
+		TNT1 A 3 Bright A_Light2;
 		Goto LightDone;
 	Spawn:
 		SHOT A 0 

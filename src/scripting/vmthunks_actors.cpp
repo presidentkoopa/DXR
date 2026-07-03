@@ -2018,6 +2018,7 @@ DEFINE_FIELD_NAMED(AActor, Angles.Yaw, angle)
 DEFINE_FIELD_NAMED(AActor, Angles.Pitch, pitch)
 DEFINE_FIELD_NAMED(AActor, Angles.Roll, roll)
 DEFINE_FIELD(AActor, Vel)
+DEFINE_FIELD(AActor, GravityDir)
 DEFINE_FIELD_NAMED(AActor, Vel.X, velx)
 DEFINE_FIELD_NAMED(AActor, Vel.Y, vely)
 DEFINE_FIELD_NAMED(AActor, Vel.Z, velz)
@@ -2294,5 +2295,67 @@ DEFINE_ACTION_FUNCTION_NATIVE(FLevelLocals, SpawnParticle, SpawnParticle)
 	PARAM_SELF_STRUCT_PROLOGUE(FLevelLocals);
 	PARAM_POINTER(p, FSpawnParticleParams);
 	SpawnParticle(self, p);
+	return 0;
+}
+
+//==========================================================================
+//
+// Procedural IQM bone posing -- lets ZScript drive an actor's model bones
+// each tic (the physics whip's Tier-2 rigged rope). Rides the existing
+// animationData override seam in CalculateBonesIQM via DActorModelData::
+// proceduralPose (see r_data/models.cpp ProcessModelFrame). Lives here in the
+// quiet thunks file; XR_EnsureModelData replicates the file-static
+// EnsureModelData in p_actionfunctions.cpp so we don't touch that file.
+//
+//==========================================================================
+
+static void XR_EnsureModelData(AActor *mobj)
+{
+	if (mobj->modelData == nullptr)
+	{
+		auto ptr = Create<DActorModelData>();
+		ptr->flags = (mobj->hasmodel ? MODELDATA_HADMODEL : 0);
+		ptr->modelDef = nullptr;
+		mobj->modelData = ptr;
+		mobj->hasmodel = true;
+		GC::WriteBarrier(mobj, ptr);
+	}
+}
+
+DEFINE_ACTION_FUNCTION(AActor, SetModelUseProceduralPose)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_BOOL(enable);
+	XR_EnsureModelData(self);
+	self->modelData->useProceduralPose = enable;
+	return 0;
+}
+
+DEFINE_ACTION_FUNCTION(AActor, SetModelBonePose)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_INT(boneIndex);
+	PARAM_FLOAT(tx); PARAM_FLOAT(ty); PARAM_FLOAT(tz);
+	PARAM_FLOAT(qx); PARAM_FLOAT(qy); PARAM_FLOAT(qz); PARAM_FLOAT(qw);
+	if (boneIndex < 0) return 0;
+	XR_EnsureModelData(self);
+	auto &pose = self->modelData->proceduralPose;
+	if ((unsigned)boneIndex >= pose.Size())
+	{
+		unsigned oldsize = pose.Size();
+		pose.Resize(boneIndex + 1);
+		// TRS default-ctors with scaling (0,0,0) -- init new slots to identity so any
+		// bone left unwritten renders at its bind size instead of collapsing to nothing.
+		for (unsigned k = oldsize; k < pose.Size(); k++)
+		{
+			pose[k].translation = FVector3(0.f, 0.f, 0.f);
+			pose[k].rotation    = FVector4(0.f, 0.f, 0.f, 1.f);
+			pose[k].scaling     = FVector3(1.f, 1.f, 1.f);
+		}
+	}
+	TRS &t = pose[boneIndex];
+	t.translation = FVector3((float)tx, (float)ty, (float)tz);
+	t.rotation    = FVector4((float)qx, (float)qy, (float)qz, (float)qw);
+	t.scaling     = FVector3(1.f, 1.f, 1.f);
 	return 0;
 }

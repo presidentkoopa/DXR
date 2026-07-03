@@ -1,3 +1,77 @@
+// VR Sword blade models -- static meshes (no armature), generated via Blender + the IQM
+// exporter at Desktop\iqm-master\blender-4.1\iqm_export.py. Zero baked frames is expected
+// and safe for a static mesh: models_iqm.cpp:210-212 explicitly falls back to a single
+// implicit frame when num_frames==0 ("If a model doesn't have an animation loaded, it will
+// crash. We don't want that!"), which with zero joints just renders the raw static mesh --
+// this is NOT the same bug class as the rigged VR hand's zero-baked-frames issue (that
+// model has real joints expecting real poses; these have none).
+// One FrameIndex line each is enough: vr_sword.zs reuses sprite letter "A" across every
+// weapon state (Ready/Deselect/Select/Fire/Spawn), matching ShieldSaw's SHLD/SHSW convention.
+// Positioning modeled on the Chainsaw block (user: "chainsaw was perfect"): ZOffset -5 to
+// drop it into the hand, a forward Offset in the Y slot (weapon models point FORWARD = +Y --
+// verified this session: the IQM exporter does no axis swap and GZDoom's IQM loader does no
+// swizzle, so the blades are authored blade-along-+Y with the grip centered on the origin so
+// the hand holds the GRIP). Chainsaw uses Offset 0 14 0 / Scale -1.5, but its mesh origin sits
+// at the handle and its mesh is small; these blades already have grip-at-origin and are authored
+// at map-unit size, so a smaller forward Offset and Scale 1.0 are the right starting point.
+// All of Offset/ZOffset/Scale are headset-tunable (also via vr_3dweaponOffsetX/Y/Z, vr_weaponScale).
+Model VRSwordBladeSteel
+{
+   Path "models/weapons/vrsword"
+   Model 0 "sword_steel.iqm"
+   Skin 0 "SwordSteelBlade.png"
+   Scale 1.0 1.0 1.0
+   Offset 0.0 6.0 0.0
+   ZOffset -5
+
+   FrameIndex VRSW A 0 0
+}
+
+// No FrameIndex here on purpose: A_ChangeModel sets a per-ACTOR override
+// (p_actionfunctions.cpp EnsureModelData/DActorModelData), bypassing the static
+// sprite-lookup table entirely once active, so this block only needs to exist by
+// name for BindBlade() to reference -- it never needs its own default VRSW mapping.
+// Only ONE Model block should claim "FrameIndex VRSW A 0 0" (the default blade,
+// Steel, since vr_sword_blade defaults to 0); a second static claim on the same
+// sprite+frame would be an unnecessary conflict in the non-overridden lookup table.
+Model VRSwordBladePlasma
+{
+   Path "models/weapons/vrsword"
+   Model 0 "saber_blade.iqm"
+   Skin 0 "SaberHilt.png"
+   Scale 1.0 1.0 1.0
+   Offset 0.0 6.0 0.0
+   ZOffset -5
+}
+
+// Same swap-target-only pattern as VRSwordBladePlasma above -- no FrameIndex needed.
+Model VRSwordBladeNano
+{
+   Path "models/weapons/vrsword"
+   Model 0 "dtooth_blade.iqm"
+   Skin 0 "DTOOTHCrystal.png"
+   Scale 1.0 1.0 1.0
+   Offset 0.0 6.0 0.0
+   ZOffset -5
+}
+
+// XRWhip rigged bullwhip -- 21-joint chain (whip_root + seg_00..seg_19), a mass-tapered
+// leather thong. Built headless in Blender 4.4 (scratchpad\build_whip_iqm.py) through the
+// iqm-master exporter; validated INTERQUAKEMODEL v2, 1 mesh / 720 verts / 352 tris / 21 joints.
+// Bind pose is straight (bones point local +Y); the flexible whip shape comes from the Verlet
+// sim once the procedural-bone patch drives these joints (Tier 2 -- see
+// Desktop\Documentation\DoomXR_Whip_IQM_Rigging_Patch_Spec.md). Until that lands, XRWhip renders
+// its rope via glow panels and does NOT attach this model, so no FrameIndex is claimed here --
+// this block exists so the asset is registered/loadable and ready to wire. Scale is a Tier-2
+// tuning knob (model ~2.6 blender-units long vs the sim's map-unit reach).
+Model XRWhipRigged
+{
+   Path "models/weapons/xrwhip"
+   Model 0 "whip_rigged.iqm"
+   Skin 0 "XRWhipLeather.png"
+   Scale 1.0 1.0 1.0
+}
+
 Model VRHandModel
 {
    Path "models"
@@ -36,21 +110,44 @@ Model Pistol
    Offset 0.0 -4.0 0.0
    ZOffset -5
    NoInterpolation
-   
-   // Map standard Doom Pistol sprites (PISG)
-   FrameIndex PISG A 0 0
-   FrameIndex PISG B 0 0
-   FrameIndex PISG C 0 0
-   FrameIndex PISG D 0 0
-   FrameIndex PISG E 0 0
-   
-   // Map common mod Pistol sprites (PIST)
+
+   // Pistol.md3 = 38-frame pistol mesh. Frame semantics from the model's own
+   // Modeldef.Pistol.def: 0-1 ready, 3-7 fire cycle, 8-25 reload, 28-37 whip.
+   // weaponpistol.zs body states use PISG A (ready), B (shot), C (recover).
+   FrameIndex PISG A 0 0    // ready / idle
+   FrameIndex PISG B 0 4    // shot recoil
+   FrameIndex PISG C 0 6    // recover
+   FrameIndex PISG D 0 5
+   FrameIndex PISG E 0 7
+
+   // PIST = world-pickup sprite (Spawn state). Map to the ready pose.
    FrameIndex PIST A 0 0
-   FrameIndex PIST B 0 0
-   FrameIndex PIST C 0 0
-   FrameIndex PIST D 0 0
-   FrameIndex PIST E 0 0
-   FrameIndex PIST F 0 0
+   FrameIndex PIST B 0 1
+   FrameIndex PIST C 0 5
+   FrameIndex PIST D 0 6
+   FrameIndex PIST E 0 7
+   FrameIndex PIST F 0 2
+
+   // Reload -- drives the baked reload animation (Pistol.md3 frames 8-25),
+   // from the model's own Modeldef.Pistol.def "//Reload" section. PISR A-R = frames 8-25.
+   FrameIndex PISR A 0 8
+   FrameIndex PISR B 0 9
+   FrameIndex PISR C 0 10
+   FrameIndex PISR D 0 11
+   FrameIndex PISR E 0 12
+   FrameIndex PISR F 0 13
+   FrameIndex PISR G 0 14
+   FrameIndex PISR H 0 15
+   FrameIndex PISR I 0 16
+   FrameIndex PISR J 0 17
+   FrameIndex PISR K 0 18
+   FrameIndex PISR L 0 19
+   FrameIndex PISR M 0 20
+   FrameIndex PISR N 0 21
+   FrameIndex PISR O 0 22
+   FrameIndex PISR P 0 23
+   FrameIndex PISR Q 0 24
+   FrameIndex PISR R 0 25
 }
 
 Model Shotgun
@@ -62,12 +159,14 @@ Model Shotgun
    Offset 0.0 0.0 0.0
    ZOffset -5
    NoInterpolation
-   
-   // Map standard Doom Shotgun sprites (SHTG)
-   FrameIndex SHTG A 0 4
-   FrameIndex SHTG B 0 4
-   FrameIndex SHTG C 0 4
-   FrameIndex SHTG D 0 4
+   BaseFrame   // registers this class for A_SetAnimation("Reload"); see weaponshotgun.zs
+
+   // Shotgun.md3 (36 frames) -- frame layout from Modeldef.Doom.Weapons.def (model is
+   // byte-identical to MASTER_BUILD's). weaponshotgun.zs Fire cycles A->BC->D->CB->A (pump).
+   FrameIndex SHTG A 0 4     // ready
+   FrameIndex SHTG B 0 6     // fire
+   FrameIndex SHTG C 0 14    // pump back
+   FrameIndex SHTG D 0 18    // pump forward
    
    // (Removed: speculative "common mod" sprite entries -- SHTN/SHTA/AUTS/AUT2/AUT3/ASHW/AMUZ/
    // MSBS/PASH were never used by any actual state anywhere in this project or doom2.wad; a
@@ -83,12 +182,12 @@ Model PlasmaRifle
    Offset 0.0 0.0 0.0
    NoInterpolation
    ZOffset -5
+   BaseFrame   // registers this class for A_SetAnimation("Reload"); see weaponplasma.zs
 
-   // Map standard Doom Plasma sprites (PLSG)
-   FrameIndex PLSG A 0 0
-   FrameIndex PLSG B 0 0
-   
-   // (Removed: PLS9/PLSN never used anywhere -- same speculative-mod pattern as Shotgun above.)
+   // Plasma.md3 (30 frames) -- semantics from the model's own Modeldef.Plasma.def:
+   // frame 0 = ready idle, frame 4 = fire. weaponplasma.zs uses PLSG A (ready) / B (fire).
+   FrameIndex PLSG A 0 0    // ready
+   FrameIndex PLSG B 0 4    // fire recoil
 }
 
 // Model index 0 = m16.md3 (idle/hold pose), index 1 = m16f.md3 (dedicated firing-pose asset,
@@ -106,16 +205,16 @@ Model Rifle
    Scale 1.35 1.35 1.35
    Offset 0.0 0.0 0.0
    ZOffset -5
+   BaseFrame   // registers this class for A_SetAnimation("Reload"); see weaponrifle.zs
 
-   // Idle pose (model 0). AKAB/M16G/AKAF/AKAR/AKA2/AKA4/AK4I/COLT removed -- speculative
-   // "common mod" sprites never used anywhere; RIFL is the only one this project actually uses.
-   FrameIndex RIFL A 0 0
-
-   // Fire-cycle sprites -- firing pose (model 1)
-   FrameIndex RIFL B 1 0
-   FrameIndex RIFL C 1 0
-   FrameIndex RIFL D 1 0
-   FrameIndex RIFL E 1 0
+   // Full fire-cycle animation on m16.md3 -- frame layout from MASTER_BUILD/DOOM/Modeldef.Rifle
+   // (mesh is byte-identical). RIFL A-Z map to frames 0-25; weaponrifle.zs uses A (ready) + B-E
+   // (fire/recover). Upgraded from the old 2-pose m16/m16f swap to real frame-by-frame animation.
+   FrameIndex RIFL A 0 0    // ready
+   FrameIndex RIFL B 0 1    // fire
+   FrameIndex RIFL C 0 2    // recover
+   FrameIndex RIFL D 0 3
+   FrameIndex RIFL E 0 4
 }
 
 // Model index 0 = rev.md3 (idle/hold pose), index 1 = revf.md3 (dedicated firing-pose asset,
@@ -132,17 +231,17 @@ Model Revolver
    Scale 1.35 1.35 1.35
    Offset 0.0 0.0 0.0
    ZOffset -5
+   BaseFrame   // registers this class for A_SetAnimation("Reload"); see weaponrevolver.zs
 
-   // Idle pose (model 0). REVO/REV2/REV3/REV4/RMUZ removed -- speculative "common mod" sprites
-   // never used anywhere; REVL is the only one this project actually uses.
-   FrameIndex REVL A 0 0
-
-   // Fire-cycle sprites -- firing pose (model 1)
-   FrameIndex REVL E 1 0
-   FrameIndex REVL F 1 0
-   FrameIndex REVL G 1 0
-   FrameIndex REVL H 1 0
-   FrameIndex REVL I 1 0
+   // Full fire-cycle animation on rev.md3 -- frame layout from MASTER_BUILD/DOOM/Modeldef.Revolver
+   // (mesh is byte-identical). REVL A-Z map to frames 0-25; weaponrevolver.zs uses A (ready) +
+   // E-I (fire/recover). Upgraded from the old 2-pose rev/revf swap to real frame animation.
+   FrameIndex REVL A 0 0    // ready
+   FrameIndex REVL E 0 4    // fire
+   FrameIndex REVL F 0 5
+   FrameIndex REVL G 0 6
+   FrameIndex REVL H 0 7
+   FrameIndex REVL I 0 8    // recover
 }
 
 Model SMG
@@ -153,15 +252,21 @@ Model SMG
    Scale 1.35 1.35 1.35
    Offset 0.0 0.0 0.0
    ZOffset -5
+   BaseFrame   // registers this class for A_SetAnimation("Reload"); see weaponsmg.zs
 
-   // SPGN/SPG2/SPGM/NAGW removed -- speculative "common mod" sprites never used anywhere;
-   // SMGG/SMGS are the ones this project's own weaponsmg.zs actually uses.
-   FrameIndex SMGG A 0 0
-   FrameIndex SMGG B 0 0
-   FrameIndex SMGS A 0 0
+   // SMG.md3 (27 frames) frame layout decoded from the mesh's magazine ('Lipas') motion
+   // (no authored modeldef exists for this mesh anywhere -- matches vanillaweapons/zscript/smg.zs
+   // scheme SMGS=ready / SMGG=fire / SMGR=reload frames 7-26). Frame 0 = lowered/holstered
+   // (the OLD map pinned everything here -> gun looked dropped); frames 3-7 = raised ready pose.
+   FrameIndex SMGS A 0 4    // ready (mag seated, raised)
+   FrameIndex SMGG A 0 4    // fire
+   FrameIndex SMGG B 0 5    // fire recover
 }
 
-// FLMG sprite belongs to ID24Incinerator (id24incinerator.zs), not our own Flamethrower weapon.
+// FLMG/FLMF sprites belong to ID24Incinerator (id24incinerator.zs), not our own Flamethrower
+// weapon. Logic/sounds untouched -- purely a visual reskin onto our Flamethrower model. FLMF A/B
+// (the actual Fire-state sprites) were previously unmapped, so the model vanished while firing;
+// mapped onto Flamethrower2.md3's own animated frames to match.
 Model ID24Incinerator
 {
    Path "models/weapons/hud/flamethrower"
@@ -172,6 +277,25 @@ Model ID24Incinerator
    ZOffset -5
 
    FrameIndex FLMG A 0 0
+   FrameIndex FLMF A 0 1
+   FrameIndex FLMF B 0 2
+}
+
+// HETG/HETF sprites belong to ID24CalamityBlade (id24calamityblade.zs), not our own VRSword
+// weapon. Logic/sounds untouched -- purely a visual reskin onto our steel-blade sword model.
+// HETC (muzzle-flash overlay) is intentionally left unmapped so that FX renders as-is.
+Model ID24CalamityBlade
+{
+   Path "models/weapons/vrsword"
+   Model 0 "sword_steel.iqm"
+   Skin 0 "SwordSteelBlade.png"
+   Scale 1.0 1.0 1.0
+   Offset 0.0 6.0 0.0
+   ZOffset -5
+
+   FrameIndex HETG A 0 0
+   FrameIndex HETF A 0 0
+   FrameIndex HETF B 0 0
 }
 
 // Our actual Flamethrower weapon (weaponflame.zs) uses sprite HBFT, not FLMG.
@@ -183,8 +307,14 @@ Model Flamethrower
    Scale 1.0 1.0 1.0
    Offset 0.0 0.0 0.0
    ZOffset -5
+   BaseFrame   // registers this class for A_SetAnimation("Reload"); see weaponflame.zs
 
+   // Flamethrower2.md3 (6 frames). weaponflame.zs uses HBFT A (ready) and B/C/D during
+   // Fire/Hold. B/C/D were previously UNMAPPED -> the model vanished while firing. Fixed.
    FrameIndex HBFT A 0 0
+   FrameIndex HBFT B 0 1
+   FrameIndex HBFT C 0 2
+   FrameIndex HBFT D 0 3
 }
 
 Model SuperShotgun
@@ -195,11 +325,19 @@ Model SuperShotgun
    Scale -1.1 1.0 1.0
    Offset 0.0 0.0 0.0
    ZOffset -5
-   
-   // Map standard Doom SSG sprites (SHT2, OUSM, etc.)
-   FrameIndex SHT2 A 0 1   FrameIndex SHT2 B 0 1   FrameIndex SHT2 C 0 1   FrameIndex SHT2 D 0 1
-   FrameIndex SHT2 E 0 1   FrameIndex SHT2 F 0 1   FrameIndex SHT2 G 0 1   FrameIndex SHT2 H 0 1
-   // OUSM/OUST/OUWS removed -- speculative "common mod" sprites never used anywhere.
+   BaseFrame   // registers this class for A_SetAnimation("Reload"); see weaponssg.zs
+
+   // ssg.md3 (52 frames) -- exact frame layout from Modeldef.Doom.Weapons.def (model is
+   // byte-identical to MASTER_BUILD's). weaponssg.zs Fire cycles A(ready/open)->B->C(checkreload)
+   // ->D(open)->E->F(load)->G->H(close) = the full break-action reload animation.
+   FrameIndex SHT2 A 0 1    // ready / start
+   FrameIndex SHT2 B 0 3
+   FrameIndex SHT2 C 0 6
+   FrameIndex SHT2 D 0 18   // break open
+   FrameIndex SHT2 E 0 23
+   FrameIndex SHT2 F 0 26   // load shells
+   FrameIndex SHT2 G 0 29
+   FrameIndex SHT2 H 0 45   // snap closed
 }
 
 Model Chaingun
@@ -210,9 +348,11 @@ Model Chaingun
    Scale -1.0 1.0 1.0
    Offset 0.0 0.0 0.0
    ZOffset -5
-   
-   // Map standard Doom Chaingun sprites (CHGG)
-   FrameIndex CHGG A 0 4   FrameIndex CHGG B 0 4
+   BaseFrame   // registers this class for A_SetAnimation("Reload"); see weaponchaingun.zs
+
+   // chaingun.md3 (16 frames) -- exact layout from Modeldef.Doom.Weapons.def (identical mesh).
+   // weaponchaingun.zs Fire alternates CHGG A/B (barrel spin).
+   FrameIndex CHGG A 0 4   FrameIndex CHGG B 0 10
 }
 
 Model RocketLauncher
@@ -223,10 +363,12 @@ Model RocketLauncher
    Scale -1.0 1.0 1.0
    Offset 0.0 0.0 0.0
    ZOffset -5
-   
-   // Map standard Doom Rocket Launcher sprites (MISG)
-   FrameIndex MISG A 0 5   FrameIndex MISG B 0 5
-   // CANN/CAN2/CANM/CNWD removed -- speculative "common mod" sprites never used anywhere.
+   BaseFrame   // registers this class for A_SetAnimation("Reload"); see weaponrlaunch.zs
+
+   // RPG.md3 (39 frames) -- exact layout from Modeldef.Doom.Weapons.def (identical mesh).
+   // weaponrlaunch.zs uses MISG A (ready) / B (fire).
+   FrameIndex MISG A 0 5    // ready
+   FrameIndex MISG B 0 10   // fire
 }
 
 Model BFG9000
@@ -237,10 +379,13 @@ Model BFG9000
    Scale -1.0 1.0 1.0
    Offset 0.0 0.0 0.0
    ZOffset -5
-   
-   // Map standard Doom BFG sprites (BFGG)
-   FrameIndex BFGG A 0 6   FrameIndex BFGG B 0 6   FrameIndex BFGG C 0 6
-   // RBGN/RBGW/RENB/RENM/SNPS/SSTG removed -- speculative "common mod" sprites never used anywhere.
+   BaseFrame   // registers this class for A_SetAnimation("Reload"); see weaponbfg.zs
+
+   // BFG.md3 (16 frames) -- exact layout from Modeldef.Doom.Weapons.def (identical mesh).
+   // weaponbfg.zs uses BFGG A (ready) / B (charge+fire); C spare.
+   FrameIndex BFGG A 0 6    // ready
+   FrameIndex BFGG B 0 7    // charge / fire
+   FrameIndex BFGG C 0 14
 }
 
 Model Chainsaw
@@ -252,8 +397,9 @@ Model Chainsaw
    Offset 0.0 14.0 0.0
    ZOffset -5
    
-   // Map standard Doom Chainsaw sprites (SAWG)
-   FrameIndex SAWG A 0 0   FrameIndex SAWG B 0 0   FrameIndex SAWG C 0 0   FrameIndex SAWG D 0 0
+   // Chainsaw.md3 (8 frames) -- exact layout from Modeldef.Doom.Weapons.def (identical mesh).
+   // weaponchainsaw.zs Ready idles SAWG C/D, Fire revs A/B.
+   FrameIndex SAWG A 0 0   FrameIndex SAWG B 0 3   FrameIndex SAWG C 0 5   FrameIndex SAWG D 0 7
 }
 
 Model VRFlashModel
@@ -326,3 +472,115 @@ Model ThrownGrenade
 }
 
 
+
+// Shield Saw (weaponshieldsaw.zs) -- Model 0 = block-stance shield, Model 1 = active saw blade.
+// Skin pairing is best-effort (source project had no dedicated shield.md3/shield_weapon.md3 skins
+// on disk); correct visually if the wrong texture shows.
+Model ShieldSaw
+{
+   Path "models/weapons/hud/shieldsaw"
+   Model 0 "shield.md3"
+   Skin 0 "shieldsaw.png"
+   Model 1 "shieldsaw.md3"
+   Skin 1 "shieldsaw.png"
+   Scale 0.5 0.5 0.5
+   NoInterpolation
+
+	FrameIndex	SHLD	A	0	0
+	FrameIndex	SHSW	A	1	0
+	FrameIndex	SHSW	B	1	0
+	FrameIndex	SHSW	C	1	0
+}
+
+// This block's frames (SH00) belong to the thrown boomerang projectile, not the weapon --
+// real class is ThrownShieldSaw (weaponshieldsaw.zs), not ShieldSaw (the block above).
+Model ThrownShieldSaw
+{
+   Path "models/weapons/hud/shieldsaw"
+   Model 0 "shield_weapon.md3"
+   Skin 0 "shield_saw.png"
+   Scale 0.5 0.5 0.5
+   USEACTORROLL
+   NoInterpolation
+
+	FrameIndex	SH00	A	0	0
+}
+
+// M79 Grenade Launcher (weaponm79.zs) -- fires rockets, slot 5. Frame layout from the
+// model's own grenlaunch.def: GLSW 0-2 draw, GLAN 3 aim/ready, GLAF 4-6 fire, GLR1 7-32
+// reload. Our weapon uses GLAN (ready) + GLAF (fire). NOTE: M79.md3/M79.png must be placed
+// at models/weapons/hud/m79/ -- until then the GLAN/GLAF Skulltag sprites render as fallback.
+Model M79
+{
+   Path "models/weapons/hud/m79"
+   Model 0 "M79.md3"
+   Skin 0 "M79.png"
+   Scale -1.0 1.0 1.0
+   Offset 0.0 0.0 0.0
+   ZOffset -5
+   NoInterpolation
+
+   FrameIndex GLAN A 0 3    // ready / aim
+   FrameIndex GLAF A 0 4    // fire
+   FrameIndex GLAF B 0 5
+   FrameIndex GLAF C 0 6
+
+   // Reload -- baked break-open 40mm reload (M79.md3 frames 7-32, from grenlaunch.def)
+   FrameIndex GLR1 A 0 7
+   FrameIndex GLR1 B 0 8
+   FrameIndex GLR1 C 0 9
+   FrameIndex GLR1 D 0 10
+   FrameIndex GLR1 E 0 11
+   FrameIndex GLR1 F 0 12
+   FrameIndex GLR1 G 0 13
+   FrameIndex GLR1 H 0 14
+   FrameIndex GLR1 I 0 15
+   FrameIndex GLR1 J 0 16
+   FrameIndex GLR1 K 0 17
+   FrameIndex GLR1 L 0 18
+   FrameIndex GLR1 M 0 19
+   FrameIndex GLR1 N 0 20
+   FrameIndex GLR1 O 0 21
+   FrameIndex GLR1 P 0 22
+   FrameIndex GLR1 Q 0 23
+   FrameIndex GLR1 R 0 24
+   FrameIndex GLR1 S 0 25
+   FrameIndex GLR1 T 0 26
+   FrameIndex GLR1 U 0 27
+   FrameIndex GLR1 V 0 28
+   FrameIndex GLR1 W 0 29
+   FrameIndex GLR1 X 0 30
+   FrameIndex GLR1 Y 0 31
+   FrameIndex GLR1 Z 0 32
+}
+
+// M79Grenade (weaponm79.zs) -- launched 40mm round. Same nade.md3 as the hand grenade,
+// but USEACTORPITCH/USEACTORROLL let the projectile tumble end-over-end in flight.
+Model M79Grenade
+{
+   Path "models/weapons/hud/grenade"
+   Model 0 "nade.md3"
+   Skin 0 "nade.png"
+   Scale -1.0 1.0 1.0
+   Offset 0.0 0.0 0.0
+   USEACTORPITCH
+   USEACTORROLL
+   NoInterpolation
+
+   FrameIndex JGRN A 0 16
+}
+
+// M79BounceGrenade (weaponm79.zs) -- bouncy alt-fire round, same model + tumble.
+Model M79BounceGrenade
+{
+   Path "models/weapons/hud/grenade"
+   Model 0 "nade.md3"
+   Skin 0 "nade.png"
+   Scale -1.0 1.0 1.0
+   Offset 0.0 0.0 0.0
+   USEACTORPITCH
+   USEACTORROLL
+   NoInterpolation
+
+   FrameIndex JGRN A 0 16
+}

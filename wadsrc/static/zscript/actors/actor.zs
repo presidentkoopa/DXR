@@ -110,6 +110,7 @@ class Actor : Thinker native
 	native double Pitch;
 	native double Roll;
 	native vector3 Vel;
+	native vector3 GravityDir;
 	native double Speed;
 	native double FloatSpeed;
 	native SpriteID sprite;
@@ -864,6 +865,14 @@ class Actor : Thinker native
 	// VR hand linear velocity, map-space (units/tic), 4-sample rolling average. hand: 0=main, 1=off.
 	// Returns (0,0,0) if not in VR or the buffer hasn't been populated yet (VR_UpdateGravityGloves must have run this tic).
 	native vector3 GetHandVelocity(int hand);
+	// Procedural IQM bone posing: drive this actor's model bones directly from script each
+	// tic (physics whip Tier 2). Enable, then write one TRS per bone by index. Bone rotation
+	// is a quaternion (qx,qy,qz,qw); translation is parent-local (0,0,segLen for a chain).
+	native void SetModelUseProceduralPose(bool enable);
+	native void SetModelBonePose(int boneIndex, double tx, double ty, double tz, double qx, double qy, double qz, double qw);
+	// VR head (HMD) world position in map-space. Local render viewpoint only
+	// (client presentation: holster zones / HUD anchors), not a networked field.
+	native vector3 GetHeadPos();
 	native void Thrust(double speed = 1e37, double angle = 1e37);
 	native clearscope bool isFriend(Actor other) const;
 	native clearscope bool isHostile(Actor other) const;

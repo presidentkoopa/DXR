@@ -265,7 +265,38 @@ struct StreamData
 	int   u_gitd_pad1;
 	FVector4 u_vr_blueprint_col;      // .rgb
 	FVector4 u_gitd_last_impact_pos;  // .xyz
+
+	// ===== MONSTER NEON OUTLINES (global; fed per-frame directly from the CVARINFO cvars via
+	// FindCVar() in hw_drawinfo.cpp -- NOT via ZScript/Shader.SetUniform, which cannot reach a
+	// Sprite material shader like monster_neon.fp; gitd_shaderbridge.zs's own comment confirms that
+	// API only exists for PostProcess shaders. KEEP byte-identical with GLSL StreamData in vk_shader.cpp.
+	float u_BlackoutMode;
+	float u_NeonThickness;
+	float u_NeonThreshold;
+	float u_NeonGlow;
+	float u_NeonPulseSpeed;
+	int   u_neon_pad0;
+	int   u_neon_pad1;
+	int   u_neon_pad2; // pad 20B->32B (std140 align) so the FVector4s below land on a 16B boundary
+	FVector4 u_NeonColorA; // .rgb
+	FVector4 u_NeonColorB; // .rgb
 };
+
+// Cheap once-per-frame cache for the monster-neon-outline values. Populated by
+// HWDrawInfo::StartScene() (hw_drawinfo.cpp) via FindCVar() -- ONCE per scene/eye, not per draw
+// call. FRenderState::Reset() (below, called per draw call) just copies from this; it must never
+// do the FindCVar lookup itself, that would be a hash lookup on every single draw call.
+struct FNeonOutlineState
+{
+	float BlackoutMode = 0.0f;
+	float NeonThickness = 1.0f;
+	float NeonThreshold = 0.2f;
+	float NeonGlow = 3.0f;
+	float NeonPulseSpeed = 2.0f;
+	FVector4 NeonColorA = { 0.0f, 1.0f, 1.0f, 1.0f };
+	FVector4 NeonColorB = { 1.0f, 0.0f, 1.0f, 1.0f };
+};
+extern FNeonOutlineState GNeonOutlineState;
 
 class FRenderState
 {
@@ -418,6 +449,17 @@ public:
 		mStreamData.u_gitd_pad1 = 0;
 		mStreamData.u_vr_blueprint_col = { 0.0f, 0.0f, 0.0f, 0.0f };
 		mStreamData.u_gitd_last_impact_pos = { 0.0f, 0.0f, 0.0f, 0.0f };
+
+		// Cheap copy from the once-per-frame cache (see FNeonOutlineState / GNeonOutlineState
+		// above) -- populated by HWDrawInfo::StartScene() via FindCVar(), never looked up here.
+		mStreamData.u_BlackoutMode = GNeonOutlineState.BlackoutMode;
+		mStreamData.u_NeonThickness = GNeonOutlineState.NeonThickness;
+		mStreamData.u_NeonThreshold = GNeonOutlineState.NeonThreshold;
+		mStreamData.u_NeonGlow = GNeonOutlineState.NeonGlow;
+		mStreamData.u_NeonPulseSpeed = GNeonOutlineState.NeonPulseSpeed;
+		mStreamData.u_neon_pad0 = mStreamData.u_neon_pad1 = mStreamData.u_neon_pad2 = 0;
+		mStreamData.u_NeonColorA = GNeonOutlineState.NeonColorA;
+		mStreamData.u_NeonColorB = GNeonOutlineState.NeonColorB;
 
 		mModelMatrix.loadIdentity();
 		mTextureMatrix.loadIdentity();

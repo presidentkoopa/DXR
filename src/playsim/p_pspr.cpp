@@ -879,6 +879,12 @@ DEFINE_ACTION_FUNCTION(APlayerPawn, CheckWeaponButtons)
 	return 0;
 }
 
+// NOTE: AActor::GetHandVelocity already exists (p_actionfunctions.cpp, reads the tic-smoothed
+// player_t::vr_hand_vel_buffer with the correct X,Z,Y remap + vr_scale_meters_to_units scale) --
+// a duplicate PlayerPawn-level native briefly lived here and has been removed; it read raw
+// VRMode::GetHandVelocity directly, in the wrong coordinate space/units and bypassing the
+// smoothing buffer. Use the existing Actor.GetHandVelocity(hand) instead.
+
 
 
 enum WOFFlags

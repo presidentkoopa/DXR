@@ -573,8 +573,14 @@ bool CalcModelOverrides(int i, const FSpriteModelFrame *smf, DActorModelData* da
 const TArray<VSMatrix> * ProcessModelFrame(FModel * animation, bool nextFrame, int i, const FSpriteModelFrame *smf, DActorModelData* modelData, const CalcModelFrameInfo &frameinfo, ModelDrawInfo &drawinfo, bool is_decoupled, double tic)
 {
 	const TArray<TRS>* animationData = nullptr;
-	
-	if (drawinfo.animationid >= 0)
+
+	if (modelData && modelData->useProceduralPose && modelData->proceduralPose.Size() > 0)
+	{
+		// ZScript-supplied per-bone pose (e.g. the physics whip) overrides any baked animation.
+		// CalculateBonesIQM already branches on (animationData ? *animationData : TRSData).
+		animationData = &modelData->proceduralPose;
+	}
+	else if (drawinfo.animationid >= 0)
 	{
 		animation = Models[drawinfo.animationid];
 		animationData = animation->AttachAnimationData();

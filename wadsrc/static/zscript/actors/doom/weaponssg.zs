@@ -69,8 +69,9 @@ class SuperShotgun : DoomWeapon
 		SHT2 A 3;
 		Goto Deselect;
 	Flash:
-		SHT2 I 4 Bright A_Light1;
-		SHT2 J 3 Bright A_Light2;
+		// VR: muzzle-flash sprite suppressed (was reusing body sprites SHT2 I/J). Light kept.
+		TNT1 A 4 Bright A_Light1;
+		TNT1 A 3 Bright A_Light2;
 		Goto LightDone;
 	Spawn:
 		SGN2 A 0 A_CheckSpawnModel();

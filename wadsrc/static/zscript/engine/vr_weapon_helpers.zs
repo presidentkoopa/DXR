@@ -33,17 +33,6 @@ extend class StateProvider
 		
 		A_BallisticFire(7.0, 5.0, 10, 5, 2.0);
 	}
-	
-	action void A_VRRecoil(double intensity)
-	{
-		if (!player || !player.mo) return;
-		CVar recoilVar = CVar.GetCVar("vr_recoil", player);
-		if (recoilVar && recoilVar.GetBool())
-		{
-			player.mo.pitch -= intensity * frandom(0.8, 1.2);
-			player.mo.angle += frandom(-intensity*0.2, intensity*0.2);
-		}
-	}
 }
 
 // --------------------------------------------------------------------------

@@ -33,9 +33,10 @@ class Chaingun : DoomWeapon
 		CHGG B 0 A_ReFire;
 		Goto Ready;
 	Flash:
-		CHGF A 5 Bright A_Light1;
+		// VR: muzzle-flash sprite suppressed, muzzle light kept.
+		TNT1 A 5 Bright A_Light1;
 		Goto LightDone;
-		CHGF B 5 Bright A_Light2;
+		TNT1 A 5 Bright A_Light2;
 		Goto LightDone;
 	Spawn:
 		MGUN A 0 A_CheckSpawnModel();

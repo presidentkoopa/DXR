@@ -268,6 +268,28 @@ class WolfensteinSS : Actor
 
 extend class Actor
 {
+	// Shared "hitscan or dodgeable projectile" gate for the three vanilla human hitscan
+	// attackers below. ON (default) = untouched vanilla LineAttack. OFF (vr_enemy_hitscans)
+	// = converts the same attack into a VRDodgeableHitscan projectile aimed at the current
+	// target via SpawnMissile -- the same non-homing, straight-line idiom every other Doom
+	// monster projectile in this codebase already uses (e.g. RevenantTracer), so it fits the
+	// engine instead of bolting on a third-party mod's approach.
+	private void A_VRHitscanOrDodgeable(double ang, double slope, int damage, Name pufftype = "BulletPuff")
+	{
+		CVar c = CVar.FindCVar("vr_enemy_hitscans");
+		if (!target || (c ? c.GetBool() : true))
+		{
+			LineAttack(ang, MISSILERANGE, slope, damage, "Hitscan", pufftype);
+			return;
+		}
+
+		Actor missile = SpawnMissile(target, "VRDodgeableHitscan");
+		if (missile)
+		{
+			VRDodgeableHitscan(missile).customDamage = damage;
+		}
+	}
+
 	void A_PosAttack()
 	{
 		if (target)
@@ -278,11 +300,11 @@ extend class Actor
 			A_StartSound("grunt/attack", CHAN_WEAPON);
 			ang  += Random2[PosAttack]() * (22.5/256);
 			int damage = Random[PosAttack](1, 5) * 3;
-			LineAttack(ang, MISSILERANGE, slope, damage, "Hitscan", "Bulletpuff");
+			A_VRHitscanOrDodgeable(ang, slope, damage);
 		}
 	}
-	
-	
+
+
 	private void A_SPosAttackInternal()
 	{
 		if (target)
@@ -290,12 +312,12 @@ extend class Actor
 			A_FaceTarget();
 			double bangle = angle;
 			double slope = AimLineAttack(bangle, MISSILERANGE);
-		
+
 			for (int i=0 ; i<3 ; i++)
 			{
 				double ang = bangle + Random2[SPosAttack]() * (22.5/256);
 				int damage = Random[SPosAttack](1, 5) * 3;
-				LineAttack(ang, MISSILERANGE, slope, damage, "Hitscan", "Bulletpuff");
+				A_VRHitscanOrDodgeable(ang, slope, damage);
 			}
 		}
     }
@@ -329,7 +351,7 @@ extend class Actor
 			double slope = AimLineAttack(angle, MISSILERANGE);
 			double ang = angle + Random2[CPosAttack]() * (22.5/256);
 			int damage = Random[CPosAttack](1, 5) * 3;
-			LineAttack(ang, MISSILERANGE, slope, damage, "Hitscan", "Bulletpuff");
+			A_VRHitscanOrDodgeable(ang, slope, damage);
 		}
 	}
 
@@ -362,5 +384,52 @@ extend class Actor
 				SetState(SeeState);
 			}
 		}
+	}
+}
+
+//===========================================================================
+//
+// VRDodgeableHitscan -- the vr_enemy_hitscans=false replacement for the three vanilla
+// human hitscan attacks above. A plain, non-homing Actor.Projectile aimed once at spawn
+// (via SpawnMissile) -- travels in a straight line same as any other Doom monster
+// projectile, so it's dodgeable by moving instead of being an instant, unavoidable trace.
+// DamageType stays "Hitscan" so any existing damage-type-keyed logic still treats it
+// identically to the attack it replaced. customDamage carries the same random damage roll
+// the original LineAttack call would have used (Actor.Damage is native-readonly, so a
+// per-instance override has to go through DoSpecialDamage instead).
+//
+//===========================================================================
+
+class VRDodgeableHitscan : Actor
+{
+	int customDamage;
+
+	Default
+	{
+		Radius 2;
+		Height 2;
+		Speed 40;
+		DamageType "Hitscan";
+		Projectile;
+		+NOGRAVITY
+		+ZDOOMTRANS
+		RenderStyle "Add";
+		Alpha 0.8;
+		Scale 0.15;
+	}
+
+	override int DoSpecialDamage(Actor victim, int damage, Name damagetype)
+	{
+		return customDamage > 0 ? customDamage : damage;
+	}
+
+	States
+	{
+	Spawn:
+		PUFF A 1 Bright;
+		Loop;
+	Death:
+		TNT1 A 0 A_SpawnItemEx("BulletPuff", 0, 0, 0, 0, 0, 0, 0, SXF_NOCHECKPOSITION);
+		Stop;
 	}
 }

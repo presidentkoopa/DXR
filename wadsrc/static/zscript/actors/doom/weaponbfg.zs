@@ -40,8 +40,9 @@ class BFG9000 : DoomWeapon
 		BFGG B 20 A_ReFire;
 		Goto Ready;
 	Flash:
-		BFGF A 11 Bright A_Light1;
-		BFGF B 6 Bright A_Light2;
+		// VR: muzzle-flash sprite suppressed, muzzle light kept.
+		TNT1 A 11 Bright A_Light1;
+		TNT1 A 6 Bright A_Light2;
 		Goto LightDone;
 	Spawn:
 		BFUG A 0 A_CheckSpawnModel();

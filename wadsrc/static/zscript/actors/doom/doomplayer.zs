@@ -17,13 +17,18 @@ class DoomPlayer : PlayerPawn
 		Player.CrouchSprite "PLYC";
 		Player.StartItem "Pistol";
 		Player.StartItem "Fist";
+		Player.StartItem "VRSword";
 		Player.StartItem "Clip", 50;
-		Player.WeaponSlot 1, "Fist", "Chainsaw", "Flamethrower";
+		// XRWhip and ShieldSaw are opt-in only -- granted by WeaponReplacementHandler
+		// (vr_weapon_logic.zs) when vr_start_with_whip / vr_start_with_shieldsaw is on.
+		// VRSword and XRWhip are physical VR-grab tools, not number-key weapons -- no
+		// WeaponSlot assignment.
+		Player.WeaponSlot 1, "Fist", "Chainsaw", "Flamethrower", "ShieldSaw";
 		Player.WeaponSlot 2, "Pistol", "SMG", "Revolver";
 		Player.WeaponSlot 3, "Shotgun", "SuperShotgun";
 		Player.WeaponSlot 4, "Chaingun", "Rifle";
 		Player.WeaponSlot 8, "HandGrenade";
-		Player.WeaponSlot 5, "RocketLauncher";
+		Player.WeaponSlot 5, "RocketLauncher", "M79";
 		Player.WeaponSlot 6, "ID24Incinerator", "PlasmaRifle";
 		Player.WeaponSlot 7, "ID24CalamityBlade", "BFG9000";
 		

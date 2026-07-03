@@ -1,22 +1,22 @@
-Model BrutalPistol
-{ 
-   Path "Models/Weapons/Hud/BrutalPistol"
-   Model 0 "BrutalPistol.md3"
-   Skin 0 "BrutalPistol.png"
+// Reference frame layout for the 38-frame pistol mesh (models/weapons/pistol/Pistol.md3).
+// Documentation only -- the live in-hand mapping is in modeldef.txt. Kept here so the full
+// frame table (ready / fire / reload / sprint / melee) isn't lost.
+Model Pistol
+{
+   Path "models/weapons/pistol"
+   Model 0 "Pistol.md3"
+   Skin 0 "pistol.png"
    Scale -1.0 1.0 1.0
    Offset 0.0 -4.0 0.0
    ZOffset -5
 	NoInterpolation
-   
 
-   
 	//Ready weapon
-	
-FrameIndex	PIST	A	0	0
-FrameIndex	PIST	B	0	1
+
+	FrameIndex	PIST	A	0	0
+	FrameIndex	PIST	B	0	1
 
 	//Aim and Fire
-	
 
 	FrameIndex	PIST	F	0	2
 	FrameIndex	PIST	A	0	3
@@ -26,7 +26,7 @@ FrameIndex	PIST	B	0	1
 	FrameIndex	PIST	E	0	7
 
 	//Reload
-	
+
 	FrameIndex	PISR	A	0	8
 	FrameIndex	PISR	B	0	9
 	FrameIndex	PISR	C	0	10
@@ -45,15 +45,13 @@ FrameIndex	PIST	B	0	1
 	FrameIndex	PISR	P	0	23
 	FrameIndex	PISR	Q	0	24
 	FrameIndex	PISR	R	0	25
-	
-	
+
 	//Sprint
-	
+
 	FrameIndex	PISP	A	0	27
-	
-	
+
 	//Pistol Whip
-	
+
 	FrameIndex	PISA	A	0	28
 	FrameIndex	PISA	B	0	29
 	FrameIndex	PISA	C	0	30
@@ -64,5 +62,5 @@ FrameIndex	PIST	B	0	1
 	FrameIndex	PISA	H	0	35
 	FrameIndex	PISA	I	0	36
 	FrameIndex	PISA	J	0	37
-	
+
 }

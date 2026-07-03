@@ -1190,8 +1190,10 @@ void VR_UpdateRecoil(player_t* player)
 }
 
 EXTERN_CVAR(Float, vr_parry_radius_mult)
+EXTERN_CVAR(Bool, vr_parry_require_swing)
+EXTERN_CVAR(Float, vr_parry_swing_threshold)
 
-bool VR_CheckWeaponParry(player_t* player, AActor* inflictor, int* outHand)
+bool VR_CheckWeaponParry(player_t* player, AActor* inflictor, int* outHand, KeywordProfile** outProfile)
 {
 	if (!player || !inflictor || !VRMode::GetVRModeCached(false)) return false;
 
@@ -1211,6 +1213,19 @@ bool VR_CheckWeaponParry(player_t* player, AActor* inflictor, int* outHand)
 		KeywordProfile* profile = KeywordDispatcher::GetProfile(weapProfileKey.c_str());
 		if (!profile || profile->parry_extent_z <= 0) continue;
 
+		// Optional: require an active swing (not just passive proximity) to count as a
+		// parry. Mirrors AActor::GetHandVelocity's own smoothing/remap exactly
+		// (p_actionfunctions.cpp DEFINE_ACTION_FUNCTION(AActor, GetHandVelocity)) so "swing
+		// speed" means the same thing here as it does anywhere else a ZScript weapon reads it.
+		if (vr_parry_require_swing)
+		{
+			DVector3 avgVel(0, 0, 0);
+			for (int s = 0; s < 4; s++) avgVel += player->vr_hand_vel_buffer[i][s];
+			avgVel /= 4.0;
+			DVector3 handVel = DVector3(avgVel.X, avgVel.Z, avgVel.Y) * (vr_scale_meters_to_units / 35.0);
+			if (handVel.Length() < vr_parry_swing_threshold) continue;
+		}
+
 		VSMatrix invHand;
 		if (!handTransform.inverseMatrix(invHand)) continue;
 
@@ -1228,6 +1243,7 @@ bool VR_CheckWeaponParry(player_t* player, AActor* inflictor, int* outHand)
 		if (fabs(lx) < px && fabs(ly) < py && fabs(lz) < pz)
 		{
 			if (outHand) *outHand = i;
+			if (outProfile) *outProfile = profile;
 			return true;
 		}
 	}

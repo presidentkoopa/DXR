@@ -6,6 +6,8 @@
 
 class Pistol : DoomWeapon
 {
+	mixin XR_ManualReload;
+
 	Default
 	{
 		Weapon.SelectionOrder 1900;
@@ -21,7 +23,9 @@ class Pistol : DoomWeapon
 	States
 	{
 	Ready:
-		PISG A 1 A_WeaponReady;
+		PISG A 0 { if (invoker.XRMagSize == 0) invoker.XR_InitChamber(12); }   // mag size 12
+		PISG A 0 A_XR_CheckChamber("Reload");                                  // auto-reload when empty
+		PISG A 1 A_WeaponReady(WRF_ALLOWRELOAD);                              // + on-demand reload button
 		Loop;
 	Deselect:
 		PISG A 1 A_Lower;
@@ -30,6 +34,7 @@ class Pistol : DoomWeapon
 		PISG A 1 A_Raise;
 		Loop;
 	Fire:
+		TNT1 A 0 A_JumpIf(!A_XR_TryFire(), "Ready");   // chamber gate (consumes 1 loaded round; dry-clicks when empty)
 		PISG A 4;
 		PISG B 6
 		{
@@ -49,26 +54,51 @@ class Pistol : DoomWeapon
 		PISG A 2;
 		PISG B 3
 		{
-			A_FirePistol();
-			A_Recoil(0.8);
+			// each burst round self-gates on the chamber (stops mid-burst if it empties)
+			if (A_XR_TryFire()) { A_FirePistol(); A_Recoil(0.8); }
 		}
 		PISG B 3
 		{
-			A_FirePistol();
-			A_Recoil(0.8);
+			// each burst round self-gates on the chamber (stops mid-burst if it empties)
+			if (A_XR_TryFire()) { A_FirePistol(); A_Recoil(0.8); }
 		}
 		PISG B 3
 		{
-			A_FirePistol();
-			A_Recoil(0.8);
+			// each burst round self-gates on the chamber (stops mid-burst if it empties)
+			if (A_XR_TryFire()) { A_FirePistol(); A_Recoil(0.8); }
 		}
 		PISG C 4;
 		PISG B 5 A_ReFire;
 		Goto Ready;
+	// Manual reload -- drives Pistol.md3's OWN baked reload animation (frames 8-25,
+	// PISR A-R, mapped in modeldef.txt). 18 frames x 2 tics = ~1s snappy sidearm reload;
+	// chamber is topped from the reserve total on the final chambering frame.
+	Reload:
+		PISR A 2;
+		PISR B 2;
+		PISR C 2;
+		PISR D 2;
+		PISR E 2;
+		PISR F 2;
+		PISR G 2;
+		PISR H 2;
+		PISR I 2;
+		PISR J 2;
+		PISR K 2;
+		PISR L 2;
+		PISR M 2;
+		PISR N 2;
+		PISR O 2;
+		PISR P 2;
+		PISR Q 2;
+		PISR R 2 A_XR_RefillChamber();   // round chambers -> re-arm from reserve total
+		Goto Ready;
 	Flash:
-		PISF A 7 Bright A_Light1;
+		// VR: muzzle-flash sprite suppressed (billboarded 2D flash reads badly in stereo).
+		// Keep only the dynamic muzzle light. TNT1 = invisible.
+		TNT1 A 7 Bright A_Light1;
 		Goto LightDone;
-		PISF A 7 Bright A_Light1;
+		TNT1 A 7 Bright A_Light1;
 		Goto LightDone;
  	Spawn:
 		PIST A 0 A_CheckSpawnModel();

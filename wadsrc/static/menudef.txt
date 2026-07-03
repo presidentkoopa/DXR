@@ -2986,17 +2986,27 @@ OptionValue HitscanTracerMode
 
 OptionMenu CinemaModeOptions protected
 {
+	class TFLV_TooltipOptionMenu
 	Title "$VRCMODEMNU_TITLE"
+	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+	TFLV_TooltipAppearance "", "", "GITDTTBG"
 
 	StaticText " "
 	Option "$VRCINEMAMODE",						vr_overlayscreen,						"CinemaScreenFollow"
+	TFLV_Tooltip "\c[Cyan]Virtual Screen\c-  -  where the flat 2D game image floats: \c[White]Disabled\c-, stationary in space, stationary-follow, or locked to your head, main hand, or off-hand. Great for seated cinema-style play."
 	Option "$VRCINEMAMODE_PLAY",				vr_overlayscreen_always,				"OnOff", vr_overlayscreen
+	TFLV_Tooltip "\c[Gold]Play in Virtual Screen\c-  -  \c[White]On\c- forces the flat screen even during live gameplay (not just menus/console/cutscenes); \c[White]Off\c- shows it only in those non-gameplay moments."
 	Slider "$VRCINEMAMODE_SIZE",				vr_overlayscreen_size,					1.0, 3.0, 0.1, 2, vr_overlayscreen
+	TFLV_Tooltip "\c[Cyan]Screen Size\c-  -  scales how wide the virtual screen appears. Turn it up for a big-cinema feel, down to shrink it into a compact panel."
 	Slider "$VRCINEMAMODE_DIST",				vr_overlayscreen_dist,					-2.0, 2.0, 0.1, 2, vr_overlayscreen
+	TFLV_Tooltip "\c[Cyan]Screen Distance\c-  -  moves the screen nearer or farther from you (added to the ~2.5m default; negative pulls it closer). Adjust until it sits at a comfortable reading distance."
 	Slider "$VRCINEMAMODE_VPOS",				vr_overlayscreen_vpos,					-1.0, 1.0, 0.1, 2, vr_overlayscreen
+	TFLV_Tooltip "\c[Cyan]Screen Vertical Position\c-  -  raises or lowers the screen's height. Nudge it up or down so it sits comfortably in your natural line of sight."
 	Option "$VRCINEMAMODE_BG",					vr_overlayscreen_bg,					"CinemaScreenBG"
+	TFLV_Tooltip "\c[Gold]Backdrop Color\c-  -  the solid fill shown behind the screen: \c[White]Black\c-, Red, Green, Blue, Teal, or Grey (all dark tints). Black is most immersive; a tint frames the screen."
 	StaticText " "
 	SafeCommand "$OPTMNU_DEFAULTS",				"resetcvar vr_overlayscreen vr_overlayscreen_always vr_overlayscreen_size vr_overlayscreen_dist vr_overlayscreen_vpos vr_overlayscreen_bg"
+	TFLV_Tooltip "\c[Red]Reset to defaults\c-  -  restores every virtual-screen setting on this page to its factory value. Use it if the screen ends up misplaced or misconfigured."
 }
 
 OptionValue "HUDMountOption"
@@ -3007,100 +3017,172 @@ OptionValue "HUDMountOption"
 
 OptionMenu VRHUDOptions protected
 {
+	class TFLV_TooltipOptionMenu
 	Title "$VRHUDMNU_TITLE"
+	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+	TFLV_TooltipAppearance "", "", "GITDTTBG"
 
 	StaticText ""
 	StaticText "HUD", gold
 	StaticText ""
 	Slider "$VRHUDMNU_HUD_SCALE",		        "vr_hud_scale", 0.05, 1.0, 0.05, 2
+	TFLV_Tooltip "\c[Cyan]VR HUD Scale\c-  -  overall size of the whole floating HUD panel in VR. Turn \c[White]down\c- if the HUD feels huge or crowds your view."
 	ScaleSlider "$VRHUDMNU_HUD_ITEM_SCALE", 	"hud_scale", -1.0, 8.0, 1.0, "$SCALEMNU_USEUI", "$SCALEMNU_USEFS"
+	TFLV_Tooltip "\c[Cyan]VR HUD Item Scale\c-  -  stock scaling of the fullscreen-HUD graphics (health, ammo) drawn onto the panel; \c[White]Use UI/FS\c- auto-picks a size."
 	ScaleSlider "$VRHUDMNU_ALT_HUD_ITEM_SCALE","hud_althudscale", 0.0, 8.0, 1.0, "$SCALEMNU_USEUI"
+	TFLV_Tooltip "\c[Cyan]VR Alt-HUD Item Scale\c-  -  scaling for the alternate (640x400) HUD readouts; only matters when the Alternative HUD is enabled."
 	StaticText ""
 	Slider "$VRHUDMNU_HUD_STEREO_EFFECT",		"vr_hud_stereo", 0.0, 5.0, 0.1, 2
+	TFLV_Tooltip "\c[Cyan]VR HUD Stereo Effect\c-  -  how much 3D depth/parallax the HUD has between your eyes. \c[White]0\c- makes it flat; raise it to push the HUD into apparent depth."
 	Slider "$VRHUDMNU_HUDDISTANCE",		"vr_hud_distance", 0.4, 3, 0.05, 2
+	TFLV_Tooltip "\c[Cyan]VR HUD Distance\c-  -  how far the HUD floats from your face. Increase it if the panel sits uncomfortably close."
 	Slider "$VRHUDMNU_HUD_PITCH_ROTATE",		"vr_hud_rotate", 0.0, 50.0, 1.0, 2
+	TFLV_Tooltip "\c[Cyan]VR HUD Pitch Rotate\c-  -  tilts the HUD toward you (degrees) so a low, distant panel faces your eyes squarely."
 	Option "$VRHUDMNU_HUD_FIX_PITCH",		"vr_hud_fixed_pitch", "OnOff"
+	TFLV_Tooltip "\c[Cyan]VR HUD Fix Pitch\c-  -  \c[White]On\c- cancels your head's up/down tilt so the HUD stays anchored to the horizon instead of following your gaze. Off by default."
 	Option "$VRHUDMNU_HUD_FIX_ROLL",		"vr_hud_fixed_roll", "OnOff"
+	TFLV_Tooltip "\c[Cyan]VR HUD Fix Roll\c-  -  \c[White]On\c- keeps the HUD level even when you tilt your head sideways. On by default."
 	StaticText ""
 	Option "$VRHUDMNU_PORTABLE_HUD",			"vr_hud_mount", "OnOff"
+	TFLV_Tooltip "\c[Gold]Portable HUD\c-  -  \c[White]On\c- mounts the HUD on one of your controllers instead of floating ahead of you. On by default; the mount sliders below only apply when it's on."
 	Option "$VRHUDMNU_MOUNT_HUD_ON",			"vr_hud_mount_pos", "HUDMountOption", "vr_hud_mount"
+	TFLV_Tooltip "\c[Gold]Mount HUD on\c-  -  which controller the portable HUD rides on, \c[White]Main Hand\c- or \c[White]Off-Hand\c- (default)."
 	Slider "$VRHUDMNU_PORTABLE_HUD_SCALE",		"vr_hud_mount_scale", 0.05, 1.0, 0.05, 2, "vr_hud_mount"
+	TFLV_Tooltip "\c[Gold]Portable HUD Scale\c-  -  size of the HUD when it's hand-mounted (separate from the main HUD Scale above)."
 	Slider "$VRHUDMNU_PORTABLE_HUD_DISTANCE",		"vr_hud_mount_yoffset", -1.0, 1.0, 0.05, 2, "vr_hud_mount"
+	TFLV_Tooltip "\c[Gold]Portable HUD Distance\c-  -  pushes the hand-mounted HUD nearer or farther along the depth axis from the controller."
 	Slider "$VRHUDMNU_HORIZONTAL_OFFSET",		"vr_hud_mount_xoffset", -1.0, 1.0, 0.05, 2, "vr_hud_mount"
+	TFLV_Tooltip "\c[Gold]Horizontal Offset\c-  -  slides the hand-mounted HUD left or right relative to the controller."
 	Slider "$VRHUDMNU_VERTICAL_OFFSET",		"vr_hud_mount_zoffset", -1.0, 1.0, 0.05, 2, "vr_hud_mount"
+	TFLV_Tooltip "\c[Gold]Vertical Offset\c-  -  slides the hand-mounted HUD up or down relative to the controller."
 	Slider "$VRHUDMNU_PORTABLE_HUD_PITCH",		"vr_hud_mount_pitch", -180, 180, 5, 0, "vr_hud_mount"
+	TFLV_Tooltip "\c[Gold]Portable HUD Pitch\c-  -  tilts the hand-mounted HUD up or down (degrees) so you can angle it toward your gaze."
 	Slider "$VRHUDMNU_PORTABLE_HUD_ANGLE",		"vr_hud_mount_yaw", -180, 180, 1, 0, "vr_hud_mount"
+	TFLV_Tooltip "\c[Gold]Portable HUD Angle\c-  -  swivels the hand-mounted HUD left or right (yaw); the direction is mirrored per hand so it turns toward you either way."
 	Option "$VRHUDMNU_ROLL_WITH_CONTROLLER",		"vr_hud_mount_roll", "OnOff", "vr_hud_mount"
+	TFLV_Tooltip "\c[Gold]Roll with controller\c-  -  \c[White]On\c- lets the HUD roll as you twist your wrist; \c[White]Off\c- keeps it upright regardless of wrist rotation. On by default."
 	StaticText ""
 	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_hud_scale hud_scale hud_althudscale vr_hud_stereo vr_hud_distance vr_hud_rotate vr_hud_fixed_pitch vr_hud_fixed_roll vr_hud_mount vr_hud_mount_pos vr_hud_mount_scale vr_hud_mount_yoffset vr_hud_mount_xoffset vr_hud_mount_zoffset vr_hud_mount_pitch vr_hud_mount_yaw vr_hud_mount_roll"
+	TFLV_Tooltip "\c[Red]Reset to defaults\c-  -  restores every HUD setting in this section to its stock value. Use it if you've lost track of your tweaks."
 
 	StaticText ""
 	StaticText "$OPTVAL_AUTOMAP", gold
 	StaticText ""
 	Option "$VRHUDMNU_AUTOMAP_USE_HUD_SETTINGS",   "vr_automap_use_hud", "YesNo"
+	TFLV_Tooltip "\c[Green]Automap Use HUD Settings\c-  -  \c[White]Yes\c- makes the automap reuse all your HUD placement/scale values and ignore the automap sliders below. Off by default."
 	StaticText ""
 	Slider "$VRHUDMNU_AUTOMAP_SCALE",		        "vr_automap_scale", 0.05, 1.0, 0.05, 2
+	TFLV_Tooltip "\c[Green]VR Automap Scale\c-  -  overall size of the floating automap panel in VR."
 	Slider "$VRHUDMNU_AUTOMAP_STEREO_EFFECT",		"vr_automap_stereo", 0.0, 5.0, 0.1, 2
+	TFLV_Tooltip "\c[Green]VR Automap Stereo Effect\c-  -  how much 3D depth/parallax the automap has between your eyes. \c[White]0\c- keeps it flat."
 	Slider "$VRHUDMNU_AUTOMAPDISTANCE",		"vr_automap_distance", 0.4, 3, 0.05, 2
+	TFLV_Tooltip "\c[Green]VR Automap Distance\c-  -  how far the automap floats from your face."
 	Slider "$VRHUDMNU_AUTOMAP_PITCH_ROTATE",		"vr_automap_rotate", 0.0, 50.0, 1.0, 2
+	TFLV_Tooltip "\c[Green]VR Automap Pitch Rotate\c-  -  tilts the automap toward you (degrees) so a low or distant panel faces your eyes."
 	Option "$VRHUDMNU_AUTOMAP_FIX_PITCH",		    "vr_automap_fixed_pitch", "OnOff"
+	TFLV_Tooltip "\c[Green]VR Automap Fix Pitch\c-  -  \c[White]On\c- cancels your head's up/down tilt so the automap stays anchored to the horizon instead of following your gaze. On by default."
 	Option "$VRHUDMNU_AUTOMAP_FIX_ROLL",		    "vr_automap_fixed_roll", "OnOff"
+	TFLV_Tooltip "\c[Green]VR Automap Fix Roll\c-  -  \c[White]On\c- keeps the automap level even when you tilt your head sideways. On by default."
 	StaticText ""
 	Option "$VRHUDMNU_PORTABLE_AUTOMAP",		"vr_automap_mount", "OnOff"
+	TFLV_Tooltip "\c[Gold]Portable Automap\c-  -  \c[White]On\c- mounts the automap on a controller instead of floating in space. On by default; the mount sliders below only apply when it's on."
 	Option "$VRHUDMNU_MOUNT_MAP_ON",			"vr_automap_mount_pos", "HUDMountOption", "vr_automap_mount"
+	TFLV_Tooltip "\c[Gold]Mount Map on\c-  -  which controller the portable automap rides on, \c[White]Main Hand\c- or \c[White]Off-Hand\c- (default)."
 	Slider "$VRHUDMNU_PORTABLE_MAP_SCALE",		"vr_automap_mount_scale", 0.05, 1.0, 0.05, 2, "vr_automap_mount"
+	TFLV_Tooltip "\c[Gold]Portable Map Scale\c-  -  size of the automap when it's hand-mounted."
 	Slider "$VRHUDMNU_PORTABLE_MAP_DISTANCE",		"vr_automap_mount_yoffset", -1.0, 1.0, 0.05, 2, "vr_automap_mount"
+	TFLV_Tooltip "\c[Gold]Portable Map Distance\c-  -  pushes the hand-mounted automap nearer or farther along the depth axis from the controller."
 	Slider "$VRHUDMNU_HORIZONTAL_OFFSET",		"vr_automap_mount_xoffset", -1.0, 1.0, 0.05, 2, "vr_automap_mount"
+	TFLV_Tooltip "\c[Gold]Horizontal Offset\c-  -  slides the hand-mounted automap left or right relative to the controller."
 	Slider "$VRHUDMNU_VERTICAL_OFFSET",		"vr_automap_mount_zoffset", -1.0, 1.0, 0.05, 2, "vr_automap_mount"
+	TFLV_Tooltip "\c[Gold]Vertical Offset\c-  -  slides the hand-mounted automap up or down relative to the controller."
 	Slider "$VRHUDMNU_PORTABLE_MAP_PITCH",		"vr_automap_mount_pitch", -180, 180, 1, 0, "vr_automap_mount"
+	TFLV_Tooltip "\c[Gold]Portable Map Pitch\c-  -  tilts the hand-mounted automap up or down (degrees); defaults to a 45-degree tabletop angle."
 	Slider "$VRHUDMNU_PORTABLE_MAP_ANGLE",		"vr_automap_mount_yaw", -180, 180, 1, 0, "vr_automap_mount"
+	TFLV_Tooltip "\c[Gold]Portable Map Angle\c-  -  swivels the hand-mounted automap left or right (yaw); mirrored per hand so it turns toward you either way."
 	Option "$VRHUDMNU_ROLL_WITH_CONTROLLER",		"vr_automap_mount_roll", "OnOff", "vr_automap_mount"
+	TFLV_Tooltip "\c[Gold]Roll with controller\c-  -  \c[White]On\c- lets the automap roll as you twist your wrist; \c[White]Off\c- keeps it upright. On by default."
 	Slider "$VRHUDMNU_PORTABLE_MAP_BORDER",		"vr_automap_border", 0, 5, 1, 0, "vr_automap_mount"
+	TFLV_Tooltip "\c[Gold]Portable Map Border\c-  -  thickness of the frame drawn around the hand-mounted automap; \c[White]0\c- removes the border."
 	ColorPicker "$VRHUDMNU_MAP_BORDER_COLOR",		"vr_automap_border_color", "vr_automap_mount"
+	TFLV_Tooltip "\c[Gold]Map Border Color\c-  -  the color of that automap frame. Pick something that stands out against the map."
 	StaticText ""
 	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_automap_use_hud vr_automap_scale vr_automap_stereo vr_automap_distance vr_automap_rotate vr_automap_fixed_pitch vr_automap_fixed_roll vr_automap_border vr_automap_border_color vr_automap_mount vr_automap_mount_pos vr_automap_mount_scale vr_automap_mount_yoffset vr_automap_mount_xoffset vr_automap_mount_zoffset vr_automap_mount_pitch vr_automap_mount_yaw vr_automap_mount_roll"
+	TFLV_Tooltip "\c[Red]Reset to defaults\c-  -  restores every automap setting in this section to its stock value."
 }
 
 OptionMenu VRWeaponOptions protected
 {
+	class TFLV_TooltipOptionMenu
 	Title "$VRWEAPONMNU_TITLE"
+	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+	TFLV_TooltipAppearance "", "", "GITDTTBG"
 	
 	StaticText ""
 	StaticText "$VRWEAPONMNU_GLOBAL_OPTIONS", gold
 	Option "$VRWEAPONMNU_RECOIL",		        "vr_recoil", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Recoil\c-  -  \c[White]On\c- gives each shot a physical kick-back and upward aim climb in VR. Off by default; turn on for a punchier feel."
+	Slider "Recoil Climb Mult",					"vr_recoil_climb_mult", 0.0, 2.0, 0.1, 1
+	TFLV_Tooltip "\c[Gold]Recoil Climb Mult\c-  -  scales how far your aim drifts \c[White]upward\c- per shot. \c[White]0\c- = no climb, higher = more muzzle rise. Only matters when Recoil is on."
+	Slider "Two-Hand Stabilization",			"vr_stabilization_recoil_mult", 0.0, 1.0, 0.1, 1
+	TFLV_Tooltip "\c[Gold]Two-Hand Stabilization\c-  -  how much recoil climb remains while gripping a weapon with \c[White]both hands\c-. Lower = steadier when braced (\c[White]0\c- kills climb entirely)."
 	Slider "$VRWEAPONMNU_PITCH_ADJUST",			"vr_weaponRotate", -45, 45, 5, 2
+	TFLV_Tooltip "\c[Cyan]Pitch Adjust\c-  -  tilts the weapon \c[White]up or down\c- in your hand. Nudge it so the barrel points where the laser/aim actually goes for your controller grip."
 	Slider "$VRWEAPONMNU_SPRITE_MODEL_SCALE",	"vr_weaponScale", 0.1, 3.0, 0.1, 2
+	TFLV_Tooltip "\c[Cyan]Sprite/Model Scale\c-  -  overall \c[White]size\c- of the weapon held in your hand. Shrink or grow it to taste."
 	StaticText "Universal 3D VR Shell", gold
 	Option "Enable Universal VR Shell",		"vr_weapon_shell", "OnOff"
+	TFLV_Tooltip "\c[Gold]Universal VR Shell\c-  -  swaps flat 2D-sprite weapons for a \c[White]3D archetype model\c- so any gun holds and animates as a real 3D model in hand. On by default; off falls back to plain sprites."
 	StaticText ""
+	Option "Manual Reload (Chamber + Gesture)",	"vr_manual_reload", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Manual Reload\c-  -  \c[White]On\c- makes you reload with a physical gesture and tracks a live chamber/round counter, instead of auto-reloading. On by default."
+	Option "Enemy Hitscans",	"vr_enemy_hitscans", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Enemy Hitscans\c-  -  \c[White]On\c- (default) is vanilla: Zombieman/Shotgun Guy/Chaingunner shots are instant and unavoidable. \c[White]Off\c- turns those same shots into a slow, visible bullet you can dodge by moving."
 	Command "Open Weapon Archetype Scanner", "menu VRWeaponAssignmentMenu"
+	TFLV_Tooltip "\c[Gold]Archetype Scanner\c-  -  opens a scrollable list of \c[White]every weapon\c- in the loaded mods and the VR archetype (Pistol, Shotgun, Chaingun...) each was auto-matched to, which decides how the 3D shell holds it."
 	Command "DoomXR Gameplay & Spawn Options", "menu VRDoomXRGameplayOptions"
+	TFLV_Tooltip "\c[Gold]Gameplay & Spawn Options\c-  -  submenu for \c[White]visual fidelity\c-, weapon-replacement chances, ballistic bullet drop, starting gear, throwables and the grenade trajectory arc."
 	Option "Enable Tracked VR Hands",		"vr_weapon_hands", "OnOff"
+	TFLV_Tooltip "\c[Red]Tracked VR Hands\c-  -  intended to draw \c[White]controller-tracked hands\c- alongside the weapon, but this toggle is currently inert in this build (declared but no code reads it)."
 	Option "Dynamic Time Scaling (DTS)",	"vr_weapon_dts", "OnOff"
+	TFLV_Tooltip "\c[Red]Dynamic Time Scaling\c-  -  meant to \c[White]time-warp\c- the 3D shell animation to match the underlying 2D frames, but the hook is still an empty stub and does nothing yet in this build."
 	StaticText " "
 	Slider "Two-Hand Grip Distance",			"vr_twohand_maxdist", 0.05, 0.5, 0.01, 2
+	TFLV_Tooltip "\c[Red]Two-Hand Grip Distance\c-  -  intended max spacing between controllers for a \c[White]two-handed grip\c- to engage, but the value is currently unread in this build (inert)."
 	StaticText " "
-	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_recoil vr_weaponRotate vr_weaponScale"
+	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_recoil vr_recoil_climb_mult vr_stabilization_recoil_mult vr_weaponRotate vr_weaponScale"
+	TFLV_Tooltip "\c[Gold]Reset to defaults\c-  -  restores the \c[White]global\c- weapon settings above (recoil, climb, stabilization, pitch, scale) to their factory values."
 
 	StaticText " "
 	StaticText "$VRWEAPONMNU_3D_MODEL_OPTIONS", gold
 	Slider "$DSPLYMNU_WEAPOFSX",	"vr_3dweaponOffsetX", -10, 10, 0.1, 2
+	TFLV_Tooltip "\c[Cyan]Position left/right\c-  -  slides the \c[White]3D model\c- weapon sideways in your hand to line it up with your grip."
 	Slider "$DSPLYMNU_WEAPOFSY",	"vr_3dweaponOffsetY", -10, 10, 0.1, 2
+	TFLV_Tooltip "\c[Cyan]Position down/up\c-  -  raises or lowers the \c[White]3D model\c- weapon relative to your controller."
 	Slider "$DSPLYMNU_WEAPOFSZ",	"vr_3dweaponOffsetZ", -10, 10, 0.1, 2
+	TFLV_Tooltip "\c[Cyan]Position forward/backward\c-  -  pushes the \c[White]3D model\c- weapon toward or away from you along the barrel axis."
 	StaticText " "
 	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_3dweaponOffsetX vr_3dweaponOffsetY vr_3dweaponOffsetZ"
+	TFLV_Tooltip "\c[Gold]Reset to defaults\c-  -  re-centers the \c[White]3D model\c- weapon position offsets (X/Y/Z) back to zero."
 
 	StaticText " "
 	StaticText "$VRWEAPONMNU_SPRITE_OPTIONS", gold
 	Option "$VRWEAPONMNU_SPRITE_3D",				"r_PlayerSprites3DMode", "Sprites3DMode"
+	TFLV_Tooltip "\c[Gold]Sprite 3D\c-  -  how flat sprite weapons sit in 3D space: \c[White]Crossed\c-, \c[White]Back Only\c-, \c[White]Item Only\c-, or \c[White]Fat Item\c- (thickened billboard)."
 	Slider "$VRWEAPONMNU_FAT_ITEM_WIDTH",		"gl_fatItemWidth", 0.1, 1.0, 0.1, 2
+	TFLV_Tooltip "\c[Cyan]Fat Item Width\c-  -  \c[White]thickness\c- of the fattened sprite billboard. Only has an effect when Sprite 3D is set to \c[White]Fat Item\c-."
 	Slider "$DSPLYMNU_WEAPOFSX",	"vr_2dweaponOffsetX", -10, 10, 0.1, 2
+	TFLV_Tooltip "\c[Cyan]Position left/right\c-  -  slides the \c[White]2D sprite\c- weapon sideways in your hand."
 	Slider "$DSPLYMNU_WEAPOFSY",	"vr_2dweaponOffsetY", -10, 10, 0.1, 2
+	TFLV_Tooltip "\c[Cyan]Position down/up\c-  -  raises or lowers the \c[White]2D sprite\c- weapon relative to your controller."
 	Slider "$DSPLYMNU_WEAPOFSZ",	"vr_2dweaponOffsetZ", -10, 10, 0.1, 2
+	TFLV_Tooltip "\c[Cyan]Position forward/backward\c-  -  pushes the \c[White]2D sprite\c- weapon toward or away from you."
 	Slider "$DSPLYMNU_WEAPSCALE",	"vr_2dweaponScale", 0, 2.0, 0.1, 1
+	TFLV_Tooltip "\c[Cyan]Scale\c-  -  overall \c[White]size\c- of the 2D sprite weapon, multiplied on top of the global weapon scale."
 
 	StaticText " "
 	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar r_PlayerSprites3DMode gl_fatItemWidth vr_2dweaponOffsetX vr_2dweaponOffsetY vr_2dweaponOffsetZ vr_2dweaponScale"
+	TFLV_Tooltip "\c[Gold]Reset to defaults\c-  -  restores the \c[White]sprite\c- weapon settings (3D mode, fat width, position, scale) to their factory values."
 }
 
 OptionValue "LaserBeamLength"
@@ -3119,33 +3201,54 @@ OptionValue "LaserPointerGlow"
 
 OptionMenu VRLaserSightOptions protected
 {
+	class TFLV_TooltipOptionMenu
 	Title "$VRLASERMNU_TITLE"
+	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+	TFLV_TooltipAppearance "", "", "GITDTTBG"
 
 	StaticText ""
 	StaticText "$VRLASERMNU_LASER_OPTIONS", gold
 	Option "$VRLASERMNU_ENABLED",				"vr_laser_sight", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Enable Laser Pointer\c-  -  toggles the \c[White]aim dot\c- that lands where your gun is pointed. Turn it \c[White]On\c- for a precise VR reticle; the beam below has its own switch."
 	Option "$VRLASERMNU_MELEE",					"vr_laser_show_melee", "YesNo"
+	TFLV_Tooltip "\c[Cyan]Show on Melee/Unarmed\c-  -  keeps the laser visible while holding a fist or melee weapon. \c[White]Off\c- hides it whenever no ranged gun is out."
 	Option "$VRLASERMNU_HIDE_ON_WHEEL",			"vr_laser_hide_on_wheel", "YesNo"
+	TFLV_Tooltip "\c[Cyan]Hide on Weapon Wheel\c-  -  suppresses the laser while the VR weapon/item wheel is open so it doesn't clutter the selection view. On by default."
 	ColorPicker "$VRLASERMNU_COLOR",			"vr_laser_color"
+	TFLV_Tooltip "\c[Gold]Laser Color\c-  -  picks the tint used for both the aim dot and the beam. Defaults to \c[Red]red\c-; change it for visibility or taste."
 	Slider "$VRLASERMNU_POINTER_SCALE",			"vr_laser_pointer_scale", 0.1, 1.0, 0.05, 2
+	TFLV_Tooltip "\c[Cyan]Pointer Scale\c-  -  size of the aim dot; it scales with distance so it stays a constant on-screen size. Raise it if the dot is too small to spot."
 	Slider "$VRLASERMNU_POINTER_ALPHA",			"vr_laser_pointer_alpha", 0.0, 1.0, 0.05, 2
+	TFLV_Tooltip "\c[Cyan]Pointer Transparency\c-  -  opacity of the aim dot, from fully see-through (0) to solid (1). Lower it for a subtler reticle."
 	Option "$VRLASERMNU_POINTER_GLOW",			"vr_laser_pointer_glow", "LaserPointerGlow"
+	TFLV_Tooltip "\c[Cyan]Pointer Glow\c-  -  additive halo around the dot: \c[White]Glow Off\c-, \c[White]Point Light\c- (tight 3-pass glow), or \c[White]Dynamic Light\c- (wider, brighter 4-pass bloom)."
 	Slider "$VRLASERMNU_POINTER_GLOW_SCALE",	"vr_laser_pointer_glow_scale", 1.1, 4.0, 0.05, 2
+	TFLV_Tooltip "\c[Cyan]Pointer Glow Scale\c-  -  how far the glow halo spreads out from the dot. Higher makes a bigger, softer bloom. Only matters when Pointer Glow is on."
 	Slider "$VRLASERMNU_POINTER_GLOW_INTENSITY", "vr_laser_pointer_glow_intensity", 0.1, 4.0, 0.05, 2
+	TFLV_Tooltip "\c[Cyan]Glow Intensity\c-  -  brightness of the pointer's glow halo. Crank it up for a hotter, more visible bloom; only applies when Pointer Glow is on."
 
 	StaticText ""
 	StaticText "$VRLASERMNU_BEAM_OPTIONS", gold
 	Option "$VRLASERMNU_BEAM_ENABLED",			"vr_laser_beam", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Enable Laser Beam\c-  -  draws the full visible line from muzzle to target, not just the dot. Some weapons force their own beam regardless of this."
 	Slider "$VRLASERMNU_BEAM_ALPHA",			"vr_laser_beam_alpha", 0.0, 1.0, 0.05, 2
+	TFLV_Tooltip "\c[Cyan]Beam Transparency\c-  -  opacity of the laser line, from invisible (0) to solid (1). Lower values give a faint, ghostly beam."
 	Slider "$VRLASERMNU_BEAM_WIDTH",			"vr_laser_beam_width", 0.1, 2.0, 0.05, 2
+	TFLV_Tooltip "\c[Cyan]Beam Width\c-  -  thickness of the laser line. Raise it for a fat, obvious beam or lower it for a thin thread."
 	Option "$VRLASERMNU_BEAM_LENGTH",			"vr_laser_beam_length", "LaserBeamLength"
+	TFLV_Tooltip "\c[Cyan]Beam Length\c-  -  how far the beam draws: \c[White]Full\c- (all the way to what it hits), \c[White]Half\c- that distance, or \c[White]Fixed\c- (capped by the slider below)."
 	Slider "$VRLASERMNU_SHORT_LENGTH",			"vr_laser_fixed_length", 60, 1000, 10, 0
+	TFLV_Tooltip "\c[Cyan]Fixed Laser Length\c-  -  the capped beam length in map units, used only when Beam Length is set to \c[White]Fixed\c-. A short stub instead of a full-range line."
 	Slider "$VRLASERMNU_SOURCE_OFFSET_X",		"vr_laser_source_offset_x", -64, 64, 1, 0
+	TFLV_Tooltip "\c[Cyan]Origin X Offset\c-  -  nudges where the laser starts left/right relative to the gun. Use it to align the emitter with your weapon model's barrel."
 	Slider "$VRLASERMNU_SOURCE_OFFSET_Y",		"vr_laser_source_offset_y", -64, 64, 1, 0
+	TFLV_Tooltip "\c[Cyan]Origin Y Offset\c-  -  nudges the laser's start point forward/back along the barrel. Tweak with X and Z until the beam leaves the muzzle cleanly."
 	Slider "$VRLASERMNU_SOURCE_OFFSET_Z",		"vr_laser_source_offset_z", -64, 64, 1, 0
+	TFLV_Tooltip "\c[Cyan]Origin Z Offset\c-  -  nudges the laser's start point up/down relative to the gun. Adjust so the emitter sits on the barrel, not above or below it."
 	StaticText " "
 
 	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_laser_sight vr_laser_show_melee vr_laser_hide_on_wheel vr_laser_beam vr_laser_color vr_laser_beam_alpha vr_laser_beam_width vr_laser_pointer_scale vr_laser_pointer_alpha vr_laser_pointer_glow vr_laser_pointer_glow_scale vr_laser_pointer_glow_intensity vr_laser_beam_length vr_laser_fixed_length vr_laser_source_offset_x vr_laser_source_offset_y vr_laser_source_offset_z"
+	TFLV_Tooltip "\c[Red]Reset to Defaults\c-  -  restores every laser sight setting on this page to its factory value. Use it if you've tweaked things into a mess."
 }
 
 OptionValue "WheelListOption"
@@ -3168,273 +3271,435 @@ OptionValue "WheelItemSelectOption"
 
 OptionMenu VRWeaponWheelOptions protected
 {
+	class TFLV_TooltipOptionMenu
 	Title "$VRWHEELMNU_TITLE"
+	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+	TFLV_TooltipAppearance "", "", "GITDTTBG"
 	
 	StaticText ""
 	StaticText "$VRWHEELMNU_OPEN_WHEEL", gold
 	Control    "$CNTRLMNU_WHEEL_MAINWEAPONS"    , "+vrweaponwheel"
+	TFLV_Tooltip "\c[Cyan]Main Weapon Wheel\c-  -  bind a button that opens the \c[White]main-hand\c- weapon-selection wheel while held; release to pick."
 	Control    "$CNTRLMNU_WHEEL_OFFHAND_WEAPONS" , "+vroffhandweaponwheel"
+	TFLV_Tooltip "\c[Cyan]Offhand Weapon Wheel\c-  -  bind a button that opens the \c[White]off-hand\c- weapon wheel while held; the picked weapon is moved into your off hand for dual-wield."
 	Control    "$CNTRLMNU_WHEEL_ITEMS" 		, "+vrinvwheel"
+	TFLV_Tooltip "\c[Cyan]Inventory Wheel\c-  -  bind a button that opens the wheel of usable \c[White]items / inventory\c- (medkits, powerups, keys) while held."
 
 	StaticText ""
 	StaticText "$VRWHEELMNU_WHEEL_APPEARANCE", gold
 	ColorPicker "$VRWHEELMNU_ICON_BACKGROUND_COLOR", 	"vr_wheel_icon_bg_color"
+	TFLV_Tooltip "\c[Gold]Icon Background Color\c-  -  tint of the disc drawn behind each wheel icon; change it for contrast against the world."
 	ColorPicker "$VRWHEELMNU_ICON_HIGHLIGHT_COLOR",   	"vr_wheel_icon_select_color"
+	TFLV_Tooltip "\c[Gold]Icon Highlight Color\c-  -  color used to flag the currently hovered / selected icon on the wheel."
 	Slider "$VRWHEELMNU_WHEEL_ICON_SCALE", 				"vr_wheel_icon_scale", 0.1, 5.0, 0.1, 1
+	TFLV_Tooltip "\c[Gold]Icon Scale\c-  -  overall size of the icons on the wheel; raise it if icons are hard to read in the headset."
 	Slider "$VRWHEELMNU_WHEEL_RADIUS", 					"vr_wheel_radius", 3, 30, 1, 0
+	TFLV_Tooltip "\c[Gold]Wheel Radius\c-  -  how large the ring of icons is; a bigger radius spreads entries out for easier separate targeting."
 	Slider "$VRWHEELMNU_DISTANCE_FROM_HAND", 			"vr_wheel_distance", -0.5, 1.0, 0.05, 2
+	TFLV_Tooltip "\c[Gold]Distance From Hand\c-  -  how far in front of your controller the wheel floats when it opens; \c[White]0 or below\c- sits it right at your hand."
 	Slider "$VRWHEELMNU_MOVE_X_OFFSET", 				"vr_wheel_xoffset", -0.3, 0.3, 0.01, 2
+	TFLV_Tooltip "\c[Gold]Move X Offset\c-  -  nudges the whole wheel left / right relative to your hand; use it to center the wheel comfortably."
 	Slider "$VRWHEELMNU_MOVE_Y_OFFSET", 				"vr_wheel_yoffset", -0.3, 0.3, 0.01, 2
+	TFLV_Tooltip "\c[Gold]Move Y Offset\c-  -  nudges the whole wheel up / down relative to your hand for a comfortable viewing height."
 	Slider "$VRWHEELMNU_WHEEL_TIME_SLOW",				"vr_wheel_time_slow", 0.0, 1.0, 0.1, 1
+	TFLV_Tooltip "\c[Gold]Wheel Time Slow\c-  -  game speed while the wheel is open: \c[White]0\c- fully freezes time, \c[White]1.0\c- runs at normal speed for a bullet-time browse."
 	StaticText "$VRWHEELMNU_FREEZE_TIME_HELP", "Brown"
 	StaticText " "
 
 	StaticText ""
 	StaticText "$VRWHEELMNU_WHEEL_SELECTION", gold
 	Option "$VRWHEELMNU_SHOW_WEAPONS_ITEMS", 			"vr_wheel_weapon_all", "WheelListOption"
+	TFLV_Tooltip "\c[Cyan]Show Weapons/Items\c-  -  \c[White]Only Available\c- lists just what you own, \c[White]All\c- also shows unowned entries greyed out so slots stay in fixed positions."
 	Option "$VRWHEELMNU_ITEM_WHEEL_HAND_SWITCH", 		"vr_wheel_switch_hands", "YesNo"
+	TFLV_Tooltip "\c[Cyan]Item Wheel Hand Switch\c-  -  \c[White]Yes\c- anchors the item wheel to your main hand instead of the off-hand; affects the item wheel only."
 	StaticText "$VRWHEELMNU_SWITCH_HANDS_HELP", "Brown"
 	Option "$VRWHEELMNU_AUTO_SPLIT_LIST", 				"vr_wheel_auto_split", "YesNo"
+	TFLV_Tooltip "\c[Cyan]Auto Split List\c-  -  when there are too many entries (over 15) splits them into a second concentric ring so nothing gets cramped."
 	StaticText "$VRWHEELMNU_AUTO_SPLIT_HELP", "Brown"
 	Option "$VRWHEELMNU_SELECTION_MODE", 				"vr_wheel_selection_type", "WheelItemSelectOption"
+	TFLV_Tooltip "\c[Cyan]Selection Mode\c-  -  \c[White]Touch\c- selects by moving your hand onto an icon, \c[White]Aim\c- selects by pointing / leaning the controller toward it."
 	Slider "$VRWHEELMNU_AIM_SELECT_ANGLE", 				"vr_wheel_select_angle", 10.0, 90.0, 0.5, 1, vr_wheel_selection_type
+	TFLV_Tooltip "\c[Gold]Aim Select Angle\c-  -  (Aim mode only) how far you tilt off-center to reach the edge icons; smaller = more sensitive aiming."
 	Slider "$VRWHEELMNU_AIM_SELECT_DEADZONE", 			"vr_wheel_deadzone", 0.1, 5.0, 0.1, 1, vr_wheel_selection_type
+	TFLV_Tooltip "\c[Gold]Aim Select Deadzone\c-  -  (Aim mode only) neutral zone in the center where nothing is selected; raise it to avoid accidental picks."
 	
 	StaticText ""
 	StaticText "$VRWHEELMNU_OTHER_OPTIONS", gold
 	Option "$VRWHEELMNU_WHEEL_SOUNDS", 					"vr_wheel_sound", "OnOff"
+	TFLV_Tooltip "\c[Gold]Wheel Sounds\c-  -  \c[White]On\c- plays a click when the wheel opens and when you confirm a pick; turn off for silent selection."
 	Option "$VRWHEELMNU_HIDE_WEAPON_IN_HAND", 			"vr_wheel_hide_hand_weapon", "YesNo"
+	TFLV_Tooltip "\c[Gold]Hide Weapon in Hand\c-  -  \c[White]Yes\c- hides your held weapon model while the wheel is open so it doesn't block the icons."
 	Option "$VRWHEELMNU_LOAD_MODEL_FOR_ICONS", 			"vr_wheel_icon_load_model", "WheelIconModelOption"
+	TFLV_Tooltip "\c[Gold]Load Model For Icons\c-  -  \c[White]When Available\c- renders a small 3D weapon model as each icon instead of a flat sprite (costs more performance)."
 	Slider "$VRWHEELMNU_MODEL_ICON_SCALE_ADJUST", 		"vr_wheel_icon_model_scale", 0.1, 10.0, 0.1, 1, vr_wheel_icon_load_model
+	TFLV_Tooltip "\c[Gold]Model Icon Scale Adjust\c-  -  size multiplier for the 3D model icons; tweak so the guns fit neatly inside their backdrops."
 	Slider "$VRWHEELMNU_MODEL_ICON_ANGLE", 				"vr_wheel_icon_model_yaw", -180.0, 180.0, 1.0, 0, vr_wheel_icon_load_model
+	TFLV_Tooltip "\c[Gold]Model Icon Angle\c-  -  yaw / rotation of the 3D model icons so each weapon faces the camera at a flattering angle."
 	Slider "$VRWHEELMNU_MODEL_ICON_X_OFFSET", 			"vr_wheel_icon_model_xoffset", -100.0, 100.0, 1.0, 0, vr_wheel_icon_load_model
+	TFLV_Tooltip "\c[Gold]Model Icon X Offset\c-  -  shifts the 3D model sideways within its icon slot to correct off-center weapon meshes."
 	Slider "$VRWHEELMNU_MODEL_ICON_Z_OFFSET", 			"vr_wheel_icon_model_zoffset", -100.0, 100.0, 1.0, 0, vr_wheel_icon_load_model
+	TFLV_Tooltip "\c[Gold]Model Icon Z Offset\c-  -  shifts the 3D model up / down within its icon slot to vertically center the weapon mesh."
 	StaticText ""
 
 	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_wheel_icon_bg_color vr_wheel_icon_select_color vr_wheel_icon_scale vr_wheel_radius vr_wheel_distance vr_wheel_xoffset vr_wheel_yoffset vr_wheel_time_slow vr_wheel_weapon_all vr_wheel_switch_hands vr_wheel_selection_type vr_wheel_select_angle vr_wheel_deadzone vr_wheel_sound vr_wheel_hide_hand_weapon vr_wheel_icon_load_model vr_wheel_icon_model_scale vr_wheel_icon_model_yaw vr_wheel_icon_model_xoffset vr_wheel_icon_model_zoffset"
+	TFLV_Tooltip "\c[Red]Reset to Defaults\c-  -  restores every setting on this weapon/item wheel page to its factory value; does not affect other menus."
 }
 
 OptionMenu VRHitscanTracerOptions protected
 {
+	class TFLV_TooltipOptionMenu
 	Title "$VRTRACERMNU_TITLE"
+	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+	TFLV_TooltipAppearance "", "", "GITDTTBG"
 
 	StaticText ""
 	StaticText "$VRTRACERMNU_TRACE_OPTIONS", gold
 	Option "$VRTRACERMNU_ENABLED",			"vr_hitscan_tracer", "HitscanTracerMode"
+	TFLV_Tooltip "\c[Cyan]Add Bullet Tracer\c-  -  draws a glowing streak along every hitscan shot. \c[White]Player Only\c- shows just your guns; \c[White]Everyone\c- includes monsters; \c[White]Disabled\c- turns it off."
 	ColorPicker "$VRTRACERMNU_COLOR",		"vr_hitscan_tracer_color"
+	TFLV_Tooltip "\c[Gold]Tracer Color\c-  -  the tint of the tracer streak. Defaults to warm amber; pick red, green, or blue to match your loadout."
 	Slider "$VRTRACERMNU_OPACITY",			"vr_hitscan_tracer_alpha", 0.0, 1.0, 0.05, 2
+	TFLV_Tooltip "\c[Cyan]Tracer Opacity\c-  -  how solid the streak looks. Lower it for a faint whisper of a trail; at \c[White]0\c- the tracer is invisible."
 	Slider "$VRTRACERMNU_LENGTH",			"vr_hitscan_tracer_length", 1.0, 64.0, 1.0, 0
+	TFLV_Tooltip "\c[Cyan]Tracer Length\c-  -  how long the glowing tail is behind the travelling shot. Larger values give a longer, more visible dash."
 	Slider "$VRTRACERMNU_WIDTH",			"vr_hitscan_tracer_width", 0.01, 2.0, 0.01, 2
+	TFLV_Tooltip "\c[Cyan]Tracer Width\c-  -  thickness of the tracer beam. Raise it for a fat, chunky bolt or keep it thin for a laser-like line."
 	Slider "$VRTRACERMNU_SPEED",			"vr_hitscan_tracer_speed", 0.0, 40.0, 0.1, 1
+	TFLV_Tooltip "\c[Cyan]Tracer Speed\c-  -  how fast the streak flies from muzzle to target. Higher is snappier; lower lets you actually watch the round travel."
 	Slider "$VRTRACERMNU_OFFSET",			"vr_hitscan_tracer_offset", 0.0, 64.0, 1.0, 0
+	TFLV_Tooltip "\c[Cyan]Tracer Offset\c-  -  distance from the muzzle where the streak begins. Increase it so the tracer starts past your hand instead of inside the gun."
 	StaticText ""
 	StaticText "$VRTRACERMNU_RICOCHET_OPTIONS", gold
 	Option "$VRTRACERMNU_RICOCHET_ENABLED",	"vr_hitscan_ricochet", "YesNo"
+	TFLV_Tooltip "\c[Orange]Enable Ricochet\c-  -  spawns a short secondary streak that bounces off the impact point for extra flair. Needs tracers on; \c[White]Off\c- by default."
 	Slider "$VRTRACERMNU_RICOCHET_CHANCE",	"vr_hitscan_ricochet_chance", 0.0, 100.0, 1.0, 0
+	TFLV_Tooltip "\c[Orange]Ricochet Chance\c-  -  percent odds a ricochet spark spawns on each hit. Raise for sparks on nearly every shot; \c[White]0\c- disables them even when ricochet is on."
 	StaticText ""
 
 	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_hitscan_tracer vr_hitscan_ricochet vr_hitscan_ricochet_chance vr_hitscan_tracer_color vr_hitscan_tracer_alpha vr_hitscan_tracer_length vr_hitscan_tracer_width vr_hitscan_tracer_speed vr_hitscan_tracer_offset"
+	TFLV_Tooltip "\c[Red]Reset to defaults\c-  -  restores every setting on this page (tracer mode, color, opacity, length, width, speed, offset, and ricochet) to its factory value."
 }
 
 OptionMenu VROptionsMenu protected
 {
+	class TFLV_TooltipOptionMenu
 	Title "$VRPREFMNU_TITLE"
+	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+	TFLV_TooltipAppearance "", "", "GITDTTBG"
 
 	StaticText ""
 	ifOption(OpenVR, OpenXR)
 	{
 		Submenu "$VRCMODEMNU_TITLE",        "CinemaModeOptions"
+		TFLV_Tooltip "\c[Cyan]Virtual Screen\c-  -  flat 'cinema' overlay screen settings: follow mode, always-on playback, size, distance, vertical position and background. Use for cutscenes or a big flatscreen in VR."
 	}
 	Submenu "$VRHUDMNU_HUDAUTOMAPOPTIONS",  "VRHUDOptions"
+	TFLV_Tooltip "\c[Cyan]HUD & Automap\c-  -  scale, distance, stereo depth, pitch/roll lock and hand-mounting for the in-VR HUD and automap. Open to reposition your floating HUD."
 	Submenu "$VRWEAPONMNU_TITLE",			"VRWeaponOptions"
+	TFLV_Tooltip "\c[Cyan]Weapon Options\c-  -  recoil, two-hand stabilization, weapon tilt/scale, 3D-model vs sprite offsets, manual reload and tracked hands. Tune how guns look and handle."
 	Submenu "$VRLASERMNU_TITLE",			"VRLaserSightOptions"
+	TFLV_Tooltip "\c[Cyan]Laser Sight\c-  -  toggle and style the laser pointer/beam: color, glow, alpha, length and muzzle-offset. Handy for aiming without ironsights."
 	Submenu "$VRTRACERMNU_TITLE",			"VRHitscanTracerOptions"
+	TFLV_Tooltip "\c[Cyan]Bullet Tracers\c-  -  visible streaks for hitscan shots: color, length, width, speed, and optional ricochet. Makes instant bullets readable in VR."
 	Submenu "$VRWHEELMNU_TITLE",			"VRWeaponWheelOptions"
+	TFLV_Tooltip "\c[Cyan]Weapon/Item Wheel\c-  -  radial selector binds, appearance, time-slow, selection mode and model icons. Open to configure the flick-to-pick wheel."
 	Submenu "Grab Options",                 "VRGrabOptions"
+	TFLV_Tooltip "\c[Cyan]Grab Options\c-  -  telekinetic-grab tuning: cone angle, reach, magnet speed, throw force and the intent weights that pick what your hand grabs."
 	Submenu "Physics Options",              "VRPhysicsOptions"
+	TFLV_Tooltip "\c[Cyan]Physics Options\c-  -  explosion physics, whether blasts move keys, and the meters-to-units scale used by the physics sim."
 	Submenu "Combat Options",               "VRCombatOptions"
+	TFLV_Tooltip "\c[Cyan]Combat Options\c-  -  hands, recoil, bullet-snatching, parrying, catch/parry feedback, and locational-damage multipliers (headshots, legshots, crits)."
 	Submenu "SDF Score System Options",     "VRSDFScoreOptions"
+	TFLV_Tooltip "\c[Gold]SDF Score System\c-  -  intended to configure the shader-drawn (SDF) score/damage popups, but its target menu isn't defined in this build, so this link currently opens \c[Red]nothing\c-."
 	Submenu "Radiance & Glow Controls",     "GITD_Options"
+	TFLV_Tooltip "\c[Gold]Radiance & Glow\c-  -  the full glow-in-the-dark suite: glowing floors/ceilings/walls, darkening presets, combat FX and fog. The centerpiece visual menu."
 	StaticText ""
 	StaticText "$VRPREFMNU_MISC", gold
 	Option "Wired Visual Regime",       "vr_visual_regime", "VisualRegimes"
+	TFLV_Tooltip "\c[Gold]Wired Visual Regime\c-  -  swaps the whole render style: \c[White]System Shock\c- vector-frame, flat-shaded poly, tri-planar grid, voxel raymarch, glitch-haze or LSD SDF. \c[White]Default\c- leaves rendering normal."
 	Option "Arcade CRT Overdrive",      "vr_arcade_crt", "OnOff"
+	TFLV_Tooltip "\c[Gold]Arcade CRT Overdrive\c-  -  a post-process CRT/arcade-monitor look over the whole image. \c[White]On\c- for retro scanline flavor. Off by default."
 	Submenu "Cumulative Damage Numbers", "VRDamageCounterOptions"
+	TFLV_Tooltip "\c[Cyan]Damage Numbers\c-  -  the floating damage-total popups: enable, visual style, physics behavior, scale, lifetime and color. Open to configure them."
 	Option "Affine Matrix Warp (PS1)",  "vr_affine_warp", "OnOff"
+	TFLV_Tooltip "\c[Gold]Affine Warp (PS1)\c-  -  fakes PlayStation-1 affine texture wobble on surfaces. \c[White]On\c- for a nostalgic warped-texture look. Off by default."
 	Option "Volumetric Data-Haze",      "vr_data_haze", "OnOff"
+	TFLV_Tooltip "\c[Gold]Data-Haze\c-  -  a volumetric bit-crush 'data haze' fog post-process. Turn \c[White]On\c- to add drifting digital mist; density is set below. Off by default."
 	Slider "Data-Haze Density",         "vr_data_haze_density", 0.0, 5.0, 0.1, 1
+	TFLV_Tooltip "\c[Gold]Data-Haze Density\c-  -  how thick the Data-Haze fog is. Higher = denser haze. Only matters when Volumetric Data-Haze is \c[White]On\c-."
 	Submenu "SDF Test Impacts",         "VRWiredImpactOptions"
+	TFLV_Tooltip "\c[Gold]SDF Test Impacts\c-  -  a testbed for shader-drawn (SDF) bullet-impact bursts: type, color, scale, particle count, plus bullet-drop and a prototype spawn. Experimental."
 	ifOption(OpenXR)
 	{
 		Option "$VRPREFMNU_DESKTOP_RENDER",    "vr_desktop_view_openxr_render", "YesNo"
+		TFLV_Tooltip "\c[Cyan]VR Render As Desktop View\c-  -  reuses the headset's submitted image for the desktop mirror instead of rendering a separate mirror pass. \c[White]Yes\c- saves performance. Experimental, OpenXR only."
 	}
 	ifOption(OpenVR, OpenXR)
 	{
 		Option "$VRPREFMNU_DESKTOP",    "vr_desktop_view", "DesktopViewModes"
+		TFLV_Tooltip "\c[Cyan]Desktop View\c-  -  what the flat monitor shows while you're in VR: \c[White]Disabled\c-, side-by-side, or a single eye. \c[White]Right Eye\c- by default."
 	}
 	Slider "$VRPREFMNU_WORLDSCALE",     "vr_vunits_per_meter", 1, 60, 1, 0
+	TFLV_Tooltip "\c[Gold]World Scale\c-  -  Doom units per real-world meter (default \c[White]34\c-). Lower makes the world feel bigger/taller, higher shrinks it. Sets your sense of scale."
 	Slider "$VRPREFMNU_HEIGHT_ADJUST",		        "vr_height_adjust", -0.5, 1.0, 0.01, 2
+	TFLV_Tooltip "\c[Gold]Height Adjust\c-  -  vertical offset (in meters) added to your viewpoint. Raise or lower if you feel too short or too tall in-game."
 	ifOption(OpenVR, OpenXR)
 	{
 		StaticText ""
 		StaticText "$VRPREFMNU_PERFORMANCE", gold
 		Option "$VRPREFMNU_BSP_MULTITHREAD", "gl_multithread", "OnOff"
+		TFLV_Tooltip "\c[Cyan]BSP Scene Multithread\c-  -  runs level BSP/scene traversal on a worker thread for more FPS. \c[White]On\c- by default; turn off only if you suspect threading glitches."
 		StaticText "$VRPREFMNU_BSP_MULTITHREAD_HELP", "Brown"
 		Option "$VRPREFMNU_SCENE_MULTITHREAD", "vr_scene_multithread", "OnOff"
+		TFLV_Tooltip "\c[Cyan]VR Scene Multithread\c-  -  offloads VR scene-build jobs to a worker thread for performance. Experimental; \c[White]Off\c- by default. Try it if the VR view is CPU-bound."
 		StaticText "$VRPREFMNU_SCENE_MULTITHREAD_HELP", "Brown"
 	}
 	ifOption(OpenXR)
 	{
 		Option "$VRPREFMNU_MULTIVIEW", "vr_openxr_multiview", "OnOff"
+		TFLV_Tooltip "\c[Cyan]VR Multiview\c-  -  the experimental OpenXR/Vulkan multiview render path (both eyes in one pass) for extra performance. \c[White]Off\c- by default; enable to test."
 		StaticText "$VRPREFMNU_MULTIVIEW_HELP", "Brown"
 		Option "$VRPREFMNU_TEXTURE_THREAD", "gl_texture_thread", "OnOff"
+		TFLV_Tooltip "\c[Cyan]Vulkan Asset Streaming\c-  -  loads textures/assets on a background thread to reduce hitching. Experimental; \c[White]Off\c- by default. Try it if you get texture-load stutters."
 		StaticText "$VRPREFMNU_TEXTURE_THREAD_HELP", "Brown"
 		
 		StaticText ""
 		StaticText "$VRPREFMNU_DISPLAY_ADJUST", gold
 		Slider "$VRPREFMNU_ADJUST_GAMMA",     		"vr_openxr_present_gamma_bias", -2, 2, 0.01, 2
+		TFLV_Tooltip "\c[Gold]Adjust Gamma\c-  -  fine-tunes gamma of the final OpenXR image sent to the headset. Nudge if the picture looks too dark or washed out. OpenXR only."
 		Slider "$VRPREFMNU_ADJUST_CONTRAST",     	"vr_openxr_present_contrast_bias", -2, 2, 0.01, 2
+		TFLV_Tooltip "\c[Gold]Adjust Contrast\c-  -  contrast of the final OpenXR headset image. Raise for punchier blacks/whites, lower to flatten. OpenXR only."
 		Slider "$VRPREFMNU_ADJUST_BRIGHTNESS",     "vr_openxr_present_brightness_bias", -2, 2, 0.01, 2
+		TFLV_Tooltip "\c[Gold]Adjust Brightness\c-  -  overall brightness of the final OpenXR headset image. Bump up in dark scenes, down if it's blinding. OpenXR only."
 		Slider "$VRPREFMNU_ADJUST_SATURATION",     "vr_openxr_present_saturation_bias", -2, 2, 0.01, 2
+		TFLV_Tooltip "\c[Gold]Adjust Saturation\c-  -  color intensity of the final OpenXR headset image. Higher = more vivid, lower toward grayscale. OpenXR only."
 	}
 	StaticText " "
 	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_desktop_view vr_vunits_per_meter vr_height_adjust vr_scene_multithread vr_openxr_multiview vr_openxr_present_gamma_bias vr_openxr_present_contrast_bias vr_openxr_present_brightness_bias vr_openxr_present_saturation_bias"
+	TFLV_Tooltip "\c[Red]Reset to Defaults\c-  -  restores the display/scale/performance settings above (world scale, height, mirror, multithread, gamma/contrast/brightness/saturation) to stock values."
 	StaticText ""
 	StaticText "$VRPREFMNU_VR_CONTROLS", gold
 	ifOption(OpenVR, OpenXR)
 	{
 		Option "$VRPREFMNU_CONTROL_MODE",			"vr_joy_mode", "ControlMode"
+		TFLV_Tooltip "\c[Cyan]Control Mode\c-  -  base controller layout: \c[White]GZDoomVR\c- or \c[White]QuestZDoom\c-. Changing it requires a \c[Red]restart\c-. Pick the scheme your muscle memory expects."
 	}
 	Option "$VRPREFMNU_CONTROL_SCHEME",			"vr_control_scheme", "ControlScheme"
+	TFLV_Tooltip "\c[Cyan]Control Scheme\c-  -  handedness preset: \c[White]Right-Handed\c- or two left-handed variants. Set this to your dominant hand."
 	Option "$VRPREFMNU_SWITCH_THUMBSTICKS",		"vr_switch_sticks", "OnOff", vr_joy_mode
+	TFLV_Tooltip "\c[Cyan]Switch Thumbsticks\c-  -  swaps which stick moves vs turns. \c[White]On\c- to flip them. (Greyed out unless the QuestZDoom control mode is active.)"
 	Option "$VRPREFMNU_VIRTUAL_MOUSE",				"vr_mouse_in_menu", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Virtual Mouse\c-  -  lets you point-and-click menus with a laser pointer instead of stick navigation. \c[White]On\c- for point-to-select menus. Off by default."
 	ColorPicker "$VRPREFMNU_MOUSE_POINTER",		"vr_menu_pointer_color"
+	TFLV_Tooltip "\c[Cyan]Mouse Pointer Color\c-  -  the tint of the in-menu laser/mouse pointer. Change it for visibility against menu backgrounds."
 	Option "$VRPREFMNU_SECONDARY_BUTTON_MAPPINGS",	"vr_secondary_button_mappings", "OnOff", vr_joy_mode
+	TFLV_Tooltip "\c[Cyan]Secondary Button Mappings\c-  -  enables the extra 'hold/second-function' button bindings. \c[White]On\c- by default. (Greyed out unless the QuestZDoom control mode is active.)"
 	Option "$VRPREFMNU_TWO_HANDED_WEAPONS",		"vr_two_handed_weapons", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Two-Handed Weapons\c-  -  lets your off-hand grip a weapon for steadier two-handed aim. \c[White]On\c- by default. Turn off for one-handed play."
 	StaticText " "
 	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_control_scheme vr_switch_sticks vr_mouse_in_menu vr_menu_pointer_color vr_secondary_button_mappings vr_two_handed_weapons"
+	TFLV_Tooltip "\c[Red]Reset to Defaults\c-  -  restores the VR control settings above (scheme, stick swap, virtual mouse, pointer color, secondary mappings, two-handed) to stock. Does not touch Control Mode."
 
 	StaticText ""
 	StaticText "$VRPREFMNU_LOCOMOTION", gold
 	Option "$VRPREFMNU_OFF_HAND_MOVE_DIRECTION",	"vr_move_use_offhand", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Off-hand Move Direction\c-  -  steer movement by your off-hand controller's facing instead of your head/main hand. \c[White]On\c- to decouple aim from walk direction. Off by default."
 	Option "$VRPREFMNU_USE_TELEPORT",		        "vr_teleport", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Use Teleport\c-  -  switch locomotion to point-and-teleport instead of smooth stick movement. \c[White]On\c- if smooth motion makes you queasy. Off by default."
 	Option "$VRPREFMNU_SLIDEY_MOVEMENT_MOMENTUM","vr_momentum", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Slidey Movement (Momentum)\c-  -  adds acceleration/glide to walking so you don't stop instantly. \c[White]On\c- for momentum-based movement. Off by default."
 	Option "$VRPREFMNU_CROUCH_USING_BUTTON",       "vr_crouch_use_button", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Crouch Using Button\c-  -  crouch via a button press instead of physically ducking. \c[White]On\c- by default. Turn off to crouch by really lowering your head."
 	ScaleSlider "$VRPREFMNU_WALK_SPEED",           "vr_move_speed", 0, 50, 1, "$VRPREFMNU_MULTIPLIER_ACTIVE"
+	TFLV_Tooltip "\c[Gold]Walk Speed\c-  -  base movement speed (default \c[White]19\c-). Set it to \c[White]0\c- to disable the fixed speed and switch over to the Walk Multiplier below instead."
 	Slider "$VRPREFMNU_WALK_MULTIPLIER",           "vr_walk_multiplier", 0.5, 2.0, 0.01, 2, use_walk_multiplier
+	TFLV_Tooltip "\c[Gold]Walk Multiplier\c-  -  scales walk speed relative to your physical stride. Only active when \c[White]Walk Speed is set to 0\c- (otherwise greyed out)."
 	Slider "$VRPREFMNU_RUN_MULTIPLIER",	        "vr_run_multiplier", 0.5, 2.0, 0.01, 2
+	TFLV_Tooltip "\c[Gold]Run Multiplier\c-  -  scales your running speed (default \c[White]1.0\c-). Raise for faster sprints, lower to tame them."
 	StaticText "$VRPREFMNU_WALK_SPEED_HELP", brown
 	StaticText ""
 	Slider "$VRPREFMNU_SNAP_TURN_ANGLE",		    "vr_snapTurn", 0.0, 90.0, 1.0, 2
+	TFLV_Tooltip "\c[Gold]Snap-turn Angle\c-  -  degrees per stick-flick turn (default \c[White]45\c-). Set it \c[White]<= 10\c- to get continuous smooth turning instead of snapping."
 	StaticText "$VRPREFMNU_SNAP_TURN_HELP", "Brown"
 	StaticText " "
 	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_move_use_offhand vr_teleport vr_momentum vr_crouch_use_button vr_move_speed vr_walk_multiplier vr_run_multiplier vr_snapTurn"
+	TFLV_Tooltip "\c[Red]Reset to Defaults\c-  -  restores the locomotion settings above (off-hand steering, teleport, momentum, crouch, walk/run speed and snap-turn) to stock values."
 
 	StaticText ""
 	StaticText "$VRPREFMNU_HAPTICS", gold
 	Slider "$VRPREFMNU_ITEM_PICKUP_HAPTIC_LEVEL",		"vr_pickup_haptic_level", 0.0, 1.0, 0.1, 2
+	TFLV_Tooltip "\c[Gold]Item Pickup Haptic Level\c-  -  controller rumble strength when you grab an item (default \c[White]0.2\c-). Turn to 0 for no pickup buzz."
 	Slider "$VRPREFMNU_QUAKE_HAPTIC_LEVEL",			"vr_quake_haptic_level", 0.0, 1.0, 0.1, 2
+	TFLV_Tooltip "\c[Gold]Quake Haptic Level\c-  -  rumble strength for screen-shake / 'earthquake' events like nearby explosions (default \c[White]0.8\c-). Lower to soften the shaking buzz."
 	Slider "$VRPREFMNU_EXTERNAL_HAPTICS_INTENSITY",	"ext_haptic_level_global_intensity", 0.0, 2.0, 0.1, 2
+	TFLV_Tooltip "\c[Gold]External Haptics Intensity\c-  -  master multiplier applied to all mod/weapon-driven haptic effects (default \c[White]1.0\c-). Scale every custom rumble up or down at once."
 	StaticText " "
 	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_pickup_haptic_level vr_quake_haptic_level ext_haptic_level_global_intensity"
+	TFLV_Tooltip "\c[Red]Reset to Defaults\c-  -  restores the three haptic strengths above (pickup, quake, external intensity) to stock values."
 }
 
 OptionMenu "VRGrabOptions" protected
 {
+    class TFLV_TooltipOptionMenu
     Title "VR Grab Settings"
+    TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+    TFLV_TooltipAppearance "", "", "GITDTTBG"
     Option "Grab Debug", "vr_grab_debug", "OnOff"
+    TFLV_Tooltip "\c[Gold]Grab Debug\c-  -  draws the aim cone, grab sphere and throw-trajectory arc as particles so you can see what the grab system targets; turn \c[White]On\c- only when tuning."
     Slider "Grab Cone Angle", "vr_grab_cone_angle", 10, 90, 1
+    TFLV_Tooltip "\c[Cyan]Cone Angle\c-  -  full apex angle of the cone used to pick which item your hand points at; wider is more forgiving of off-axis aim."
     Slider "Grab Max Distance", "vr_grab_max_dist", 64, 2048, 32
+    TFLV_Tooltip "\c[Cyan]Max Distance\c-  -  how far your hand can reach to target an item (in map units); also sets the length of the aiming cone."
     Slider "Grab Magnet Speed", "vr_grab_magnet_speed", 1, 50, 1
+    TFLV_Tooltip "\c[Cyan]Magnet Speed\c-  -  velocity a held item is pulled toward your hand while gripped; higher reels it in faster."
     Option "Auto-Equip Special", "vr_autoequip", "OnOff"
+    TFLV_Tooltip "\c[Gold]Auto-Equip\c-  -  when a held pickup reaches your hand it is automatically collected instead of just held; turn \c[White]Off\c- to keep pickups in hand so you can throw them."
     Slider "Throw Force Multiplier", "vr_throw_force", 0.5, 5.0, 0.1, 1
+    TFLV_Tooltip "\c[Cyan]Throw Force\c-  -  multiplier on the release velocity when you throw a held item (also scaled by the item's mass); raise it to hurl things harder."
     StaticText " "
     StaticText "Intelligent Intent Weights", gold
     Slider "Distance Weight", "vr_grab_weight_dist", 0.0, 1.0, 0.05, 2
+    TFLV_Tooltip "\c[Red]Distance Weight\c-  -  meant to bias grab-target scoring toward closer items, but no code reads this cvar so it is currently \c[White]inert\c-."
     Slider "Alignment Weight", "vr_grab_weight_align", 0.0, 1.0, 0.05, 2
+    TFLV_Tooltip "\c[Red]Alignment Weight\c-  -  meant to bias grab-target scoring toward items most centered in your aim, but no code reads this cvar so it is currently \c[White]inert\c-."
     Slider "Mass Penalty Weight", "vr_grab_weight_mass", 0.0, 1.0, 0.05, 2
+    TFLV_Tooltip "\c[Red]Mass Penalty Weight\c-  -  meant to make heavier items less likely to be auto-targeted, but no code reads this cvar so it is currently \c[White]inert\c-."
 }
 
 OptionMenu "VRPhysicsOptions" protected
 {
+    class TFLV_TooltipOptionMenu
     Title "VR Physics Settings"
+    TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+    TFLV_TooltipAppearance "", "", "GITDTTBG"
     Option "Physics Explosions", "vr_physics_explosions", "OnOff"
+    TFLV_Tooltip "\c[Cyan]Physics Explosions\c-  -  \c[White]On\c- lets blast radius also shove loose pickups and corpses around, not just harm monsters. \c[White]Off\c- restores classic explosion behavior."
     Option "Explosions Affect Keys", "vr_physics_keys", "OnOff"
+    TFLV_Tooltip "\c[Gold]Explosions Affect Keys\c-  -  only matters when Physics Explosions is \c[White]On\c-; \c[White]On\c- lets blasts fling key items too, \c[White]Off\c- protects keys so they never get blown out of reach."
     StaticText " "
     Slider "Meter to Units Scale", "vr_scale_meters_to_units", 20.0, 60.0, 1.0, 1
+    TFLV_Tooltip "\c[Cyan]Meter to Units Scale\c-  -  how many map units equal one real-world meter; sets overall world scale and drives throw/grab velocity. Raise it to feel smaller in a bigger world, lower to feel larger."
 }
 
 OptionMenu "VRCombatOptions" protected
 {
+    class TFLV_TooltipOptionMenu
     Title "VR Combat Settings"
+    TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+    TFLV_TooltipAppearance "", "", "GITDTTBG"
     
     StaticText "Weapon Handling", gold
     Option "Show VR Hands", "vr_show_hands", "OnOff"
+    TFLV_Tooltip "\c[Cyan]Show VR Hands\c-  -  draws the virtual hand models gripping your weapons. \c[White]On\c- by default; turn \c[White]Off\c- if you prefer bare guns."
     Option "Hand-Centric Recoil", "vr_recoil", "OnOff"
+    TFLV_Tooltip "\c[Cyan]Hand-Centric Recoil\c-  -  each shot kicks the weapon back in your hand and pushes your aim upward. \c[White]Off\c- by default for a calmer, arcade feel."
     Slider "Recoil Climb Mult", "vr_recoil_climb_mult", 0.0, 2.0, 0.1, 1
+    TFLV_Tooltip "\c[Gold]Recoil Climb Mult\c-  -  scales how far the muzzle climbs upward per shot when recoil is on. Raise for punchier guns, drop to \c[White]0\c- for none."
     Slider "Two-Hand Stabilization", "vr_stabilization_recoil_mult", 0.0, 1.0, 0.1, 1
+    TFLV_Tooltip "\c[Gold]Two-Hand Stabilization\c-  -  fraction of recoil climb kept while gripping a weapon two-handed. Lower = steadier braced aim; default \c[White]0.5\c-."
     
     StaticText " "
     StaticText "Physical Interaction", gold
     Option "Bullet Snatching", "vr_allow_bullet_snatching", "OnOff"
+    TFLV_Tooltip "\c[Cyan]Bullet Snatching\c-  -  lets you grab incoming enemy missiles out of the air with your hand. \c[White]On\c- by default."
     Option "Weapon Parrying", "vr_allow_weapon_parrying", "OnOff"
+    TFLV_Tooltip "\c[Cyan]Weapon Parrying\c-  -  lets you negate an incoming attack by intercepting it with your weapon, taking no damage. \c[White]On\c- by default."
+    Option "Require Active Swing", "vr_parry_require_swing", "OnOff"
+    TFLV_Tooltip "\c[Cyan]Require Active Swing\c-  -  when on, holding a weapon still no longer parries -- you must be swinging it (same motion the swing-gated weapons already track). \c[White]Off\c- by default (passive blocking)."
     Slider "Snatch Sensitivity", "vr_catch_radius", 8.0, 64.0, 4.0, 1
+    TFLV_Tooltip "\c[Gold]Snatch Sensitivity\c-  -  how close (in map units) a missile must pass your hand to be snatched. Higher is more forgiving; default \c[White]24\c-."
     Slider "Parry Window Mult", "vr_parry_radius_mult", 0.5, 2.0, 0.1, 1
+    TFLV_Tooltip "\c[Gold]Parry Window Mult\c-  -  scales the size of your weapon's parry hit-box. Raise to make deflecting easier, lower for a tighter timing challenge; default \c[White]1.2\c-."
+    Slider "Parry Swing Threshold", "vr_parry_swing_threshold", 2.0, 30.0, 1.0, 1
+    TFLV_Tooltip "\c[Gold]Parry Swing Threshold\c-  -  how fast (map-units/tic) you must swing for it to count, when Require Active Swing is on. Default \c[White]10\c-."
+    Slider "Parry Reflect Speed", "vr_parry_reflect_speed_mult", 0.5, 3.0, 0.1, 1
+    TFLV_Tooltip "\c[Gold]Parry Reflect Speed\c-  -  how much faster a deflected shot flies back at whoever fired it. Higher makes reflected shots harder to dodge; default \c[White]1.5\c-."
     
     StaticText " "
     StaticText "Feedback", gold
     Option "Catch Haptics", "vr_catch_haptic", "OnOff"
+    TFLV_Tooltip "\c[Green]Catch Haptics\c-  -  controller rumble when you successfully snatch a bullet. \c[White]On\c- by default."
     Option "Catch Visual Effect", "vr_catch_spark", "OnOff"
+    TFLV_Tooltip "\c[Green]Catch Visual Effect\c-  -  a spark burst at your hand on a successful bullet catch. \c[White]On\c- by default."
     Option "Parry Haptics", "vr_parry_haptic", "OnOff"
+    TFLV_Tooltip "\c[Green]Parry Haptics\c-  -  controller rumble when you successfully parry an attack. \c[White]On\c- by default."
     Option "Parry Visual Effect", "vr_parry_spark", "OnOff"
+    TFLV_Tooltip "\c[Green]Parry Visual Effect\c-  -  a spark burst when you successfully parry an attack. \c[White]On\c- by default."
     
     StaticText " "
     StaticText "Locational Damage & Effects", gold
     Option "Locational Damage", "vr_locational_damage", "OnOff"
+    TFLV_Tooltip "\c[Red]Locational Damage\c-  -  gates the floating \c[White]HEADSHOT!\c-/\c[White]LEGSHOT!\c- callouts (with Show Locational Text). Zone damage itself is always applied, so \c[White]Off\c- only hides the text."
     Option "Show Locational Text", "vr_show_locational_text", "OnOff"
+    TFLV_Tooltip "\c[Cyan]Show Locational Text\c-  -  pops floating \c[White]HEADSHOT!\c-, \c[White]LEGSHOT!\c- and \c[White]CRITICAL!\c- callouts over your hits. \c[White]On\c- by default."
     Slider "Headshot Mult", "vr_locational_head_mult", 0.5, 5.0, 0.1, 1
+    TFLV_Tooltip "\c[Red]Headshot Mult\c-  -  damage multiplier for hits to a monster's head zone. Default \c[White]2.0\c-x."
     Slider "Legshot Mult", "vr_locational_leg_mult", 0.1, 2.0, 0.1, 1
+    TFLV_Tooltip "\c[Red]Legshot Mult\c-  -  damage multiplier for hits to a monster's leg zone. Default \c[White]0.5\c-x (weaker than a body shot)."
     Slider "Critical Hit Chance", "vr_crit_chance", 0.0, 1.0, 0.01, 2
+    TFLV_Tooltip "\c[Orange]Critical Hit Chance\c-  -  per-hit probability of rolling a critical. Default \c[White]0\c- (off); \c[White]1.0\c- = every hit crits."
     Slider "Critical Hit Mult", "vr_crit_mult", 1.0, 10.0, 0.5, 1
+    TFLV_Tooltip "\c[Orange]Critical Hit Mult\c-  -  damage multiplier applied when a critical rolls. Default \c[White]2.5\c-x."
 }
 
 OptionMenu "VRDamageCounterOptions"
 {
+    class TFLV_TooltipOptionMenu
     Title "Cumulative Damage Counters"
+    TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+    TFLV_TooltipAppearance "", "", "GITDTTBG"
 
     Option "Enable Counters", "vr_show_damage_numbers", "OnOff"
+    TFLV_Tooltip "\c[Cyan]Enable Counters\c-  -  \c[White]On\c- floats a running damage tally above each enemy you're hitting; turn \c[White]Off\c- if the numbers clutter your view."
     Option "Visual Style", "vr_damage_number_style", "DamageNumberStyles"
+    TFLV_Tooltip "\c[Gold]Visual Style\c-  -  how the number animates: \c[White]Classic\c- floats up, \c[White]Pulse\c- heartbeats, \c[White]Glitch\c- jitters, \c[White]Ticker\c- weaves sideways, \c[White]Explode\c- pops in. Pure taste."
     Option "Physics Behavior", "vr_damage_number_behavior", "DamageNumberBehaviors"
+    TFLV_Tooltip "\c[Gold]Physics Behavior\c-  -  how it moves: \c[White]Track Target\c- follows the enemy's head, \c[White]Float Free\c- drifts upward on its own, \c[White]Gravity\c- arcs and bounces off the floor."
     Slider "Scale", "vr_damage_number_scale", 0.1, 5.0, 0.1, 1
+    TFLV_Tooltip "\c[Green]Scale\c-  -  overall size of the floating number; crank it up if the digits are hard to read at VR distance."
     Slider "Lifetime (Frames)", "vr_damage_number_lifetime", 10, 140, 5, 0
+    TFLV_Tooltip "\c[Green]Lifetime\c-  -  how many tics (~35/sec) the number lingers before it fades out; it resets on every fresh hit so it stays up while you keep dealing damage."
 
     StaticText " "
     StaticText "Color System", gold
     Option "Color Mode", "vr_damage_number_color_mode", "DamageNumberColorModes"
+    TFLV_Tooltip "\c[Cyan]Color Mode\c-  -  how the number is tinted: \c[White]Dynamic Heat\c- goes white->yellow->red as the running total climbs, \c[White]Fixed\c- uses your picked color, \c[White]Rainbow\c- cycles over time, \c[White]Random Neon\c- rolls a new color each hit."
     ColorPicker "Fixed Color", "vr_damage_number_color"
+    TFLV_Tooltip "\c[Red]Fixed Color\c-  -  the exact color used only when \c[White]Color Mode\c- is set to \c[White]Fixed Color\c-; ignored by the other modes."
 }
 
 OptionMenu "VRWiredImpactOptions"
 {
+    class TFLV_TooltipOptionMenu
     Title "SDF Test Impacts (Wired)"
+    TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+    TFLV_TooltipAppearance "", "", "GITDTTBG"
     
     Option "Enable Wired Impacts", "vr_wired_impacts", "OnOff"
+    TFLV_Tooltip "\c[Cyan]Enable Wired Impacts\c-  -  master switch for the SDF-glyph particle burst that sprays from bullet hits. \c[White]On\c- by default; turn \c[White]Off\c- to disable the whole effect."
     Option "Impact Type", "vr_wired_impact_type", "WiredImpactTypes"
+    TFLV_Tooltip "\c[Cyan]Impact Type\c-  -  which glyphs fly out: \c[White]Binary\c- (0/1), \c[White]Geometry\c- (+ - * / # @ [ ]), or \c[White]Matrix\c- (random printable ASCII). Pick the look you want."
     Option "Color Mode", "vr_wired_impact_color_mode", "WiredImpactColors"
+    TFLV_Tooltip "\c[Cyan]Color Mode\c-  -  how glyphs are tinted: \c[White]Fixed\c- uses the color below, \c[White]Random\c- rolls a hue per particle, \c[White]Rainbow\c- cycles over time. Defaults to Random."
     
     StaticText " "
     StaticText "Appearance", gold
     ColorPicker "Fixed Color", "vr_wired_impact_color"
+    TFLV_Tooltip "\c[Gold]Fixed Color\c-  -  the single tint used only when \c[White]Color Mode = Fixed\c-. Defaults to green; ignored in Random/Rainbow modes."
     Slider "Impact Scale", "vr_wired_impact_scale", 0.1, 2.0, 0.1, 1
+    TFLV_Tooltip "\c[Gold]Impact Scale\c-  -  size multiplier for each glyph. Lower for subtle sparks, higher for big splashy hits."
     Slider "Particle Count", "vr_wired_impact_count", 1, 32, 1, 0
+    TFLV_Tooltip "\c[Gold]Particle Count\c-  -  how many glyphs spawn per impact. Raise for denser bursts, lower to cut clutter and cost."
     
     StaticText " "
     StaticText "Ballistics", gold
     Option "Bullet Drop", "vr_bullet_drop_enabled", "OnOff"
+    TFLV_Tooltip "\c[Red]Bullet Drop\c-  -  intended to add ballistic arc/gravity to shots, but \c[White]currently inert\c- (the cvar is declared yet nothing reads it). Toggling it does nothing for now."
     
     StaticText " "
     StaticText "Prototypes", gold
     Command "Summon GIF Sentinel", "netevent summon_gif_sentinel"
+    TFLV_Tooltip "\c[Orange]Summon GIF Sentinel\c-  -  dev test: spawns an animated SDF-atlas billboard 64 units in front of you to preview the GIF-entity renderer."
 }
 
 OptionValue "OpenXRDebugSubmitMode"
@@ -3854,16 +4119,24 @@ OptionMenu "OpenGLOptions" protected
 
 OptionMenu "VR3DMenu" protected
 {
+	class TFLV_TooltipOptionMenu
 	Title "$GLPREFMNU_VRMODE"
+	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+	TFLV_TooltipAppearance "", "", "GITDTTBG"
 	Option "$GLMNU_3DMODE",					vr_mode, 						"VRMode"
+	TFLV_Tooltip "\c[Cyan]Stereo 3D Mode\c-  -  picks how the two eye views are output: \c[White]mono\c-, anaglyph, side-by-side, top/bottom, interleaved, checkerboard, single-eye, quad-buffered, or a headset via \c[White]OpenVR / OpenXR\c-. Set this to match your display or VR device."
 	IfOption(Windows)
 	{
 		Option "$GLPREFMNU_VRQUADSTEREO",			vr_enable_quadbuffered,			"OnOff"
+		TFLV_Tooltip "\c[Gold]Enable Quad Stereo\c-  -  permits the \c[White]Quad-Buffered\c- 3D mode by requesting hardware quad-buffered OpenGL (needs a restart to take effect). Only turn \c[White]On\c- if your GPU/driver supports it; it clears itself if no valid pixel format is found."
 	}
 	Slider "$GLPREFMNU_VRIPD",					vr_ipd,							0.041, 0.073, 0.001, 3
+	TFLV_Tooltip "\c[Cyan]Eye Distance (IPD)\c-  -  the gap between your eyes in meters (default 0.064) used for stereo eye separation. Match it to your own interpupillary distance so depth looks natural and comfortable."
 	Slider "$GLPREFMNU_VRSCREENDIST",			vr_screendist,					0.2, 10.0, 0.1, 1
+	TFLV_Tooltip "\c[Cyan]Screen Distance\c-  -  how far away the virtual screen sits, in meters (default 0.8), which drives the stereo frustum shift. Lower for a closer, more immersive screen; raise to push it back."
 	StaticText " "
 	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_mode vr_enable_quadbuffered vr_ipd vr_screendist"
+	TFLV_Tooltip "\c[Red]Reset to Defaults\c-  -  restores 3D mode, quad stereo, IPD and screen distance to their stock values. Use it if stereo output looks wrong and you want a clean baseline."
 }
 
 OptionMenu "PostProcessMenu" protected
@@ -4341,37 +4614,61 @@ OptionValue VisualFidelity
 
 OptionMenu VRDoomXRGameplayOptions
 {
+	class TFLV_TooltipOptionMenu
 	Title "DOOMXR GAMEPLAY & SPAWN OPTIONS"
+	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+	TFLV_TooltipAppearance "", "", "GITDTTBG"
 	
 	StaticText "Arcade Modes", gold
 	Submenu "Radiance & Blackout Control", "GITD_Options"
+	TFLV_Tooltip "\c[Cyan]Radiance & Blackout Control\c-  -  opens the full glow-in-the-dark suite: preset themes, DarkDoomZ map-darkening, glow planes, flashlight, combat/death FX, fog and stats."
 	StaticText ""
 	StaticText "Visual Fidelity", gold
 	Option "System Performance / Effects", "vr_visual_fidelity", "VisualFidelity"
+	TFLV_Tooltip "\c[Gold]System Performance / Effects\c-  -  scales particle counts for flamethrower, rockets and voxel effects. Lower it for \c[White]performance\c-, raise toward \c[White]Ultra\c- for denser effects."
 	Option "Vanilla Barrel Explosion", "vr_barrel_vanilla_explosion", "OnOff"
-
+	TFLV_Tooltip "\c[Cyan]Vanilla Barrel Explosion\c-  -  \c[White]On\c- gives the plain stock barrel blast; \c[White]Off\c- (default) layers a fancier grenade-style fireball over the pop (visual only, same damage)."
+	
 	StaticText ""
 	StaticText "Weapon Replacement Rates", gold
 	Slider "Flamethrower replaces Chainsaw %", "vr_chainsaw_flame_chance", 0, 100, 5, 0
+	TFLV_Tooltip "\c[Orange]Flamethrower replaces Chainsaw %\c-  -  chance each spawned Chainsaw is swapped for a Flamethrower. \c[White]0\c- keeps all chainsaws."
 	Slider "Rifle replaces Chaingun %", "vr_chaingun_rifle_chance", 0, 100, 5, 0
+	TFLV_Tooltip "\c[Gold]Rifle replaces Chaingun %\c-  -  chance each spawned Chaingun becomes a Rifle. Shares one roll with the SMG chance and is checked first."
 	Slider "SMG replaces Chaingun %", "vr_chaingun_smg_chance", 0, 100, 5, 0
+	TFLV_Tooltip "\c[Gold]SMG replaces Chaingun %\c-  -  chance a Chaingun becomes an SMG, taken from the leftover of the shared roll after the Rifle chance. Keep Rifle + SMG under \c[White]100\c-."
 	Slider "Revolver replaces Pistol/Rifle %", "vr_weapon_revolver_chance", 0, 100, 5, 0
+	TFLV_Tooltip "\c[Gold]Revolver replaces Pistol/Rifle %\c-  -  chance a spawned Pistol or Rifle is swapped for a Revolver."
+	Slider "M79 replaces Rocket Launcher %", "vr_weapon_m79_chance", 0, 100, 5, 0
+	TFLV_Tooltip "\c[Gold]M79 replaces Rocket Launcher %\c-  -  chance each spawned Rocket Launcher is swapped for an M79 Grenade Launcher."
 	Option "Ballistic Bullet Drop (Realism)", "vr_ballistic_drop", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Ballistic Bullet Drop\c-  -  \c[White]On\c- makes ballistic-fire weapons launch gravity-affected projectiles that arc and drop instead of instant hitscan. Off by default."
 	Option "Incinerator Leaves Fire", "vr_incinerator_ignite", "OnOff"
+	TFLV_Tooltip "\c[Orange]Incinerator Leaves Fire\c-  -  \c[White]On\c- makes the Incinerator leave a burning ground patch that keeps dealing fire damage for ~1.2s. Off leaves the vanilla weapon untouched."
 	
 	StaticText ""
 	StaticText "Starting Gear", gold
 	Option "Start with Rifle instead of Pistol", "vr_start_with_rifle", "OnOff"
+	TFLV_Tooltip "\c[Gold]Start with Rifle instead of Pistol\c-  -  \c[White]On\c- swaps your starting Pistol for a Rifle when you spawn."
+	Option "Start with Whip", "vr_start_with_whip", "OnOff"
+	TFLV_Tooltip "\c[Gold]Start with Whip\c-  -  \c[White]On\c- gives you the XR Whip when you spawn. This is the only way to get it -- it has no world pickup."
+	Option "Start with Shieldsaw", "vr_start_with_shieldsaw", "OnOff"
+	TFLV_Tooltip "\c[Gold]Start with Shieldsaw\c-  -  \c[White]On\c- gives you the Shieldsaw when you spawn. This is the only way to get it -- it has no world pickup."
 	Option "Enable Physical Recoil", "vr_recoil", "OnOff"
+	TFLV_Tooltip "\c[Red]Enable Physical Recoil\c-  -  \c[White]On\c- kicks the gun model back and climbs your aim on each shot for weightier VR firing. Off keeps aim steady."
 	Option "Throwable Weapons (out of ammo tactic)", "vr_weapon_throwable", "OnOff"
+	TFLV_Tooltip "\c[Green]Throwable Weapons\c-  -  \c[White]On\c- lets you hurl your readied weapon as a projectile (handy when dry). It leaves your inventory when thrown."
 	Option "Spawn 3D Models instead of Sprites", "vr_spawn_models", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Spawn 3D Models instead of Sprites\c-  -  intended to spawn 3D-model pickups in place of flat sprites. \c[Red]Currently inert\c- -- the toggle is read but the model-swap code is still a stub."
 	
 	StaticText ""
 	StaticText "Grenade Options", gold
 	Option "Show Throw Trajectory Arc", "vr_grenade_trajectory", "OnOff"
+	TFLV_Tooltip "\c[Gold]Show Throw Trajectory Arc\c-  -  intended to draw a predicted throw-arc while aiming a grenade. \c[Red]Currently inert\c- -- the toggle exists but nothing reads it, so no arc is drawn."
 	
 	StaticText ""
-	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_visual_fidelity vr_barrel_vanilla_explosion vr_chainsaw_flame_chance vr_chaingun_rifle_chance vr_chaingun_smg_chance vr_weapon_revolver_chance vr_incinerator_ignite vr_start_with_rifle vr_grenade_trajectory vr_weapon_throwable vr_spawn_models"
+	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_visual_fidelity vr_barrel_vanilla_explosion vr_chainsaw_flame_chance vr_chaingun_rifle_chance vr_chaingun_smg_chance vr_weapon_revolver_chance vr_weapon_m79_chance vr_incinerator_ignite vr_start_with_rifle vr_start_with_whip vr_start_with_shieldsaw vr_grenade_trajectory vr_weapon_throwable vr_spawn_models"
+	TFLV_Tooltip "\c[Red]Reset to defaults\c-  -  restores every gameplay and spawn setting on this page to its factory value. Use it if a tweak caused problems."
 }
 
 // ============================================================================

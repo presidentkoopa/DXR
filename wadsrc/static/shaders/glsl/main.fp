@@ -1751,12 +1751,12 @@ vec4 applyOmniFog(vec4 frag, float fogdist)
 	return vec4(mix(fogColor, frag.rgb, clamp(fogfactor, 0.0, 1.0)), frag.a);
 }
 
-vec4 applyVisualRegime(vec4 frag)
+vec4 applyVisualRegime(vec4 frag, vec3 worldPos)
 {
 	if (u_vr_visual_regime <= 0) return frag;
-	
+
 	// VR SAFETY PASS: Use Spatial Proximity instead of Screen-Space Masks
-	float distToPlayer = length(pixelpos.xyz - uCameraPos.xyz);
+	float distToPlayer = length(worldPos - uCameraPos.xyz);
 	// Proximity Mask: Effects are faint near the player (hands/gun) and full strength in the arena
 	// Scaling by u_vr_regime_bubble_size allows user to shrink it to zero for total coverage.
 	float proximityMask = smoothstep(64.0 * u_vr_regime_bubble_size, 384.0 * u_vr_regime_bubble_size, distToPlayer);
@@ -1793,7 +1793,7 @@ vec4 applyVisualRegime(vec4 frag)
 			ping = smoothstep(256.0, 0.0, abs(distToPlayer - wavePos)) * firePulse * u_vr_regime_ping_inten;
 		}
 
-		vec2 grid = abs(fract(pixelpos.xz * 0.015) - 0.5) / 0.02;
+		vec2 grid = abs(fract(worldPos.xz * 0.015) - 0.5) / 0.02;
 		float line = 1.0 - min(grid.x, grid.y);
 		line = smoothstep(0.0, 1.0, line);
 		
@@ -1854,7 +1854,7 @@ vec4 applyVisualRegime(vec4 frag)
 	{
 		// Reactivity: Adrenaline Warp (Wavy speed increases with player velocity)
 		float speedMul = (u_vr_regime_speed_link > 0) ? (1.0 + u_gitd_player_speed * 5.0) : 1.0;
-		float wave = sin(pixelpos.y * 0.1 + timer * u_vr_regime_speed * speedMul);
+		float wave = sin(worldPos.y * 0.1 + timer * u_vr_regime_speed * speedMul);
 		
 		vec3 hsv = rgb2hsv(frag.rgb);
 		hsv.x = fract(hsv.x + wave * 0.2 * proximityMask);
@@ -1864,8 +1864,8 @@ vec4 applyVisualRegime(vec4 frag)
 	else if (u_vr_visual_regime == 9)
 	{
 		float size = 32.0;
-		vec3 g = floor(pixelpos.xyz / size);
-		vec3 f = fract(pixelpos.xyz / size);
+		vec3 g = floor(worldPos / size);
+		vec3 f = fract(worldPos / size);
 		
 		float h = fract(sin(dot(g.xz, vec2(12.9898, 78.233))) * 43758.5453);
 		
@@ -1912,6 +1912,11 @@ void main()
 	if (ClipDistanceA.x < 0.0 || ClipDistanceA.y < 0.0 || ClipDistanceA.z < 0.0 || ClipDistanceA.w < 0.0 || ClipDistanceB.x < 0.0) discard;
 #endif
 
+	// Distorted world-position for applyVisualRegime() below (regime sampling only; SetupMaterial's
+	// own texture lookups are unaffected). Declared here, ahead of the LEGACY_USER_SHADER branch,
+	// so it's always in scope at the call site regardless of which Material path compiles.
+	vec3 regimeWorldPos = pixelpos.xyz;
+
 #ifndef LEGACY_USER_SHADER
 	Material material;
 
@@ -1925,8 +1930,10 @@ void main()
 	material.Metallic = 0.0;
 	material.Roughness = 0.0;
 	material.AO = 0.0;
-	
+
 	// --- Reactive Impact Ripples (Global Coordinate Distortion) ---
+	// 'pixelpos' is a shader INPUT -- Vulkan/SPIR-V forbids writing to it (older GL compilers
+	// silently tolerated this) -- so the distortion is written into regimeWorldPos instead.
 	if (u_vr_ripples_enabled > 0)
 	{
 		float rippleLife = timer - u_gitd_last_impact_time;
@@ -1936,15 +1943,12 @@ void main()
 			float wavePos = rippleLife * 2048.0; // Wave expansion speed
 			float ripple = smoothstep(128.0, 0.0, abs(distToImpact - wavePos));
 			ripple *= (1.0 - rippleLife); // Fade over time
-			
-			// Distort world-space lookup for regimes
-			// Note: We only distort for the 'fancy' regimes to avoid nausea on basic textures
-			// 'pixelpos' is a shader INPUT -- Vulkan/SPIR-V forbids writing to it (older GL
-			// compilers silently tolerated this). Compute into a local; threading the distorted
-			// position into SetupMaterial/regime sampling is separate follow-up wiring work.
+
+			// Distort world-space lookup for regimes.
+			// Note: we only distort for the 'fancy' regimes to avoid nausea on basic textures.
 			if (u_vr_visual_regime > 0)
 			{
-				vec3 ripplePos = pixelpos.xyz + normalize(pixelpos.xyz - u_gitd_last_impact_pos) * ripple * 32.0 * u_vr_ripple_scale;
+				regimeWorldPos = pixelpos.xyz + normalize(pixelpos.xyz - u_gitd_last_impact_pos) * ripple * 32.0 * u_vr_ripple_scale;
 			}
 		}
 	}
@@ -2016,7 +2020,7 @@ void main()
 		frag.rgb = frag.rgb + uFogColor.rgb;
 	}
 	
-	frag = applyVisualRegime(frag);
+	frag = applyVisualRegime(frag, regimeWorldPos);
 	FragColor = frag;
 
 #ifdef DITHERTRANS

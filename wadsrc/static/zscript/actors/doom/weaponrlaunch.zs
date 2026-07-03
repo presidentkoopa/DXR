@@ -38,9 +38,10 @@ class RocketLauncher : DoomWeapon
 		MISG B 0 A_ReFire;
 		Goto Ready;
 	Flash:
-		MISF A 3 Bright A_Light1;
-		MISF B 4 Bright;
-		MISF CD 4 Bright A_Light2;
+		// VR: muzzle-flash sprite suppressed, muzzle light kept.
+		TNT1 A 3 Bright A_Light1;
+		TNT1 A 4 Bright;
+		TNT1 A 4 Bright A_Light2;
 		Goto LightDone;
 	Spawn:
 		LAUN A 0 A_CheckSpawnModel();

@@ -186,7 +186,10 @@ struct player_t;
 void VR_UpdateGravityGloves(player_t* player);
 void VR_ApplyRecoil(player_t* player, int hand, float force);
 void VR_UpdateRecoil(player_t* player);
-bool VR_CheckWeaponParry(player_t* player, AActor* inflictor, int* outHand = nullptr);
+struct KeywordProfile;
+// outProfile lets the caller read the resolved weapon's KeywordProfile on a successful parry
+// (e.g. a per-weapon parry_sound override) without a second class-name lookup.
+bool VR_CheckWeaponParry(player_t* player, AActor* inflictor, int* outHand = nullptr, KeywordProfile** outProfile = nullptr);
 void QzDoom_GetScreenRes(uint32_t *width, uint32_t *height);
 void QzDoom_GetScreenRes(uint32_t *width, uint32_t *height);
 

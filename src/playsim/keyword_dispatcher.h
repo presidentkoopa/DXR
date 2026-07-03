@@ -29,6 +29,7 @@ struct KeywordProfile {
     float parry_extent_x = 0;
     float parry_extent_y = 0;
     float parry_extent_z = 0;
+    FString parry_sound; // optional per-weapon override; empty = caller falls back to "vr/parry"
 
     // Ballistics
     float bullet_drop = 0.0f;

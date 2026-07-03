@@ -746,6 +746,13 @@ public:
 	ModelAnim curAnim;
 	ModelAnimFrame prevAnim; // used for interpolation when switching anims
 
+	// Procedural per-bone pose. When useProceduralPose is set and proceduralPose holds one
+	// TRS per bone, ProcessModelFrame feeds this straight into CalculateBones instead of the
+	// model's baked animation -- letting ZScript drive IQM bones directly each tic (physics
+	// whip). One frame's worth of poses (size == bone count); rewritten every tic, not saved.
+	TArray<TRS> proceduralPose;
+	bool useProceduralPose = false;
+
 	DActorModelData() = default;
 	virtual void Serialize(FSerializer& arc) override;
 	virtual void OnDestroy() override;
@@ -1164,6 +1171,7 @@ public:
 
 	DVector3		OldRenderPos;
 	DVector3		Vel;
+	DVector3		GravityDir;		// [XR] per-actor gravity "down" (unit vector); (0,0,0) = normal -Z gravity
 	DVector2		SpriteOffset;
 	DVector3		WorldOffset;
 	double			Speed;

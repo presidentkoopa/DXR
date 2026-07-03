@@ -63,6 +63,7 @@
 #include "events.h"
 #include "actorinlines.h"
 #include "hw_vrmodes.h"
+#include "keyword_dispatcher.h"
 #include "d_main.h"
 
 #include <QzDoom/VrCommon.h>
@@ -85,6 +86,7 @@ EXTERN_CVAR(Float, vr_crit_mult)
 EXTERN_CVAR(Bool, vr_allow_weapon_parrying)
 EXTERN_CVAR(Bool, vr_parry_haptic)
 EXTERN_CVAR(Bool, vr_parry_spark)
+EXTERN_CVAR(Float, vr_parry_reflect_speed_mult)
 CVAR(Bool, vr_show_locational_text, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 
 
@@ -1632,12 +1634,15 @@ static int DoDamageMobj(AActor *target, AActor *inflictor, AActor *source, int d
 	if (vr_allow_weapon_parrying && target && target->player && inflictor && (inflictor->flags & MF_MISSILE))
 	{
 		int hand = 0;
-		if (VR_CheckWeaponParry(target->player, inflictor, &hand))
+		KeywordProfile* parryProfile = nullptr;
+		if (VR_CheckWeaponParry(target->player, inflictor, &hand, &parryProfile))
 		{
 			// Parry successful!
-			inflictor->Vel = -inflictor->Vel;
+			inflictor->Vel = -inflictor->Vel * max(0.f, (float)vr_parry_reflect_speed_mult);
 			inflictor->target = target; // Reflect back at sender
-			S_Sound(target, CHAN_BODY, CHANF_NONE, "vr/parry", 1.0, ATTN_NORM);
+			const char* parrySound = (parryProfile && parryProfile->parry_sound.IsNotEmpty())
+				? parryProfile->parry_sound.GetChars() : "vr/parry";
+			S_Sound(target, CHAN_BODY, CHANF_NONE, parrySound, 1.0, ATTN_NORM);
 			
 			if (vr_parry_haptic)
 			{

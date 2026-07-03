@@ -273,6 +273,9 @@ void KeywordDispatcher::Init() {
                             prof.parry_extent_z = pe[2].GetFloat();
                         }
                     }
+                    if (val.HasMember("parry_sound") && val["parry_sound"].IsString()) {
+                        prof.parry_sound = val["parry_sound"].GetString();
+                    }
                     profiles[name] = prof;
                 }
             }

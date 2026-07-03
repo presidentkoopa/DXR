@@ -1,11 +1,9 @@
-uniform float u_BlackoutMode;
-uniform float u_NeonThickness;
-uniform float u_NeonThreshold;
-uniform float u_NeonGlow;
-uniform float u_NeonPulseSpeed;
-uniform vec3 u_NeonColorA;
-uniform vec3 u_NeonColorB;
-
+// u_BlackoutMode/u_NeonThickness/u_NeonThreshold/u_NeonGlow/u_NeonPulseSpeed/u_NeonColorA/
+// u_NeonColorB are StreamData fields (hw_renderstate.h), resolved via #define aliases in the
+// shared shader prelude -- same pattern as u_IsMSDF/u_MSDFColor in vr_damage_sdf.fp/msdf_atlas.fp.
+// Do NOT redeclare them as loose "uniform" here (that's what left them permanently unfed before --
+// no ZScript/PostProcess API can reach a Sprite material shader's loose uniforms).
+//
 // Material shader: must return ProcessTexel(), not define main() (main.fp already has main()).
 vec4 ProcessTexel() {
     if (u_BlackoutMode < 0.5) {

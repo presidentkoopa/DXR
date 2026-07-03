@@ -46,6 +46,9 @@ EXTERN_CVAR(Int, vr_visual_regime)
 EXTERN_CVAR(Bool, vr_arcade_crt)
 EXTERN_CVAR(Bool, vr_affine_warp)
 
+// Storage for the once-per-scene monster-neon-outline cache (declared extern in hw_renderstate.h).
+FNeonOutlineState GNeonOutlineState;
+
 #include "flatvertices.h"
 #include "hw_lightbuffer.h"
 #include "hw_bonebuffer.h"
@@ -196,6 +199,34 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 		VPUniforms.mVisualRegime = vr_visual_regime;
 		VPUniforms.mArcadeCRT = vr_arcade_crt;
 		VPUniforms.mAffineWarp = vr_affine_warp;
+
+		// [XR] Monster neon outlines: refresh the once-per-scene cache from the live CVARINFO
+		// cvars (declared user-side, not native C++ cvars, so FindCVar() dynamic lookup -- same
+		// idiom menudef.cpp uses -- not EXTERN_CVAR). Cheap: runs once per scene/eye here, NOT
+		// per draw call; FRenderState::Reset() just copies GNeonOutlineState, no lookup there.
+		{
+			auto getFloat = [](const char* name, float def) -> float {
+				auto cv = FindCVar(name, nullptr);
+				return cv ? cv->GetGenericRep(CVAR_Float).Float : def;
+			};
+			auto getBool = [](const char* name, bool def) -> float {
+				auto cv = FindCVar(name, nullptr);
+				return (cv ? cv->GetGenericRep(CVAR_Bool).Bool : def) ? 1.0f : 0.0f;
+			};
+			auto getColor = [](const char* name, FVector4 def) -> FVector4 {
+				auto cv = FindCVar(name, nullptr);
+				if (!cv) return def;
+				int packed = cv->GetGenericRep(CVAR_Int).Int;
+				return FVector4(RPART(packed) / 255.f, GPART(packed) / 255.f, BPART(packed) / 255.f, 1.f);
+			};
+			GNeonOutlineState.BlackoutMode = getBool("vr_blackout_mode", false);
+			GNeonOutlineState.NeonThickness = getFloat("vr_neon_thickness", 1.0f);
+			GNeonOutlineState.NeonThreshold = getFloat("vr_neon_threshold", 0.2f);
+			GNeonOutlineState.NeonGlow = getFloat("vr_neon_glow", 3.0f);
+			GNeonOutlineState.NeonPulseSpeed = getFloat("vr_neon_pulse_speed", 2.0f);
+			GNeonOutlineState.NeonColorA = getColor("vr_neon_color_a", FVector4(0.f, 1.f, 1.f, 1.f));
+			GNeonOutlineState.NeonColorB = getColor("vr_neon_color_b", FVector4(1.f, 0.f, 1.f, 1.f));
+		}
 	}
 	mClipper->SetViewpoint(Viewpoint);
 	vClipper->SetViewpoint(Viewpoint);

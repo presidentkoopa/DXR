@@ -284,6 +284,12 @@ weapons/grntoss         dsgrtoss
 weapons/grnbounce       dsgrdrop
 weapons/grnexplode      dsgrboom
 
+// M79 grenade launcher (imported from Desktop/SOUNDS/COMBAT/WEAPONS)
+weapons/grenadefire     dsgrfire
+weapons/grenadeopen     dsgropen
+weapons/grenadeload     dsgrload
+weapons/grenadeclose    dsgrclos
+
 $random weapons/grenadebang { weapons/gbang1 weapons/gbang2 weapons/gbang3 weapons/gbang4 weapons/gbang5 weapons/gbang6 weapons/gbang7 weapons/gbang8 }
 weapons/gbang1          gbang1
 weapons/gbang2          gbang2
@@ -335,7 +341,7 @@ $random weapons/shield/hithard 	{ shdehit1 shdehit2 shdehit3 }
 shdehit1 				shdehit1
 shdehit2 				shdehit2
 shdehit3 				shdehit3
-$volume weapon/shieldsaw/hithard 0.4
+$volume weapons/shield/hithard 0.4
 
 $random weapons/shield/bounce 		{ shbounc1 shbounc2 shbounc3 }
 shbounc1 				shbounc1
@@ -343,3 +349,25 @@ shbounc2 				shbounc2
 shbounc3 				shbounc3
 
 weapons/shield/throw 			shwhoosh
+
+// "vr/parry" is played natively on every successful weapon parry (p_interaction.cpp
+// DoDamageMobj) but was NEVER REGISTERED here -- a real, pre-existing bug, not something
+// introduced this pass. The parry has been mechanically working (damage negated, projectile
+// reflected) but totally SILENT since it shipped, despite Parry Haptics/Visual Effect menu
+// toggles implying full sensory feedback. Reusing the already-real shdehit1-3 metal-impact
+// assets (declared above for weapons/shield/hithard) rather than inventing a new sound file.
+$random vr/parry 			{ shdehit1 shdehit2 shdehit3 }
+$volume vr/parry 0.5
+
+// VR Sword blade sounds. Files live flat in wadsrc/static/sounds/ (vrsw_*.ogg/.wav) and are
+// referenced by basename, exactly like the shldhit1-3 shield sounds above (the proven-working
+// pattern in this file). Sourced from the user's Desktop\SOUNDS library (DSSWING melee whoosh,
+// AXECLN blade swing, BONECR1/2 bone-crunch for a slicing flesh hit, AXEHIT + B2KCLANG for
+// hard/energy impacts). Filename-inferred picks -- swap freely if any don't fit in-headset.
+weapons/vrsword/swing			vrsw_swing
+weapons/vrsword/swinge			vrsw_swinge
+$random weapons/vrsword/hitflesh	{ vrsw_hitf1 vrsw_hitf2 }
+weapons/vrsword/hithard			vrsw_hith
+weapons/vrsword/hitenergy		vrsw_hite
+$volume weapons/vrsword/swing 0.6
+$volume weapons/vrsword/swinge 0.6

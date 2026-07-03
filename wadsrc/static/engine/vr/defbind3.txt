@@ -78,7 +78,7 @@ Axis7Plus = weapnext
 // R Grip + R Joy Right
 Axis7Minus = weapprev
 
-//RGrip + LJoyUp = brutaltaunt
+//RGrip + LJoyUp = taunt
 //RGrip + LJoyDown = wave2
 //RGrip + LJoyLeft = oneliner
 //RGrip + LJoyRight = advtaunt

@@ -310,6 +310,18 @@ static const char *shaderBindings = R"(
 		int   u_gitd_pad1;
 		vec4  u_vr_blueprint_col;
 		vec4  u_gitd_last_impact_pos;
+
+		// Monster neon outlines -- must mirror hw_renderstate.h field-for-field (same padding).
+		float u_BlackoutMode;
+		float u_NeonThickness;
+		float u_NeonThreshold;
+		float u_NeonGlow;
+		float u_NeonPulseSpeed;
+		int   u_neon_pad0;
+		int   u_neon_pad1;
+		int   u_neon_pad2;
+		vec4  u_NeonColorA;
+		vec4  u_NeonColorB;
 	};
 
 	layout(set = 1, binding = 2, std140) uniform StreamUBO {
@@ -455,6 +467,13 @@ static const char *shaderBindings = R"(
 	#define u_gitd_last_impact_time data[uDataIndex].u_gitd_last_impact_time
 	#define u_vr_blueprint_col data[uDataIndex].u_vr_blueprint_col.rgb
 	#define u_gitd_last_impact_pos data[uDataIndex].u_gitd_last_impact_pos.xyz
+	#define u_BlackoutMode data[uDataIndex].u_BlackoutMode
+	#define u_NeonThickness data[uDataIndex].u_NeonThickness
+	#define u_NeonThreshold data[uDataIndex].u_NeonThreshold
+	#define u_NeonGlow data[uDataIndex].u_NeonGlow
+	#define u_NeonPulseSpeed data[uDataIndex].u_NeonPulseSpeed
+	#define u_NeonColorA data[uDataIndex].u_NeonColorA.rgb
+	#define u_NeonColorB data[uDataIndex].u_NeonColorB.rgb
 
 	#define SUPPORTS_SHADOWMAPS
 	#define VULKAN_COORDINATE_SYSTEM

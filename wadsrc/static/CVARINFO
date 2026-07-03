@@ -2,6 +2,8 @@
 
 // --- New Weapon Logic ---
 server bool vr_start_with_rifle = false;
+server bool vr_start_with_whip = false;
+server bool vr_start_with_shieldsaw = false;
 server bool vr_grenade_trajectory = true;
 server bool vr_weapon_throwable = true;
 server bool vr_spawn_models = true;
@@ -197,6 +199,7 @@ server float vr_chainsaw_flame_chance = 0.0;
 server float vr_chaingun_rifle_chance = 0.0;
 server float vr_chaingun_smg_chance = 0.0;
 server float vr_weapon_revolver_chance = 0.0;
+server float vr_weapon_m79_chance = 0.0;
 
 user bool hf_offhand_ammo = true;
 user float hf_mainammo_x = 0.82;
@@ -267,4 +270,37 @@ user float vr_regime_ripple_scale  = 1.0;
 
 
 user float vr_regime_bubble_size = 1.0;
+
+// --- Shield Saw (ported from the RLVR devbuild prototype) ---
+// Defaults carried over 1:1 from the source project, not re-tuned. shieldsaw_range is a
+// 64x multiplier (matches the original's "range" slider -> map-unit conversion).
+user float vr_shieldsaw_range        = 30.0;
+user float vr_shieldsaw_dmg_mult     = 1.0;
+user float vr_shieldsaw_speed_mult   = 1.0;
+user bool  vr_shieldsaw_bounce       = true;
+user bool  vr_shieldsaw_callback     = true;
+user bool  vr_shieldsaw_motionthrow  = true;
+user int   vr_shieldsaw_aim          = 2;   // 0 = no auto-guide, 1 = aim-assist guide, 2 = auto-target lock
+// Hand-flick speed (map-units/tic) that counts as a motion-throw. Matches the engine's own
+// existing gravity-glove flick threshold (p_user.cpp) for consistency, not a new balance number.
+user float vr_shieldsaw_throwspeed   = 10.0;
+
+// --- Manual Reload (chamber counter + gesture, VR Weapon Options toggle) ---
+// ON by default per project convention (ship features on; user is in VR and won't reach
+// console). Gates the whole XR_ManualReload mixin -- see zscript/engine/vr_manual_reload.zs.
+user bool vr_manual_reload = true;
+
+// --- Enemy Hitscans (VR Weapon Options toggle) ---
+// ON by default = vanilla behavior unchanged (instant, undodgeable hitscan trace for the three
+// human hitscan attackers: Zombieman/ShotgunGuy/ChaingunGuy). OFF converts those same attacks
+// into a slow, visible, straight-line VRDodgeableHitscan projectile instead -- our own
+// engine-native solution (SpawnMissile, same idiom every other Doom monster projectile already
+// uses), not a ported third-party mod. See possessed.zs A_VRHitscanOrDodgeable.
+user bool vr_enemy_hitscans = true;
+
+// --- VR Sword (swing-tracked blade, cosmetic-swappable via BladeProfile) ---
+// Starting estimates for in-headset tuning, not finished balance values.
+user float vr_sword_swing_on   = 35.0;  // tip speed (map-units/tic) that arms a cut
+user float vr_sword_swing_off  = 18.0;  // tip speed the cut stays live until it drops below
+user int   vr_sword_blade      = 0;     // 0=Steel, 1=Lightsaber, 2=DragonsTooth
 

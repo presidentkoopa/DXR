@@ -100,6 +100,17 @@ CVAR(Bool, vr_catch_spark, true, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_bullet_drop_enabled, true, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_parry_haptic, true, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_parry_spark, true, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
+// Off by default: the existing parry is a passive proximity check (any weapon just resting
+// in the hitbox blocks), which is the friendlier default. Turning this on requires an
+// actual swing (reuses the same smoothed hand-velocity the rest of the engine already
+// computes) for a stricter, more skill-based parry timing.
+CVAR(Bool, vr_parry_require_swing, false, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
+CVAR(Float, vr_parry_swing_threshold, 10.0f, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
+// Scales the reflected projectile's velocity after a successful parry -- a purely kinematic
+// knob (DVector3 scale), deliberately NOT a damage multiplier: projectile damage is often a
+// dice/expression object internally, and blindly rescaling that risks corrupting it. Faster
+// reflected shots are harder for the original shooter to react to, without touching damage.
+CVAR(Float, vr_parry_reflect_speed_mult, 1.5f, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
 EXTERN_CVAR(Float, vr_throw_force)
 
 //External Haptics Level CVARs
@@ -5759,4 +5770,17 @@ DEFINE_ACTION_FUNCTION(AActor, GetHandVelocity)
 		outVel = DVector3(avg.X, avg.Z, avg.Y) * (vr_scale_meters_to_units / 35.0);
 	}
 	ACTION_RETURN_VEC3(outVel);
+}
+
+// Exposes the local VR HEAD (HMD) world position in MAP space to ZScript.
+// r_viewpoint.CenterEyePos is the center-eye point (same space as r_viewpoint.Pos),
+// with the Pos fallback the VR weapon wheel uses (hw_vrwheel.cpp:259-263). Client-local:
+// it reflects the local render viewpoint, so it is valid for the local player's
+// PRESENTATION (holster zones, HUD anchors) -- not a per-pawn networked field.
+DEFINE_ACTION_FUNCTION(AActor, GetHeadPos)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	DVector3 head = r_viewpoint.CenterEyePos;
+	if (head.LengthSquared() <= 1e-8) head = r_viewpoint.Pos;
+	ACTION_RETURN_VEC3(head);
 }

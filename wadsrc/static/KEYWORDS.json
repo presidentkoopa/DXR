@@ -1,88 +1,266 @@
 {
-    "theme": {
-        "floor_color": [0, 255, 255],
-        "ceiling_color": [255, 0, 255]
+  "theme": {
+    "floor_color": [
+      0,
+      255,
+      255
+    ],
+    "ceiling_color": [
+      255,
+      0,
+      255
+    ]
+  },
+  "namespaces": {
+    "anatomy": {
+      "flesh": {
+        "blood_color": [
+          200,
+          0,
+          0
+        ]
+      },
+      "cybernetic": {
+        "sparks": true
+      },
+      "bone": {
+        "shatter": true
+      },
+      "mechanical": {
+        "oil_color": [
+          0,
+          0,
+          0
+        ]
+      },
+      "demonic": {
+        "blood_color": [
+          0,
+          200,
+          0
+        ]
+      },
+      "undead": {
+        "blood_color": [
+          100,
+          0,
+          0
+        ]
+      },
+      "ethereal": {
+        "blood_color": [
+          0,
+          0,
+          200
+        ]
+      },
+      "fire": {
+        "blood_color": [
+          255,
+          100,
+          0
+        ]
+      },
+      "vile": {
+        "blood_color": [
+          200,
+          200,
+          0
+        ]
+      }
     },
-    "namespaces": {
-        "anatomy": {
-            "flesh": { "blood_color": [200, 0, 0] },
-            "cybernetic": { "sparks": true },
-            "bone": { "shatter": true },
-            "mechanical": { "oil_color": [0, 0, 0] },
-            "demonic": { "blood_color": [0, 200, 0] },
-            "undead": { "blood_color": [100, 0, 0] },
-            "ethereal": { "blood_color": [0, 0, 200] },
-            "fire": { "blood_color": [255, 100, 0] },
-            "vile": { "blood_color": [200, 200, 0] }
-        },
-        "role": {
-            "fodder": {},
-            "skirmisher": {},
-            "charger": {},
-            "floater": {},
-            "kamikaze": {},
-            "heavy": {},
-            "summoner": {},
-            "boss": {}
-        },
-        "trait": {
-            "hitscan": {},
-            "projectile": {},
-            "melee": {},
-            "charging": {},
-            "homing": {},
-            "artillery": {},
-            "rapid_fire": {},
-            "magic": {},
-            "siege": {}
-        },
-        "vulnerability": {
-            "head_crit": { "multiplier": 2.0 },
-            "eye_crit": { "multiplier": 3.0 },
-            "core_stun": { "stun_duration": 35 },
-            "plasma_stun": { "stun_duration": 20 },
-            "explosive": { "multiplier": 1.5 },
-            "melee": { "multiplier": 2.0 }
-        },
-        "climb": {
-            "SUPPORT2": { "climb_speed": 1.0 },
-            "SUPPORT3": { "climb_speed": 1.0 },
-            "PIPE2": { "climb_speed": 1.0 },
-            "PIPE1": { "climb_speed": 1.0 },
-            "PIPE4": { "climb_speed": 1.0 },
-            "PIPE6": { "climb_speed": 1.0 },
-            "LADDER": { "climb_speed": 1.2 },
-            "METLADR": { "climb_speed": 1.2 },
-            "CLIMBABLE": { "climb_speed": 1.0 },
-            "METAL": { "climb_speed": 0.8 },
-            "BROWN96": { "climb_speed": 0.8 },
-            "COMPTALL": { "climb_speed": 0.8 },
-            "TEKWALL": { "climb_speed": 0.8 }
-        },
-        "mass": {
-            "light": { "mass_max": 75 },
-            "medium": { "mass_max": 300 },
-            "heavy": { "mass_max": 800 },
-            "boss": { "mass_max": 999999 }
-        },
-        "color": {
-            "neon_cyan": { "rgb": [0, 255, 255], "pulse": true, "freq": 1.5 },
-            "neon_pink": { "rgb": [255, 0, 255], "pulse": true, "freq": 1.5 }
-        },
-        "flags": {
-            "grenade": { "throwable": true, "primable": true },
-            "throwable": { "throwable": true }
-        },
-        "ballistics": {
-            "Rocket": { "bullet_drop": 0.1, "air_resistance": 0.01 },
-            "Grenade": { "bullet_drop": 0.8, "air_resistance": 0.05 },
-            "PlasmaBall": { "bullet_drop": 0.0, "air_resistance": 0.0 }
-        },
-        "weapons": {
-            "Shotgun": { "recoil_force": 10.0, "twohand_radius": 12.0, "parry_extent": [4.0, 4.0, 16.0] },
-            "SuperShotgun": { "recoil_force": 25.0, "twohand_radius": 12.0, "parry_extent": [6.0, 6.0, 18.0] },
-            "Chaingun": { "recoil_force": 2.0, "twohand_radius": 10.0, "parry_extent": [5.0, 5.0, 20.0] },
-            "Pistol": { "recoil_force": 4.0, "twohand_radius": 6.0, "parry_extent": [2.0, 2.0, 8.0] }
-        }
+    "role": {
+      "fodder": {},
+      "skirmisher": {},
+      "charger": {},
+      "floater": {},
+      "kamikaze": {},
+      "heavy": {},
+      "summoner": {},
+      "boss": {}
+    },
+    "trait": {
+      "hitscan": {},
+      "projectile": {},
+      "melee": {},
+      "charging": {},
+      "homing": {},
+      "artillery": {},
+      "rapid_fire": {},
+      "magic": {},
+      "siege": {}
+    },
+    "vulnerability": {
+      "head_crit": {
+        "multiplier": 2.0
+      },
+      "eye_crit": {
+        "multiplier": 3.0
+      },
+      "core_stun": {
+        "stun_duration": 35
+      },
+      "plasma_stun": {
+        "stun_duration": 20
+      },
+      "explosive": {
+        "multiplier": 1.5
+      },
+      "melee": {
+        "multiplier": 2.0
+      }
+    },
+    "climb": {
+      "SUPPORT2": {
+        "climb_speed": 1.0
+      },
+      "SUPPORT3": {
+        "climb_speed": 1.0
+      },
+      "PIPE2": {
+        "climb_speed": 1.0
+      },
+      "PIPE1": {
+        "climb_speed": 1.0
+      },
+      "PIPE4": {
+        "climb_speed": 1.0
+      },
+      "PIPE6": {
+        "climb_speed": 1.0
+      },
+      "LADDER": {
+        "climb_speed": 1.2
+      },
+      "METLADR": {
+        "climb_speed": 1.2
+      },
+      "CLIMBABLE": {
+        "climb_speed": 1.0
+      },
+      "METAL": {
+        "climb_speed": 0.8
+      },
+      "BROWN96": {
+        "climb_speed": 0.8
+      },
+      "COMPTALL": {
+        "climb_speed": 0.8
+      },
+      "TEKWALL": {
+        "climb_speed": 0.8
+      }
+    },
+    "mass": {
+      "light": {
+        "mass": 75
+      },
+      "medium": {
+        "mass": 300
+      },
+      "heavy": {
+        "mass": 800
+      },
+      "boss": {
+        "mass": 999999
+      }
+    },
+    "color": {
+      "neon_cyan": {
+        "rgb": [
+          0,
+          255,
+          255
+        ],
+        "pulse": true,
+        "freq": 1.5
+      },
+      "neon_pink": {
+        "rgb": [
+          255,
+          0,
+          255
+        ],
+        "pulse": true,
+        "freq": 1.5
+      }
+    },
+    "flags": {
+      "grenade": {
+        "throwable": true,
+        "primable": true
+      },
+      "throwable": {
+        "throwable": true
+      }
+    },
+    "ballistics": {
+      "Rocket": {
+        "bullet_drop": 0.1,
+        "air_resistance": 0.01
+      },
+      "Grenade": {
+        "bullet_drop": 0.8,
+        "air_resistance": 0.05
+      },
+      "PlasmaBall": {
+        "bullet_drop": 0.0,
+        "air_resistance": 0.0
+      }
+    },
+    "weapons": {
+      "Shotgun": {
+        "recoil_force": 10.0,
+        "twohand_radius": 12.0,
+        "parry_extent": [
+          4.0,
+          4.0,
+          16.0
+        ]
+      },
+      "SuperShotgun": {
+        "recoil_force": 25.0,
+        "twohand_radius": 12.0,
+        "parry_extent": [
+          6.0,
+          6.0,
+          18.0
+        ]
+      },
+      "Chaingun": {
+        "recoil_force": 2.0,
+        "twohand_radius": 10.0,
+        "parry_extent": [
+          5.0,
+          5.0,
+          20.0
+        ]
+      },
+      "Pistol": {
+        "recoil_force": 4.0,
+        "twohand_radius": 6.0,
+        "parry_extent": [
+          2.0,
+          2.0,
+          8.0
+        ]
+      },
+      "ShieldSaw": {
+        "recoil_force": 1.0,
+        "twohand_radius": 14.0,
+        "parry_extent": [
+          12.0,
+          12.0,
+          4.0
+        ]
+      },
+      "VRSword": {
+        "parry_extent": [
+          10.0,
+          10.0,
+          50.0
+        ]
+      }
     }
+  }
 }

@@ -37,6 +37,14 @@ class WeaponReplacementHandler : StaticEventHandler
 				e.IsFinal = true;
 			}
 		}
+		else if (e.Replacee == "RocketLauncher")
+		{
+			if (frandom(0, 100) < CVar.GetCVar("vr_weapon_m79_chance").GetFloat())
+			{
+				e.Replacement = "M79";
+				e.IsFinal = true;
+			}
+		}
 		else if (e.Replacee == "RocketAmmo" || e.Replacee == "RocketBox")
 		{
 			if (frandom(0, 100) < 20) // 20% chance to find grenades in rocket stashes
@@ -66,6 +74,22 @@ class WeaponReplacementHandler : StaticEventHandler
 					{
 						p.player.ReadyWeapon = Weapon(p.FindInventory("Rifle"));
 					}
+				}
+			}
+
+			if (CVar.GetCVar("vr_start_with_whip").GetBool())
+			{
+				if (!p.FindInventory("XRWhip"))
+				{
+					p.GiveInventory("XRWhip", 1);
+				}
+			}
+
+			if (CVar.GetCVar("vr_start_with_shieldsaw").GetBool())
+			{
+				if (!p.FindInventory("ShieldSaw"))
+				{
+					p.GiveInventory("ShieldSaw", 1);
 				}
 			}
 		}
