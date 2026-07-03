@@ -3076,6 +3076,8 @@ OptionMenu VRWeaponOptions protected
 	TFLV_Tooltip "\c[Gold]Archetype Scanner\c-  -  opens a scrollable list of \c[White]every weapon\c- in the loaded mods and the VR archetype (Pistol, Shotgun, Chaingun...) each was auto-matched to, which decides how the 3D shell holds it."
 	Command "DoomXR Gameplay & Spawn Options", "menu VRDoomXRGameplayOptions"
 	TFLV_Tooltip "\c[Gold]Gameplay & Spawn Options\c-  -  submenu for \c[White]visual fidelity\c-, weapon-replacement chances, ballistic bullet drop, starting gear, throwables and the grenade trajectory arc."
+	Submenu "XR Whip Options", "VRWhipOptions"
+	TFLV_Tooltip "\c[Cyan]XR Whip Options\c-  -  crack physics, contextual grapple/reel, entangle-yank force, pinball safeguards, and the leather/ember/tesla profile."
 	Option "Enable Tracked VR Hands",		"vr_weapon_hands", "OnOff"
 	TFLV_Tooltip "\c[Red]Tracked VR Hands\c-  -  intended to draw \c[White]controller-tracked hands\c- alongside the weapon, but this toggle is currently inert in this build (declared but no code reads it)."
 	Option "Dynamic Time Scaling (DTS)",	"vr_weapon_dts", "OnOff"
@@ -3117,6 +3119,65 @@ OptionMenu VRWeaponOptions protected
 	StaticText " "
 	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar r_PlayerSprites3DMode gl_fatItemWidth vr_2dweaponOffsetX vr_2dweaponOffsetY vr_2dweaponOffsetZ vr_2dweaponScale"
 	TFLV_Tooltip "\c[Gold]Reset to defaults\c-  -  restores the \c[White]sprite\c- weapon settings (3D mode, fat width, position, scale) to their factory values."
+}
+
+OptionValue "WhipProfiles"
+{
+	0, "Leather"
+	1, "Ember"
+	2, "Tesla"
+}
+
+// The first weapon in this engine with full in-game menu tuning -- Sword/ShieldSaw's CVars
+// exist but are console-only (CVARINFO has no matching MENUDEF entries for them today).
+OptionMenu VRWhipOptions protected
+{
+	class TFLV_TooltipOptionMenu
+	Title "XR Whip Settings"
+	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+	TFLV_TooltipAppearance "", "", "GITDTTBG"
+
+	StaticText ""
+	StaticText "Profile & Crack Physics", gold
+	Option "Whip Type", "vr_whip_profile", "WhipProfiles"
+	TFLV_Tooltip "\c[Cyan]Whip Type\c-  -  \c[White]Leather\c- is the classic bullwhip, \c[White]Ember\c- ignites on a crack, \c[White]Tesla\c- arcs lightning to nearby enemies."
+	Slider "Crack Threshold", "vr_whip_crack_threshold", 40.0, 250.0, 5.0, 0
+	TFLV_Tooltip "\c[Gold]Crack Threshold\c-  -  tip speed needed to trigger the sonic crack. Lower = easier to crack, higher = need a faster swing. Default \c[White]95\c-."
+	Option "Two-Hand Boost", "vr_whip_two_hand_boost", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Two-Hand Boost\c-  -  \c[White]On\c- (default) lets your off hand near the handle feed extra speed into the rope for bigger, easier cracks."
+
+	StaticText ""
+	StaticText "Grapple & Swing", gold
+	Option "Contextual Yank", "vr_whip_contextual_yank", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Contextual Yank\c-  -  \c[White]On\c- (default) lets holding Fire while a grapple line is attached reel you in on purpose. Off leaves you purely to gravity/swing physics."
+	Slider "Reel Speed", "vr_whip_reel_speed", 5.0, 45.0, 1.0, 1
+	TFLV_Tooltip "\c[Gold]Reel Speed\c-  -  how fast the deliberate Contextual Yank pulls you toward the anchor. Default \c[White]22\c-."
+	Slider "Swing Pump Strength", "vr_whip_swing_pump", 0.0, 3.0, 0.1, 1
+	TFLV_Tooltip "\c[Gold]Swing Pump\c-  -  climbing the rope mid-swing (off-hand grip) shortens/lengthens it and changes your speed, like pumping a swing set. \c[White]0\c- disables climbing entirely."
+
+	StaticText ""
+	StaticText "Entangle-Yank (Enemies)", gold
+	Slider "Yank Force Scale", "vr_whip_yank_force_scale", 0.2, 3.0, 0.1, 1
+	TFLV_Tooltip "\c[Gold]Yank Force Scale\c-  -  multiplies how hard you can pull an entangled enemy toward you. Heavier enemies still resist more regardless of this."
+	Slider "Entangle Min Speed", "vr_whip_entangle_minspeed", 0.5, 15.0, 0.5, 1
+	TFLV_Tooltip "\c[Gold]Entangle Min Speed\c-  -  the minimum pull force needed to actually catch an enemy. Below this, the crack still hits but doesn't pull. Default \c[White]4\c-."
+	Slider "Entangle Duration", "vr_whip_entangle_duration", 4, 40, 2, 0
+	TFLV_Tooltip "\c[Gold]Entangle Duration\c-  -  how many tics an entangled enemy stays in the guaranteed-vulnerable window for a melee follow-up. Default \c[White]12\c-."
+	Slider "Tumble/Roll Rate", "vr_whip_roll_speed_scale", 0.0, 3.0, 0.1, 1
+	TFLV_Tooltip "\c[Gold]Tumble/Roll Rate\c-  -  how fast an entangled enemy visually tumbles while being pulled in. \c[White]0\c- disables the roll entirely."
+
+	StaticText ""
+	StaticText "Pinball Safeguards (VR Comfort)", gold
+	Slider "Velocity Ceiling", "vr_whip_grapple_vel_ceiling", 10.0, 80.0, 2.0, 0
+	TFLV_Tooltip "\c[Gold]Velocity Ceiling\c-  -  the hard max speed you can ever be moving while attached to the rope, regardless of how many hits stack up. Lower = safer/calmer, higher = wilder swings."
+	Slider "Per-Hit Impulse Cap", "vr_whip_grapple_hit_cap", 5.0, 32.0, 1.0, 0
+	TFLV_Tooltip "\c[Gold]Per-Hit Impulse Cap\c-  -  the most a single hit (fireball, splash, etc.) can change your speed by in one tic while attached. Prevents any one hit from launching you."
+	Slider "Damage Taper Strength", "vr_whip_grapple_hit_scale", 0.0, 1.0, 0.05, 2
+	TFLV_Tooltip "\c[Gold]Damage Taper\c-  -  the more damage you've taken recently, the more this pulls the Velocity Ceiling down. \c[White]0\c- disables the taper; higher = getting hurt clamps you down harder."
+
+	StaticText " "
+	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_whip_profile vr_whip_crack_threshold vr_whip_two_hand_boost vr_whip_contextual_yank vr_whip_reel_speed vr_whip_swing_pump vr_whip_yank_force_scale vr_whip_entangle_minspeed vr_whip_entangle_duration vr_whip_roll_speed_scale vr_whip_grapple_vel_ceiling vr_whip_grapple_hit_cap vr_whip_grapple_hit_scale"
+	TFLV_Tooltip "\c[Red]Reset to defaults\c-  -  restores all whip settings above to their factory values."
 }
 
 OptionValue "LaserBeamLength"
@@ -3343,6 +3404,8 @@ OptionMenu VROptionsMenu protected
 	TFLV_Tooltip "\c[Cyan]Physics Options\c-  -  explosion physics, whether blasts move keys, and the meters-to-units scale used by the physics sim."
 	Submenu "Combat Options",               "VRCombatOptions"
 	TFLV_Tooltip "\c[Cyan]Combat Options\c-  -  hands, recoil, bullet-snatching, parrying, catch/parry feedback, and locational-damage multipliers (headshots, legshots, crits)."
+	Submenu "Gravity Path",                 "XRGravityPathOptions"
+	TFLV_Tooltip "\c[Cyan]Gravity Path\c-  -  the palm-out draw-a-walkway power: tile color/size, reach, attach range, mount smoothing, fall-catch and the palm-out cast gate."
 	Submenu "SDF Score System Options",     "VRSDFScoreOptions"
 	TFLV_Tooltip "\c[Gold]SDF Score System\c-  -  intended to configure the shader-drawn (SDF) score/damage popups, but its target menu isn't defined in this build, so this link currently opens \c[Red]nothing\c-."
 	StaticText ""
@@ -3511,6 +3574,53 @@ OptionMenu "VRPhysicsOptions" protected
     StaticText " "
     Slider "Meter to Units Scale", "vr_scale_meters_to_units", 20.0, 60.0, 1.0, 1
     TFLV_Tooltip "\c[Cyan]Meter to Units Scale\c-  -  how many map units equal one real-world meter; sets overall world scale and drives throw/grab velocity. Raise it to feel smaller in a bigger world, lower to feel larger."
+}
+
+OptionMenu "XRGravityPathOptions" protected
+{
+    class TFLV_TooltipOptionMenu
+    Title "XR Gravity Path"
+    TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+    TFLV_TooltipAppearance "", "", "GITDTTBG"
+    Option "Draw Debug Overlay", "xr_gp_debug", "OnOff"
+    TFLV_Tooltip "\c[Gold]Draw Debug Overlay\c-  -  particles visualising the system: \c[Yellow]yellow\c- aim ray + \c[Orange]orange\c- hit point, \c[White]white\c- feet, each tile's \c[Cyan]cyan\c- face rectangle (\c[Magenta]magenta\c- while still extruding, \c[Green]green\c- when you're attached to it) and a green normal-stub showing the attach range. Turn \c[White]On\c- only while tuning."
+    StaticText " "
+    ColorPicker "Path Color", "xr_gp_color"
+    TFLV_Tooltip "\c[Cyan]Path Color\c-  -  color of the drawn gravity tiles."
+    StaticText " "
+    StaticText "Tiles", gold
+    Slider "Tile Width", "xr_gp_tile_width", 16, 96, 2, 0
+    TFLV_Tooltip "\c[Cyan]Tile Width\c-  -  how wide each plank is (map units); ~40 is one player wide."
+    Slider "Tile Length / Spacing", "xr_gp_tile_length", 16, 128, 2, 0
+    TFLV_Tooltip "\c[Cyan]Tile Length\c-  -  plank length AND the spawn spacing; a new plank only lays after your pen travels this far, so tiles butt edge-to-edge."
+    Slider "Reach Distance", "xr_gp_cast_dist", 64, 1024, 32, 0
+    TFLV_Tooltip "\c[Cyan]Reach\c-  -  how far your off-hand paints onto surfaces."
+    Slider "Beam Width", "xr_gp_beam_width", 2, 32, 1, 0
+    TFLV_Tooltip "\c[Cyan]Beam Width\c-  -  thickness of the live paint-stream shot from your wrist while casting."
+    Slider "Tile Brightness", "xr_gp_alpha", 0.1, 1.0, 0.05, 2
+    TFLV_Tooltip "\c[Cyan]Brightness\c-  -  additive alpha of the tiles."
+    Slider "Max Tiles", "xr_gp_max_tiles", 16, 512, 16, 0
+    TFLV_Tooltip "\c[Cyan]Max Tiles\c-  -  how many planks can exist before the oldest recycle."
+    Slider "Extrude Time (seconds)", "xr_gp_grow_time", 0.0, 0.6, 0.05, 2
+    TFLV_Tooltip "\c[Cyan]Extrude Time\c-  -  how long a fresh plank takes to fire out as a small square and stretch into its full rectangle before locking into place. \c[Gold]0 = instant\c- (no animation)."
+    StaticText " "
+    StaticText "Attachment", gold
+    Slider "Attach Range (height)", "xr_gp_capture_h", 18, 96, 2, 0
+    TFLV_Tooltip "\c[Cyan]Attach Range\c-  -  how far above a plank's face you can be and still be grabbed onto it. \c[Gold]Keep above ~18\c- or you will oscillate (grab/release/fall)."
+    Slider "Attach Margin", "xr_gp_capture_margin", 0, 32, 1, 0
+    TFLV_Tooltip "\c[Cyan]Attach Margin\c-  -  extra slack around a plank's edges when catching you."
+    Slider "Mount Lerp (seconds)", "xr_gp_lerp_time", 0.0, 1.0, 0.05, 2
+    TFLV_Tooltip "\c[Cyan]Mount Lerp\c-  -  how long gravity takes to smoothly swing onto a plank. \c[Gold]0 = instant snap\c- (more nauseating); ~0.2 is comfortable."
+    Option "Fall Catch", "xr_gp_fall_catch", "OnOff"
+    TFLV_Tooltip "\c[Gold]Fall Catch\c-  -  \c[White]On\c- lets a plank catch you mid-fall if you drop into its capture box; \c[White]Off\c- only attaches when you move into it deliberately."
+    Option "Rail Guard", "xr_gp_railguard", "OnOff"
+    TFLV_Tooltip "\c[Gold]Rail Guard\c-  -  \c[White]On\c- redirects your forward/side push to follow the path's own direction instead of your view facing, so turning paths don't need precise joystick aim. \c[White]Off\c- for raw, view-relative movement while on the path."
+    StaticText " "
+    StaticText "Palm-Out Cast Gate", gold
+    Slider "Palm Angle Low", "xr_gp_palm_lo", 0, 90, 5, 0
+    TFLV_Tooltip "\c[Cyan]Palm Low\c-  -  lower |roll| angle that counts as 'palm out' (casting begins)."
+    Slider "Palm Angle High", "xr_gp_palm_hi", 90, 180, 5, 0
+    TFLV_Tooltip "\c[Cyan]Palm High\c-  -  upper |roll| angle of the palm-out band."
 }
 
 OptionMenu "VRCombatOptions" protected
@@ -4531,8 +4641,16 @@ AddOptionMenu "OptionsMenu"
 
 OptionMenu "RV_Options"
 {
+	class TFLV_TooltipOptionMenu
 	Title "Reikall's Voxels"
-	//Option "Voxel rendering", r_drawvoxels, "OnOff"
+	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+	TFLV_TooltipAppearance "", "", "GITDTTBG"
+	Option "Voxel rendering", r_drawvoxels, "OnOff"
+	TFLV_Tooltip "\c[Gold]Voxel rendering\c-  -  global switch: \c[White]On\c- shows every actor that has a voxel model as that voxel instead of a flat sprite. Turning this \c[White]Off\c- does not affect the VR grab-candidate highlight below, which forces its own target to a voxel regardless."
+	Slider "Item Voxel Cull Distance", "vr_voxel_cull_items", 0, 4000, 100
+	TFLV_Tooltip "\c[Cyan]Item Voxel Cull Distance\c-  -  past this range, item/ammo/weapon voxels (anything not a monster) revert to their flat sprite instead of rendering the full 3D voxel, independently of the master switch above. \c[White]0\c- = uncapped (never cull)."
+	Slider "Monster Voxel Cull Distance", "vr_voxel_cull_monsters", 0, 4000, 100
+	TFLV_Tooltip "\c[Cyan]Monster Voxel Cull Distance\c-  -  same as Item Voxel Cull Distance, but for monster voxels (if a voxel monster pack is loaded) -- tuned separately since monster voxels are typically larger/costlier than item voxels. \c[White]0\c- = uncapped (never cull)."
 	Option "Auto-rotate decorations (next map)", sv_wallcheck, "OnOff"
 }
 

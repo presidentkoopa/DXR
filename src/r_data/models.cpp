@@ -1183,7 +1183,7 @@ void ParseModelDefLump(int Lump)
 //
 //===========================================================================
 
-FSpriteModelFrame * FindModelFrameRaw(const AActor * actorDefaults, const PClass * ti, int sprite, int frame, bool dropped, bool forceVoxel = false)
+FSpriteModelFrame * FindModelFrameRaw(const AActor * actorDefaults, const PClass * ti, int sprite, int frame, bool dropped, bool forceVoxel = false, bool cullVoxel = false)
 {
 	if(actorDefaults->hasmodel)
 	{
@@ -1204,8 +1204,12 @@ FSpriteModelFrame * FindModelFrameRaw(const AActor * actorDefaults, const PClass
 		}
 	}
 
-	// Check for voxel replacements
-	if (r_drawvoxels || forceVoxel)
+	// Check for voxel replacements. cullVoxel wins over BOTH r_drawvoxels and forceVoxel -- it's
+	// set by distance-based voxel culling (vr_voxel_cull_items/vr_voxel_cull_monsters), which must
+	// revert to the flat sprite past its threshold even when voxels are globally on or this specific
+	// actor was force-shown (e.g. a grab candidate that also happens to be far -- shouldn't happen in
+	// practice since grab range is short, but this keeps the two systems from fighting either way).
+	if (!cullVoxel && (r_drawvoxels || forceVoxel))
 	{
 		spritedef_t *sprdef = &sprites[sprite];
 		if (frame < sprdef->numframes)
@@ -1239,7 +1243,7 @@ FSpriteModelFrame * FindModelFrame(const PClass * ti, int sprite, int frame, boo
 	return FindModelFrameRaw(def, ti, sprite, frame, dropped);
 }
 
-FSpriteModelFrame * FindModelFrame(const PClass * ti, bool is_decoupled, int sprite, int frame, bool dropped, bool forceVoxel)
+FSpriteModelFrame * FindModelFrame(const PClass * ti, bool is_decoupled, int sprite, int frame, bool dropped, bool forceVoxel, bool cullVoxel)
 {
 	if(!ti) return nullptr;
 
@@ -1249,15 +1253,15 @@ FSpriteModelFrame * FindModelFrame(const PClass * ti, bool is_decoupled, int spr
 	}
 	else
 	{
-		return FindModelFrameRaw(GetDefaultByType(ti), ti, sprite, frame, dropped, forceVoxel);
+		return FindModelFrameRaw(GetDefaultByType(ti), ti, sprite, frame, dropped, forceVoxel, cullVoxel);
 	}
 }
 
-FSpriteModelFrame * FindModelFrame(AActor * thing, int sprite, int frame, bool dropped)
+FSpriteModelFrame * FindModelFrame(AActor * thing, int sprite, int frame, bool dropped, bool cullVoxel)
 {
 	if(!thing) return nullptr;
 
-	return FindModelFrame((thing->modelData != nullptr && thing->modelData->modelDef != nullptr) ? thing->modelData->modelDef : thing->GetClass(), (thing->flags9 & MF9_DECOUPLEDANIMATIONS), sprite, frame, dropped, thing->bForceShowVoxel);
+	return FindModelFrame((thing->modelData != nullptr && thing->modelData->modelDef != nullptr) ? thing->modelData->modelDef : thing->GetClass(), (thing->flags9 & MF9_DECOUPLEDANIMATIONS), sprite, frame, dropped, thing->bForceShowVoxel, cullVoxel);
 }
 
 //===========================================================================

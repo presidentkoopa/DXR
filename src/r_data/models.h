@@ -62,8 +62,14 @@ enum
 	MDL_FORCECULLBACKFACES			= 1<<14,
 };
 
-FSpriteModelFrame * FindModelFrame(AActor * thing, int sprite, int frame, bool dropped);
-FSpriteModelFrame * FindModelFrame(const PClass * ti, bool is_decoupled, int sprite, int frame, bool dropped, bool forceVoxel = false);
+// cullVoxel: when true, suppresses the voxel-replacement lookup entirely for this call --
+// regardless of r_drawvoxels or forceVoxel -- so distance-based voxel culling (vr_voxel_cull_items/
+// vr_voxel_cull_monsters, see hw_sprites.cpp) can revert an actor to its flat sprite past a
+// threshold without touching either of those unrelated flags. Defaults false everywhere (every
+// existing caller is unaffected); only the two real world-sprite render call sites pass a computed
+// value (hw_sprites.cpp HWSprite::Process).
+FSpriteModelFrame * FindModelFrame(AActor * thing, int sprite, int frame, bool dropped, bool cullVoxel = false);
+FSpriteModelFrame * FindModelFrame(const PClass * ti, bool is_decoupled, int sprite, int frame, bool dropped, bool forceVoxel = false, bool cullVoxel = false);
 FSpriteModelFrame * FindModelFrame(const PClass * ti, int sprite, int frame, bool dropped);
 //FSpriteModelFrame * FindModelFrameRaw(const AActor * actorDefaults, const PClass * ti, int sprite, int frame, bool dropped);
 

@@ -862,6 +862,27 @@ bool IsDistanceCulled(AActor* thing)
 	return false;
 }
 
+// Voxel-only distance culling, under the "Voxel rendering" (r_drawvoxels) menu panel. Unlike
+// IsDistanceCulled above (which hides the whole actor), this ONLY decides whether the actor is
+// allowed to show its VOXEL model past a given range -- beyond it, the actor still renders
+// normally, just as its flat sprite instead of the (pricier) 3D voxel. Monsters and items are
+// culled by separate cvars/distances so a voxel monster pack can be tuned independently of item
+// voxels (ammo/weapons/pickups) -- 0 on either = uncapped (no cull for that category).
+CVAR(Float, vr_voxel_cull_items, 0.0, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_voxel_cull_monsters, 0.0, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+
+bool IsVoxelCulled(AActor* thing)
+{
+	bool isMonster = (thing->flags3 & MF3_ISMONSTER) != 0;
+	double cullDist = isMonster ? vr_voxel_cull_monsters : vr_voxel_cull_items;
+	if (cullDist <= 0.0)
+		return false;   // uncapped for this category -- never cull
+
+	double culldistSq = cullDist * cullDist;
+	double dist = (thing->Pos() - r_viewpoint.Pos).LengthSquared();
+	return dist > culldistSq;
+}
+
 void HWSprite::Process(HWDrawInfo *di, AActor* thing, sector_t * sector, area_t in_area, int thruportal, bool isSpriteShadow)
 {
 	sector_t rs;
@@ -969,7 +990,7 @@ void HWSprite::Process(HWDrawInfo *di, AActor* thing, sector_t * sector, area_t 
 		if (fabs(viewpos.X - vp.CenterEyePos.X) < 32 && fabs(viewpos.Y - vp.CenterEyePos.Y) < 32) return;
 	}
 
-	modelframe = isPicnumOverride ? nullptr : FindModelFrame(thing, spritenum, thing->frame, !!(thing->flags & MF_DROPPED));
+	modelframe = isPicnumOverride ? nullptr : FindModelFrame(thing, spritenum, thing->frame, !!(thing->flags & MF_DROPPED), IsVoxelCulled(thing));
 	modelframeflags = modelframe ? modelframe->getFlags(thing->modelData) : 0;
 
 	if (modelframe != nullptr &&
@@ -1058,7 +1079,7 @@ void HWSprite::Process(HWDrawInfo *di, AActor* thing, sector_t * sector, area_t 
 		{
 			if (thing->lastModelSprite > -1)
 			{
-				modelframe = FindModelFrame(thing, thing->lastModelSprite, thing->lastModelFrame, !!(thing->flags & MF_DROPPED));
+				modelframe = FindModelFrame(thing, thing->lastModelSprite, thing->lastModelFrame, !!(thing->flags & MF_DROPPED), IsVoxelCulled(thing));
 				modelframeflags = modelframe ? modelframe->getFlags(thing->modelData) : 0;
 				if (modelframe == nullptr) return;
 			}
