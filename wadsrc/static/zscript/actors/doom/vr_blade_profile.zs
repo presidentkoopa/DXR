@@ -143,3 +143,21 @@ class Blade_DragonsTooth : BladeProfile
 		return damage;
 	}
 }
+
+// --------------------------------------------------------------------------
+//  Blade model-holder actors.
+//  VRSword swaps its rendered blade at runtime via A_ChangeModel(BladeModel),
+//  where BladeModel is one of these class names (set per BladeProfile above).
+//  A_ChangeModel's first arg is a MODELDEF name, and MODELDEF Model blocks must
+//  bind to a REAL actor class -- but the BladeProfiles are ': Object' data
+//  classes and can't carry a model. These tiny actors exist ONLY to hang the
+//  three blade meshes (modeldef.txt "Model VRSwordBlade*") so both the modeldef
+//  parser and A_ChangeModel can resolve them. They are never spawned in-world.
+// --------------------------------------------------------------------------
+class VRSwordBladeSteel : Actor
+{
+	Default { +NOBLOCKMAP +NOINTERACTION +NOGRAVITY +DONTSPLASH +NOTELEPORT; }
+	States { Spawn: VRSW A -1; Stop; }
+}
+class VRSwordBladePlasma : VRSwordBladeSteel {}
+class VRSwordBladeNano  : VRSwordBladeSteel {}

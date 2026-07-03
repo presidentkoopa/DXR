@@ -82,6 +82,15 @@ class XRWhipModel : Actor
 	}
 }
 
+// Model-holder actor for the rigged whip IQM. A_ChangeModel('XRWhipRigged') above (and MODELDEF's
+// "Model XRWhipRigged" block) must bind to a REAL actor class -- this exists only to carry that
+// mesh so both the modeldef parser and A_ChangeModel resolve it. Never spawned in-world.
+class XRWhipRigged : Actor
+{
+	Default { +NOBLOCKMAP +NOINTERACTION +NOGRAVITY +DONTSPLASH +NOTIMEFREEZE; }
+	States { Spawn: TNT1 A -1; Stop; }
+}
+
 class XRWhip : Weapon
 {
 	// ---- sim tunables ----
@@ -96,7 +105,11 @@ class XRWhip : Weapon
 	const WHIP_LASH_IMPULSE  = 130.0;   // Fire-button tip impulse
 
 	// ---- grapple tunables ----
-	const WHIP_GRAPPLE_RANGE = 900.0;
+	// NO separate range constant: grapple range is ActiveWhip.Reach (see StartGrappleFromAim),
+	// the SAME number the rope sim and crack use. An earlier pass hardcoded this to 900 while
+	// Reach was 190-300 -- letting the "whip" grapple something 3x farther than the whip's own
+	// simulated rope could ever physically reach. That's not a whip grapple, that's a hitscan
+	// with a leather prop attached. One reach number for the whole weapon, no exceptions.
 	const WHIP_GRAPPLE_TIME  = 140;     // ~4s max hold
 	const WHIP_REEL_SPEED    = 22.0;
 	const WHIP_YANK_SPEED    = 18.0;
@@ -430,7 +443,7 @@ class XRWhip : Weapon
 	// ---- secondary fire: grapple --------------------------------------------------------
 	void StartGrappleFromAim()
 	{
-		if (owner == null || owner.player == null || grappleActive) return;
+		if (owner == null || owner.player == null || grappleActive || ActiveWhip == null) return;
 
 		vector3 handPos = bOffhandWeapon ? owner.OffhandPos : owner.AttackPos;
 		double ang = bOffhandWeapon ? owner.OffhandAngle : owner.AttackAngle;
@@ -438,7 +451,9 @@ class XRWhip : Weapon
 
 		FLineTraceData lt;
 		double hz = handPos.z - owner.pos.z;   // originate near hand height
-		bool hit = owner.LineTrace(ang, WHIP_GRAPPLE_RANGE, pit, 0, hz, 0.0, 0.0, lt);
+		// Grapple range = the whip's own Reach, the SAME number the rope sim/crack use -- not
+		// a bigger separate hitscan range. If it can't physically reach that far, it can't grab.
+		bool hit = owner.LineTrace(ang, ActiveWhip.Reach, pit, 0, hz, 0.0, 0.0, lt);
 
 		if (!hit || lt.HitType == TRACE_HitNone)
 		{
