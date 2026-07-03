@@ -40,10 +40,9 @@ class VRTestingRig : StaticEventHandler
 	override void WorldLoaded(WorldEvent e)
 	{
 		if (e.IsSaveGame) return;
-		
-		// Only spawn if we are in MAP01 or a specific test map
-		// For now, let's just make it spawnable via console command or on MAP01
-		if (level.MapName != "MAP01") return;
+
+		// Only spawn on the dedicated grab-testing map.
+		if (level.MapName != "GRABMAP") return;
 		
 		// Find player start
 		for (int i = 0; i < MAXPLAYERS; i++)

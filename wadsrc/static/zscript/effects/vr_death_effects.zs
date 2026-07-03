@@ -77,7 +77,7 @@ class VRDeathHandler : StaticEventHandler
         if (deathSequenceActive)
         {
             deathTimer++;
-            
+
             // Pulse the glitch strength
             float strength = 0.5 + 0.5 * sin(deathTimer * 0.5);
             PPShader.SetUniform1f("fatal_exception", "u_FatalStrength", strength);
@@ -87,6 +87,22 @@ class VRDeathHandler : StaticEventHandler
                 deathSequenceActive = false;
                 PPShader.SetEnabled("fatal_exception", false);
             }
+        }
+    }
+
+    // FIX: if a new map loads while the sequence is still running (console "map" command, restart,
+    // IDCLIP-through, a scripted level change, etc.) before the 5s timeout, nothing previously reset
+    // deathSequenceActive or turned the shader back off -- the glitch would stay stuck on forever
+    // AND the "if (deathSequenceActive) return;" guard in TriggerDeathSequence would permanently
+    // block the effect from ever firing again for the rest of the session. Force-reset on every
+    // level transition so a death sequence can never outlive its own map.
+    override void WorldUnloaded(WorldEvent e)
+    {
+        if (deathSequenceActive)
+        {
+            deathSequenceActive = false;
+            deathTimer = 0;
+            PPShader.SetEnabled("fatal_exception", false);
         }
     }
 }
