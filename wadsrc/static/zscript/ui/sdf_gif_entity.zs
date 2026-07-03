@@ -35,13 +35,13 @@ class SDFGifEntity : Actor
         
         msdf_enabled = int(currentFrame);
         msdf_glitch = 0.0; // We can add reactive glitching here later
-        msdf_color = (1.0, 1.0, 1.0, 1.0);
+        msdf_color = (1.0, 1.0, 1.0); // msdf_color is FVector3 (RGB); alpha rides on the actor's Alpha
     }
 }
 
 class VRGifEventHandler : StaticEventHandler
 {
-    override void NetworkProcess(NetworkEvent e)
+    override void NetworkProcess(ConsoleEvent e)
     {
         if (e.Name == "summon_gif_sentinel")
         {

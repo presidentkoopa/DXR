@@ -1,32 +1,92 @@
 // ============================================================================
 //  XR Gravity Path — off-hand POWER
-//  Palm-out (OffhandRoll) -> paint a gravity ribbon along the surface you aim at.
-//  Walk onto it -> your personal gravity (native AActor.GravityDir, C++ core)
-//  reorients to that surface. Fire your grapple anywhere -> it pulls you off the
-//  ribbon and out of range, and gravity auto-restores.
-//  Nodes render as bright markers (v1 placeholder); the SDF neon ribbon skin
-//  (vr_sdf_procedural.fp bit 512) is the follow-up visual layer.
+//  Palm-out (OffhandRoll) -> sweep the off-hand across a floor/wall/ceiling to
+//  draw a walkway of discrete rectangular SDF TILES, roughly player-width, that
+//  connect edge-to-edge along their long sides. NOT a blended ribbon, not dots --
+//  each tile is its own flat rectangle, physically abutting the next.
+//  Walk onto the walkway -> your personal gravity (native AActor.GravityDir +
+//  GravityAnchor, C++ core) reorients to that surface and you REST against it
+//  (wall-standing collision core, not just a sideways pull).
+//  Fire your grapple anywhere -> it pulls you off the walkway, and gravity
+//  auto-restores to normal.
 // ============================================================================
 
 class XR_GravityPathNode : Actor
 {
 	Vector3 SurfaceNormal;   // outward-facing; -SurfaceNormal = local "down"
-	Vector3 Tangent;         // forward along the ribbon
+	Vector3 Tangent;         // unit direction along the walkway at this tile
+	double  TileLength;      // this tile's length along Tangent (varies per segment)
+
+	// [XR] TUNE THESE IN-HEADSET: SIGL's exact source pixel size isn't known here,
+	// so Scale is a best-effort default, not a verified unit-exact conversion.
+	const TILE_WIDTH   = 40.0;   // world units, roughly player diameter
+	const XR_BASE_PX   = 64.0;   // assumed base graphic size backing "SIGL" -- adjust if tiles render the wrong size
 
 	Default
 	{
-		Radius 6;
-		Height 6;
 		+NOGRAVITY +NOCLIP +NOBLOCKMAP +DONTSPLASH +NOTIMEFREEZE
+		+FLATSPRITE +ROLLCENTER
 		RenderStyle "Add";
 		Alpha 0.9;
-		Scale 0.12;
 	}
 	States
 	{
 	Spawn:
-		BAL1 A -1 Bright;
+		SIGL A -1 Bright;
 		Stop;
+	}
+
+	// Standard Doom yaw/pitch decomposition of a direction vector (degrees).
+	// This is the SAME Yaw-then-Pitch convention FLATSPRITE's own render matrix
+	// applies (hw_sprites.cpp), so orienting Angle/Pitch this way rotates the
+	// tile's local "up" (its flat-quad normal) to point along the given vector.
+	static void XR_VectorToYawPitch(Vector3 n, out double yaw, out double pitch)
+	{
+		double horiz = sqrt(n.x * n.x + n.y * n.y);
+		yaw = (horiz > 0.0001) ? VectorAngle(n.x, n.y) : 0.0;
+		pitch = atan2(-n.z, horiz);
+	}
+
+	// Orient this tile so its flat-quad normal = SurfaceNormal and its long
+	// (width) axis = Tangent, then size it to TILE_WIDTH x TileLength.
+	// NOTE: Yaw/Pitch (which way the tile faces) use the engine's standard
+	// vector-to-angle convention and are the well-grounded half of this. Roll
+	// (spin around the resulting normal, i.e. which way "along the walkway"
+	// points) is derived from first principles below -- correct in structure,
+	// but FLATSPRITE's exact roll handedness hasn't been render-verified, so a
+	// mirrored/rotated tile in-headset is a one-line sign flip here, not a
+	// redesign.
+	void XR_Orient()
+	{
+		double yaw, pitch;
+		XR_VectorToYawPitch(SurfaceNormal, yaw, pitch);
+		Angle = yaw;
+		Pitch = pitch;
+
+		// "Natural" width axis at Roll=0 for this yaw/pitch, using Doom's
+		// standard forward/right basis (forward = (cos(yaw),sin(yaw),0) at
+		// pitch 0; right = forward rotated -90 in the horizontal plane).
+		double ryaw = yaw - 90.0;
+		Vector3 baseRight = (cos(ryaw), sin(ryaw), 0.0);
+
+		// Project Tangent onto the tile's own plane (perpendicular to normal).
+		Vector3 n = SurfaceNormal.Unit();
+		double tdotn = Tangent.x * n.x + Tangent.y * n.y + Tangent.z * n.z;
+		Vector3 tproj = (Tangent.x - n.x * tdotn, Tangent.y - n.y * tdotn, Tangent.z - n.z * tdotn);
+		double tlen = tproj.Length();
+		if (tlen > 0.0001)
+		{
+			tproj /= tlen;
+			// Signed angle from baseRight to tproj about axis n (cross/dot).
+			Vector3 c = (baseRight.y * tproj.z - baseRight.z * tproj.y,
+						 baseRight.z * tproj.x - baseRight.x * tproj.z,
+						 baseRight.x * tproj.y - baseRight.y * tproj.x);
+			double crossDotN = c.x * n.x + c.y * n.y + c.z * n.z;
+			double dotRT = baseRight.x * tproj.x + baseRight.y * tproj.y + baseRight.z * tproj.z;
+			Roll = atan2(crossDotN, dotRT);
+		}
+
+		Scale = (TileLength / XR_BASE_PX, TILE_WIDTH / XR_BASE_PX);
 	}
 }
 
@@ -105,6 +165,9 @@ class XR_GravityPath : Inventory
 		return best;
 	}
 
+	// Spawn ONE rectangular tile spanning from lastNodePos to the new hit point --
+	// not a marker AT the hit point. Consecutive tiles' long edges touch because
+	// each tile's leading edge is the previous tile's trailing edge by construction.
 	private void PaintTick()
 	{
 		let pmo = owner;
@@ -116,19 +179,27 @@ class XR_GravityPath : Inventory
 			return;
 		if (nodes.Size() >= MAX_NODES) return;
 
-		if (nodes.Size() == 0 || (t.HitLocation - lastNodePos).Length() > NODE_SPACING)
+		if (nodes.Size() == 0)
 		{
-			let n = XR_GravityPathNode(Actor.Spawn("XR_GravityPathNode", t.HitLocation));
-			if (n)
-			{
-				n.SurfaceNormal = DeriveNormal(t, aim);
-				Vector3 tv = t.HitLocation - lastNodePos;
-				double tl = tv.Length();
-				if (nodes.Size() > 0 && tl > 0.0001) n.Tangent = tv / tl;
-				nodes.Push(n);
-				lastNodePos = t.HitLocation;
-			}
+			lastNodePos = t.HitLocation;
+			return;
 		}
+
+		Vector3 seg = t.HitLocation - lastNodePos;
+		double segLen = seg.Length();
+		if (segLen <= NODE_SPACING) return;
+
+		Vector3 mid = lastNodePos + seg * 0.5;
+		let n = XR_GravityPathNode(Actor.Spawn("XR_GravityPathNode", mid));
+		if (n)
+		{
+			n.SurfaceNormal = DeriveNormal(t, aim);
+			n.Tangent = seg / segLen;
+			n.TileLength = segLen;
+			n.XR_Orient();
+			nodes.Push(n);
+		}
+		lastNodePos = t.HitLocation;
 	}
 
 	// Public exit hook (e.g. call from the grapple on fire for an instant detach).
@@ -161,7 +232,7 @@ class XR_GravityPath : Inventory
 			casting = false;
 		}
 
-		// WALK: near a ribbon node -> reorient personal gravity to its surface.
+		// WALK: near a tile -> reorient personal gravity to rest against its surface.
 		let near = FindNearNode();
 		if (near)
 		{
@@ -171,7 +242,7 @@ class XR_GravityPath : Inventory
 		}
 		else if (onRoad)
 		{
-			// Left the ribbon (e.g. grappled away) -> restore normal gravity.
+			// Left the walkway (e.g. grappled away) -> restore normal gravity.
 			ExitRoad();
 		}
 	}
