@@ -6528,6 +6528,7 @@ int P_GetRadiusDamage(AActor *self, AActor *thing, int damage, double distance, 
 
 EXTERN_CVAR(Bool, vr_physics_explosions)
 EXTERN_CVAR(Bool, vr_physics_keys)
+EXTERN_CVAR(Bool, vr_physics_powerups)
 EXTERN_CVAR(Float, vr_scale_meters_to_units)
 
 int P_RadiusAttack(AActor *bombspot, AActor *bombsource, int bombdamage, double bombdistance, FName bombmod,
@@ -6560,7 +6561,14 @@ int P_RadiusAttack(AActor *bombspot, AActor *bombsource, int bombdamage, double 
 		{
 			isPhysicalItem = false;
 		}
-		
+		// Powerups (soulsphere, megasphere, berserk, invuln, etc.) never had their own exclusion --
+		// they were being swept up by blast-radius physics identically to any other loose pickup.
+		// Mirrors the Key check directly above.
+		if (isPhysicalItem && !vr_physics_powerups && thing->IsKindOf(PClass::FindClass("Powerup")))
+		{
+			isPhysicalItem = false;
+		}
+
 		if (!((thing->flags & MF_SHOOTABLE) || (thing->flags6 & MF6_VULNERABLE) || isPhysicalItem))
 			continue;
 

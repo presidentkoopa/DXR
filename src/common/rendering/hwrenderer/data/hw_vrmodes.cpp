@@ -393,6 +393,11 @@ CVAR(Bool, vr_grab_debug_sphere, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_locational_damage, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_physics_explosions, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_physics_keys, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+// Same idea as vr_physics_keys (default false = protected): powerup pickups (soulsphere,
+// megasphere, berserk, invuln, etc.) never got their own exclusion, so they were being swept
+// up by blast-radius physics identically to any other loose pickup. Mirrors the Key check
+// exactly -- see P_RadiusAttack, p_map.cpp.
+CVAR(Bool, vr_physics_powerups, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Float, vr_locational_head_mult, 2.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Float, vr_locational_leg_mult, 0.5f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Float, vr_crit_chance, 0.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)

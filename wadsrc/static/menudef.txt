@@ -3571,6 +3571,8 @@ OptionMenu "VRPhysicsOptions" protected
     TFLV_Tooltip "\c[Cyan]Physics Explosions\c-  -  \c[White]On\c- lets blast radius also shove loose pickups and corpses around, not just harm monsters. \c[White]Off\c- restores classic explosion behavior."
     Option "Explosions Affect Keys", "vr_physics_keys", "OnOff"
     TFLV_Tooltip "\c[Gold]Explosions Affect Keys\c-  -  only matters when Physics Explosions is \c[White]On\c-; \c[White]On\c- lets blasts fling key items too, \c[White]Off\c- protects keys so they never get blown out of reach."
+    Option "Explosions Affect Powerups", "vr_physics_powerups", "OnOff"
+    TFLV_Tooltip "\c[Gold]Explosions Affect Powerups\c-  -  only matters when Physics Explosions is \c[White]On\c-; \c[White]On\c- lets blasts fling spheres/berserk/etc. too, \c[White]Off\c- protects them so they never get blown out of reach."
     StaticText " "
     Slider "Meter to Units Scale", "vr_scale_meters_to_units", 20.0, 60.0, 1.0, 1
     TFLV_Tooltip "\c[Cyan]Meter to Units Scale\c-  -  how many map units equal one real-world meter; sets overall world scale and drives throw/grab velocity. Raise it to feel smaller in a bigger world, lower to feel larger."
