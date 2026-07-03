@@ -111,9 +111,9 @@ class ProtectorShield : Actor
 			if (inflictor.bMISSILE)
 			{
 				A_StartSound("weapons/shield/throw", CHAN_WEAPON);
-				// (Removed spawn of 'BDWhiteShockWaveSmall' -- a Brutal Doom cosmetic shockwave
-				//  actor that does not exist in this engine. Deflect still fires its sound; add a
-				//  native shockwave actor here later if a visual is wanted.)
+				// Deflect shockwave: an expanding ring drawn by the engine's own glow-billboard
+				// shader (wgType 14). No asset, no shader edit -- see DeflectShockwave in vr_thrown.zs.
+				DeflectShockwave.Emit(self, Color(120, 205, 255, 255), 130.0, 10);
 
 				// carried default: ~30% deflect the missile back out, ~20% partial self-damage otherwise
 				if (random[deflect](0, 9) > 6)
@@ -207,6 +207,7 @@ class ThrownShieldSaw : Actor
 		Radius 10;
 		Height 10;
 		Damage 10;
+		Mass 55;            // shield heft -> spin rate (see XRThrownSpin)
 		DamageType "Saw";
 		Scale 0.5;
 		Projectile;
@@ -261,7 +262,8 @@ class ThrownShieldSaw : Actor
 
 		if (!InStateSequence(curState, ResolveState("Death")) && !InStateSequence(curState, ResolveState("XDeath")))
 		{
-			roll += 45; // spinning-blade look; modeldef USEACTORROLL applies this to the model
+			// spin by mass + current speed (heavier = slower); modeldef USEACTORROLL renders it
+			roll += XRThrownSpin.RollDelta(Mass, vel.Length());
 			ShieldSawGlow(Actor.Spawn("ShieldSawGlow", pos)).A_SetAngle(angle);
 		}
 

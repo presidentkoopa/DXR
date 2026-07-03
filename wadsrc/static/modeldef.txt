@@ -402,6 +402,22 @@ Model Chainsaw
    FrameIndex SAWG A 0 0   FrameIndex SAWG B 0 3   FrameIndex SAWG C 0 5   FrameIndex SAWG D 0 7
 }
 
+// Boomerang chainsaw projectile (ThrownChainsaw, vr_thrown.zs) -- reuses the chainsaw mesh,
+// USEACTORROLL so its Tick() `roll +=` spin (by mass + throw velocity) renders on the model.
+// World-space object (not a HUD weapon), so no HUD Offset/ZOffset -- centred on the origin.
+Model ThrownChainsaw
+{
+   Path "Models/Weapons/Hud/Chainsaw"
+   Model 0 "Chainsaw.md3"
+   Skin 0 "Chainsaw.png"
+   Scale 1.5 1.5 1.5
+   USEACTORROLL
+   USEACTORPITCH
+   NoInterpolation
+
+   FrameIndex SAWG A 0 0
+}
+
 Model VRFlashModel
 {
    Path "models/weapons/universal"
