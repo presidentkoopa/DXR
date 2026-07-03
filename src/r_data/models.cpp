@@ -1209,7 +1209,17 @@ FSpriteModelFrame * FindModelFrameRaw(const AActor * actorDefaults, const PClass
 	// revert to the flat sprite past its threshold even when voxels are globally on or this specific
 	// actor was force-shown (e.g. a grab candidate that also happens to be far -- shouldn't happen in
 	// practice since grab range is short, but this keeps the two systems from fighting either way).
-	if (!cullVoxel && (r_drawvoxels || forceVoxel))
+	//
+	// PlayerPawn is HARD-excluded from ever falling through to a voxel replacement, unconditionally.
+	// We ship a native VR player IK/hardpoint IQM model for the player body; if a loaded pk3 (e.g. a
+	// third-party voxel pack) happens to define PLAYA-PLAYW voxel entries, r_drawvoxels being on
+	// would otherwise silently steal the player body render away from that model whenever a frame
+	// isn't covered by hasmodel's SpriteModelFrames lookup above -- IsKindOf is cheap and this check
+	// only runs once we've already missed the model-frame hash lookup, so it costs nothing on the
+	// normal (model-hit) path. actorDefaults is safe to call IsKindOf on: it's a real AActor (the
+	// class's default/template instance), and IsKindOf only walks the class hierarchy, not runtime
+	// state -- exact same idiom used throughout this codebase (a_action.cpp, p_acs.cpp, p_mobj.cpp).
+	if (!cullVoxel && !actorDefaults->IsKindOf(NAME_PlayerPawn) && (r_drawvoxels || forceVoxel))
 	{
 		spritedef_t *sprdef = &sprites[sprite];
 		if (frame < sprdef->numframes)
