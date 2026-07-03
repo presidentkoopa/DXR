@@ -5,12 +5,17 @@ class VRRomLoadHandler : StaticEventHandler
     
     override void WorldLoaded(WorldEvent e)
     {
-        // Don't trigger on savegame loads or similar if necessary, 
-        // but for now, every map load is fine.
-        scanline = -0.1; // Start slightly above screen
-        active = true;
-        PPShader.SetEnabled("rom_load", true);
-        PPShader.SetUniform1f("rom_load", "scanline_pos", scanline);
+        // DISABLED (blackout fix): this "ROM compiling" sweep is a full-screen postprocess whose
+        // scanline is advanced in WorldTick. WorldTick PAUSES while a menu is up (title screen / any
+        // menu), so the scanline stays at its -0.1 start -> the whole final image (menu included) is
+        // painted as the black-green "void" and the screen goes black while input still works.
+        // (Only became live once the gldefs PostProcess block got its Name field, so SetEnabled
+        // actually matches now.) Re-enable once reworked to: (a) drive the scanline off REAL time,
+        // not world ticks, so it finishes even when paused, and (b) only run on real gameplay maps,
+        // never the title map / menus. Left dormant so the screen renders normally.
+        scanline = 1.5;
+        active = false;
+        PPShader.SetEnabled("rom_load", false);
     }
     
     override void WorldTick()

@@ -124,7 +124,7 @@ class GITD_DeathEffect : Actor
     double faceAngle;
     int    killCount;
     Actor  mon;
-    string keywords;
+    string localKeywords;
     Actor  silh;       // the monster silhouette (optional)
     // per-effect look knobs (set in EffectSpawn; defaults below = neutral). Each style can carry
     // its OWN gradient + pulse; global cvars scale/override on top.
@@ -170,15 +170,15 @@ class GITD_DeathEffect : Actor
     virtual void EffectEnd() {}     // cleanup hook fired once when a non-persisting effect expires
 
     // keyword helpers -- a free-form trait string (e.g. "boss flying speed:2") attached per effect.
-    bool HasTrait(string token) { return keywords.IndexOf(token) >= 0; }   // simple presence test
+    bool HasTrait(string token) { return localKeywords.IndexOf(token) >= 0; }   // simple presence test
     // Parse "key:value" out of the keyword string; returns "" if the key is absent.
     string KeyVal(string key)
     {
-        int i = keywords.IndexOf(key .. ":");
+        int i = localKeywords.IndexOf(key .. ":");
         if (i < 0) return "";
-        int s = i + key.Length() + 1, e = keywords.IndexOf(" ", s);   // value runs to the next space
-        if (e < 0) e = keywords.Length();
-        return keywords.Mid(s, e - s);
+        int s = i + key.Length() + 1, e = localKeywords.IndexOf(" ", s);   // value runs to the next space
+        if (e < 0) e = localKeywords.Length();
+        return localKeywords.Mid(s, e - s);
     }
 
     // Plane targeting: gitd_death_planes 0 = Floor only, 1 = Floor + Ceiling. Floor-only is
@@ -1130,7 +1130,7 @@ class GITD_DeathFXHandler : EventHandler
             fx.bornTic   = level.totaltime;
             fx.tier      = tier;
             fx.tint      = tint;
-            fx.keywords  = kw;
+            fx.localKeywords  = kw;
             fx.faceAngle = mo.angle;
             fx.killCount = killCount;
             fx.mon       = mo;
@@ -1145,7 +1145,7 @@ class GITD_DeathFXHandler : EventHandler
             let ax = GITD_DeathEffect(Actor.Spawn(ac, mo.pos));
             if (ax)
             {
-                ax.bornTic = level.totaltime; ax.tier = tier; ax.tint = tint; ax.keywords = kw;
+                ax.bornTic = level.totaltime; ax.tier = tier; ax.tint = tint; ax.localKeywords = kw;
                 ax.faceAngle = mo.angle; ax.killCount = killCount; ax.mon = mo; ax.EffectSpawn();
             }
         }

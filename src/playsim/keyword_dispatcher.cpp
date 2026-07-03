@@ -121,36 +121,89 @@ void KeywordDispatcher::Init() {
             }
         }
 
-        // Parse actor namespace
-        if (ns.HasMember("actor") && ns["actor"].IsObject()) {
-            const auto& actorObj = ns["actor"];
-            for (auto it = actorObj.MemberBegin(); it != actorObj.MemberEnd(); ++it) {
-                std::string name = "actor:" + std::string(it->name.GetString());
+        // Parse role namespace. Keys are the role values themselves (e.g. "fodder", "boss")
+        // with no extra fields in KEYWORDS.json; token "role:<name>" carries it via prof.role.
+        if (ns.HasMember("role") && ns["role"].IsObject()) {
+            const auto& roleObj = ns["role"];
+            for (auto it = roleObj.MemberBegin(); it != roleObj.MemberEnd(); ++it) {
+                std::string rawName = std::string(it->name.GetString());
+                std::string name = "role:" + rawName;
                 const auto& val = it->value;
                 if (val.IsObject()) {
                     KeywordProfile prof;
-                    if (val.HasMember("role") && val["role"].IsString()) prof.role = val["role"].GetString();
-                    if (val.HasMember("trait") && val["trait"].IsString()) prof.trait = val["trait"].GetString();
-                    if (val.HasMember("faction") && val["faction"].IsString()) prof.faction = val["faction"].GetString();
-                    if (val.HasMember("head_height") && val["head_height"].IsNumber()) prof.head_height = val["head_height"].GetDouble();
-                    if (val.HasMember("score_set") && val["score_set"].IsString()) prof.score_set = val["score_set"].GetString();
+                    prof.role = rawName.c_str();
                     profiles[name] = prof;
                 }
             }
         }
 
-        // Parse pickup namespace
-        if (ns.HasMember("pickup") && ns["pickup"].IsObject()) {
-            const auto& pickupObj = ns["pickup"];
-            for (auto it = pickupObj.MemberBegin(); it != pickupObj.MemberEnd(); ++it) {
-                std::string name = "pickup:" + std::string(it->name.GetString());
+        // Parse trait namespace. Keys are the trait values themselves (e.g. "hitscan", "melee")
+        // with no extra fields in KEYWORDS.json; token "trait:<name>" carries it via prof.trait.
+        if (ns.HasMember("trait") && ns["trait"].IsObject()) {
+            const auto& traitObj = ns["trait"];
+            for (auto it = traitObj.MemberBegin(); it != traitObj.MemberEnd(); ++it) {
+                std::string rawName = std::string(it->name.GetString());
+                std::string name = "trait:" + rawName;
                 const auto& val = it->value;
                 if (val.IsObject()) {
                     KeywordProfile prof;
-                    if (val.HasMember("item_type") && val["item_type"].IsString()) prof.item_type = val["item_type"].GetString();
-                    if (val.HasMember("rarity") && val["rarity"].IsInt()) prof.rarity = val["rarity"].GetInt();
-                    if (val.HasMember("value") && val["value"].IsInt()) prof.value = val["value"].GetInt();
-                    if (val.HasMember("points") && val["points"].IsInt()) prof.points = val["points"].GetInt();
+                    prof.trait = rawName.c_str();
+                    profiles[name] = prof;
+                }
+            }
+        }
+
+        // Parse anatomy namespace. Each entry carries gore-reaction data for what the actor is
+        // made of (blood_color, sparks, shatter, oil_color).
+        if (ns.HasMember("anatomy") && ns["anatomy"].IsObject()) {
+            const auto& anatomyObj = ns["anatomy"];
+            for (auto it = anatomyObj.MemberBegin(); it != anatomyObj.MemberEnd(); ++it) {
+                std::string name = "anatomy:" + std::string(it->name.GetString());
+                const auto& val = it->value;
+                if (val.IsObject()) {
+                    KeywordProfile prof;
+                    if (val.HasMember("blood_color") && val["blood_color"].IsArray()) {
+                        const auto& col = val["blood_color"];
+                        if (col.Size() >= 3) {
+                            prof.blood_r = col[0].GetInt();
+                            prof.blood_g = col[1].GetInt();
+                            prof.blood_b = col[2].GetInt();
+                        }
+                    }
+                    if (val.HasMember("sparks") && val["sparks"].IsBool()) {
+                        prof.sparks = val["sparks"].GetBool();
+                    }
+                    if (val.HasMember("shatter") && val["shatter"].IsBool()) {
+                        prof.shatter = val["shatter"].GetBool();
+                    }
+                    if (val.HasMember("oil_color") && val["oil_color"].IsArray()) {
+                        const auto& col = val["oil_color"];
+                        if (col.Size() >= 3) {
+                            prof.oil_r = col[0].GetInt();
+                            prof.oil_g = col[1].GetInt();
+                            prof.oil_b = col[2].GetInt();
+                        }
+                    }
+                    profiles[name] = prof;
+                }
+            }
+        }
+
+        // Parse vulnerability namespace. Entries carry a damage multiplier (head_crit, eye_crit,
+        // explosive, melee) or a stun_duration in tics (core_stun, plasma_stun).
+        if (ns.HasMember("vulnerability") && ns["vulnerability"].IsObject()) {
+            const auto& vulnObj = ns["vulnerability"];
+            for (auto it = vulnObj.MemberBegin(); it != vulnObj.MemberEnd(); ++it) {
+                std::string name = "vulnerability:" + std::string(it->name.GetString());
+                const auto& val = it->value;
+                if (val.IsObject()) {
+                    KeywordProfile prof;
+                    if (val.HasMember("multiplier") && val["multiplier"].IsNumber()) {
+                        prof.vuln_multiplier = val["multiplier"].GetFloat();
+                    }
+                    if (val.HasMember("stun_duration") && val["stun_duration"].IsNumber()) {
+                        prof.stun_duration = val["stun_duration"].GetInt();
+                    }
                     profiles[name] = prof;
                 }
             }
@@ -212,6 +265,14 @@ void KeywordDispatcher::Init() {
                     if (val.HasMember("twohand_offset_y") && val["twohand_offset_y"].IsNumber()) prof.twohand_offset_y = val["twohand_offset_y"].GetFloat();
                     if (val.HasMember("twohand_offset_z") && val["twohand_offset_z"].IsNumber()) prof.twohand_offset_z = val["twohand_offset_z"].GetFloat();
                     if (val.HasMember("twohand_radius") && val["twohand_radius"].IsNumber()) prof.twohand_radius = val["twohand_radius"].GetFloat();
+                    if (val.HasMember("parry_extent") && val["parry_extent"].IsArray()) {
+                        const auto& pe = val["parry_extent"];
+                        if (pe.Size() >= 3) {
+                            prof.parry_extent_x = pe[0].GetFloat();
+                            prof.parry_extent_y = pe[1].GetFloat();
+                            prof.parry_extent_z = pe[2].GetFloat();
+                        }
+                    }
                     profiles[name] = prof;
                 }
             }

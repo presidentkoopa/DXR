@@ -240,6 +240,7 @@ class Actor : Thinker native
 	native int16 PainChance;
 	native name PainType;
 	native name DeathType;
+	native String Keywords;
 	native double DamageFactor;
 	native double DamageMultiply;
 	native Class<Actor> TelefogSourceType;
@@ -860,6 +861,9 @@ class Actor : Thinker native
 	native void Vel3DFromAngle(double speed, double angle, double pitch);
 	native vector3 AttackDir(Actor actor, double angle, double pitch);
 	native vector3 OffhandDir(Actor actor, double angle, double pitch);
+	// VR hand linear velocity, map-space (units/tic), 4-sample rolling average. hand: 0=main, 1=off.
+	// Returns (0,0,0) if not in VR or the buffer hasn't been populated yet (VR_UpdateGravityGloves must have run this tic).
+	native vector3 GetHandVelocity(int hand);
 	native void Thrust(double speed = 1e37, double angle = 1e37);
 	native clearscope bool isFriend(Actor other) const;
 	native clearscope bool isHostile(Actor other) const;

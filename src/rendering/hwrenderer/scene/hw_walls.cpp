@@ -352,6 +352,7 @@ void HWWall::RenderTexturedWall(HWWallDispatcher*di, FRenderState &state, int rf
 		TArray<int> gitdCand;
 		for (unsigned gi = 0; gi < gs.Size(); gi++)
 		{
+			if (gs[gi].gflags & 1) continue;   // [GITD-AIR] billboards are drawn in the panel pass, not stamped on walls
 			if (gs[gi].planeFlags != 0 && !(gs[gi].planeFlags & 4)) continue;   // [GITD] walls: planeFlags==0 (all) or WALL bit (4)
 			gitdCand.Push((int)gi);
 		}

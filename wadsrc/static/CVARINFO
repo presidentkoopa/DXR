@@ -5,10 +5,28 @@ server bool vr_start_with_rifle = false;
 server bool vr_grenade_trajectory = true;
 server bool vr_weapon_throwable = true;
 server bool vr_spawn_models = true;
+
+// vr_ballistic_drop (physics bullet-drop realism, has a menu toggle) was genuinely undeclared -- the
+// GetBool()-guarded read silently disabled it; declaring makes it live. NOT declared here on purpose:
+// vr_recoil, vr_locational_head_mult, vr_locational_leg_mult -- those are already registered in C++
+// (p_actionfunctions.cpp / hw_vrmodes.cpp). Re-declaring a C++ cvar in cvarinfo is a FATAL
+// "cvar already exists" error, and since they already exist at runtime their reads never aborted.
+user bool vr_ballistic_drop = false;
+
 // --- Locational Damage Tuning ---
 server float vr_locational_head_threshold = 0.8;
 server float vr_locational_leg_threshold = 0.3;
+// (head_mult / leg_mult live in C++ hw_vrmodes.cpp with defaults 2.0 / 0.5 -- do not redeclare.)
 user bool vr_debug_locational = false;
+
+// --- Graveyard persistent storage (gy_Storage.zs) ---
+// These hold the serialized death-marker dictionaries across sessions. gy_Storage.of() reads them
+// CHAINED (.GetString() on a null cvar) every WorldTick -> the VM-abort that dropped you to console
+// ~1s into a map. Must exist. server-scoped so they persist in the config (the graves survive
+// between sessions, which is the whole point of the graveyard).
+server string gy_hashes = "";
+server string gy_locations = "";
+server string gy_obituaries = "";
 
 // --- Barrel Explosion ---
 // Pretty grenade-style fireball (at 60% scale) is layered on the barrel by default. Set this

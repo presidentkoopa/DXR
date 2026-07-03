@@ -45,6 +45,20 @@ struct KeywordProfile {
     int value = 0;
     int points = 0;
 
+    // Anatomy
+    uint8_t blood_r = 200;
+    uint8_t blood_g = 0;
+    uint8_t blood_b = 0;
+    bool sparks = false;
+    bool shatter = false;
+    uint8_t oil_r = 0;
+    uint8_t oil_g = 0;
+    uint8_t oil_b = 0;
+
+    // Vulnerability
+    float vuln_multiplier = 1.0f;
+    int stun_duration = 0;
+
     // Haptics
     FString haptic_type;
     float haptic_intensity = 1.0f;

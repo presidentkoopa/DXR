@@ -77,6 +77,7 @@
 #include "gametexture.h"
 #include "common/2d/v_2ddrawer.h"
 #include <algorithm>
+#include <cctype>
 #include <functional>
 #include <thread>
 #include "c_dispatch.h"
@@ -1203,7 +1204,11 @@ bool VR_CheckWeaponParry(player_t* player, AActor* inflictor, int* outHand)
 		AActor* weap = (i == 0) ? player->ReadyWeapon : player->OffhandWeapon;
 		if (!weap) continue;
 
-		KeywordProfile* profile = KeywordDispatcher::GetProfile(weap->GetClass()->TypeName.GetChars());
+		std::string weapClassName = weap->GetClass()->TypeName.GetChars();
+		std::transform(weapClassName.begin(), weapClassName.end(), weapClassName.begin(),
+			[](unsigned char c) { return std::tolower(c); });
+		std::string weapProfileKey = "class:" + weapClassName;
+		KeywordProfile* profile = KeywordDispatcher::GetProfile(weapProfileKey.c_str());
 		if (!profile || profile->parry_extent_z <= 0) continue;
 
 		VSMatrix invHand;

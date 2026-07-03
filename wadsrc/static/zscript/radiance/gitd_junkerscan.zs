@@ -256,33 +256,10 @@ class GITD_JunkerScanHandler : EventHandler
 
 	override void WorldTick()
 	{
-		// DEMO only -- the real HF brain will call GITD_JunkerScan.Make() at the
-		// right moment (boss intro / hack interaction). Gate keeps it opt-out.
-		if (!CBool("gitd_junker_demo", true)) return;
-		if (!CBool("gitd_junker_enabled", true)) return;
-
-		if (mGap > 0) { mGap--; return; }
-
-		let pmo = players[consoleplayer].mo;
-		if (!pmo || pmo.health <= 0) return;
-
-		// center ~96u in FRONT of the player at eye height, facing them.
-		// ZScript trig is in DEGREES (matches gitd_brand / gitd_triptych).
-		double fa   = pmo.angle;
-		double dist = CFlt("gitd_junker_dist", 96.0);
-		double cx   = pmo.pos.x + cos(fa) * dist;
-		double cy   = pmo.pos.y + sin(fa) * dist;
-		double cz   = pmo.pos.z + pmo.height * 0.72;   // eye height
-		Vector3 center = (cx, cy, cz);
-
-		// placeholder vitals/threat/score (the user dials / the brain feeds later)
-		GITD_JunkerScan.Make(center, 87, 42, 13370);
-
-		// schedule the next loop: scan length + a breathing gap.
-		int skull = max(8, int(CFlt("gitd_junker_skulltime", 28.0)));
-		int sync  = max(8, CInt("gitd_junker_synctime", 30));
-		int grant = max(8, CInt("gitd_junker_grantedtime", 35));
-		int gap   = max(0, CInt("gitd_junker_loopgap", 70));
-		mGap = skull + sync + grant + gap;
+		// DEMO HARD-DISABLED (user request): this used to spawn a looping junker-scan SDF ~96u in
+		// front of the player on map load and re-fire it every ~70 tics -- the "rapid firing SDF"
+		// spam. The scan itself is fully intact: GITD_JunkerScan.Make(center, vitals, threat, score)
+		// still works when the real HF brain calls it. Only this auto-demo loop is removed. To bring
+		// the demo back, restore this body from git and re-check gitd_junker_demo.
 	}
 }

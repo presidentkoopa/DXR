@@ -319,3 +319,27 @@ world/barrelx4          dsbarex4
 world/barrelx5          dsbarex5
 world/barrelx6          dsbarex6
 world/barrelx7          dsbarex7
+
+weapon/shieldsaw/draw			ssawdraw
+weapon/shieldsaw/loop			ssawloop
+$volume weapon/shieldsaw/draw 0.7
+$volume weapon/shieldsaw/loop 0.7
+
+$random weapons/shield/hit 		{ shldhit1 shldhit2 shldhit3 }
+shldhit1 				shldhit1
+shldhit2 				shldhit2
+shldhit3 				shldhit3
+$volume weapons/shield/hit 0.2
+
+$random weapons/shield/hithard 	{ shdehit1 shdehit2 shdehit3 }
+shdehit1 				shdehit1
+shdehit2 				shdehit2
+shdehit3 				shdehit3
+$volume weapon/shieldsaw/hithard 0.4
+
+$random weapons/shield/bounce 		{ shbounc1 shbounc2 shbounc3 }
+shbounc1 				shbounc1
+shbounc2 				shbounc2
+shbounc3 				shbounc3
+
+weapons/shield/throw 			shwhoosh

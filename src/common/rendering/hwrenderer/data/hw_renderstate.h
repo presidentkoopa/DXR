@@ -225,6 +225,11 @@ struct StreamData
 	float u_MSDFGlitch;
 	int padding2;
 	int padding3;
+	int padding4; // [std140 align] FVector4/FVector4PalEntry are bare floats (align-4, no alignas),
+	int padding5; // so C++ does NOT round the next vec4 up to 16 the way GLSL std140 does. The
+	int padding6; // uGlobalFade..padding3 run is 9 scalars (36B); these 3 pads make u_MSDFColor land
+	              // on a 16B boundary matching GLSL, else every field after it (all GITD fog/regime
+	              // uniforms) shifts 12 bytes -> corrupt reads (black world + mis-coloured glyph spray).
 
 	FVector4 u_MSDFColor;
 
@@ -379,6 +384,7 @@ public:
 
 		mStreamData.u_IsMSDF = 0.0f;
 		mStreamData.u_MSDFGlitch = 0.0f;
+		mStreamData.padding4 = mStreamData.padding5 = mStreamData.padding6 = 0;
 		mStreamData.u_MSDFColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 
 		// GITD fog/regime default to OFF (mode 0 / regime 0 gate the effects). B2 feeds live values.

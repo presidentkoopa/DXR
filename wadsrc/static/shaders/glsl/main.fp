@@ -1987,7 +1987,15 @@ void main()
 		if ((uTextureMode & 0xffff) != 7)
 		{
 			frag = getLightColor(material, fogdist, fogfactor);
-			frag = applyOmniFog(frag, fogdist);
+			// [GITD] Only run omni-fog when a GITD fog mode is explicitly enabled. Otherwise fall
+			// back to STOCK behaviour (verified vs main.fp.old_bak): apply fog ONLY for coloured
+			// fog (uFogEnabled < 0). Positive uFogEnabled is Doom light-diminishing whose uFogColor
+			// is BLACK for ordinary sectors -- applyOmniFog's unconditional fallback mixed every
+			// surface toward that black, which is the black-world bug.
+			if (u_gitd_fog_mode > 0)
+				frag = applyOmniFog(frag, fogdist);
+			else if (uFogEnabled < 0)
+				frag = applyFog(frag, fogfactor);
 		}
 		else
 		{

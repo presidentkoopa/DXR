@@ -273,6 +273,9 @@ static const char *shaderBindings = R"(
 		float u_MSDFGlitch;
 		int padding2;
 		int padding3;
+		int padding4; // must mirror the C++ StreamData pads (hw_renderstate.h) 1:1; std140 already
+		int padding5; // reserved these 12 bytes before the vec4, so this changes no GLSL offset --
+		int padding6; // it just keeps the two declarations visibly identical.
 
 		vec4 u_MSDFColor;
 

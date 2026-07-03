@@ -5738,3 +5738,25 @@ DEFINE_ACTION_FUNCTION(AActor, OffhandDir)
 	DVector3 dir = self->OffhandDir(source, yaw, pitch);
 	ACTION_RETURN_VEC3(DVector3(dir.Angle().Degrees(), dir.Pitch().Degrees(), 0.));
 }
+
+EXTERN_CVAR(Float, vr_scale_meters_to_units)
+
+// Exposes player_t::vr_hand_vel_buffer (populated every tic by VR_UpdateGravityGloves in p_user.cpp)
+// to ZScript. Same map-space remap (X,Z,Y) and meters->units/tic scale the engine already applies
+// internally for gravity-glove throws (see p_user.cpp handVelocity usage) -- kept identical so this
+// reads in the same units/space as an actor's own Vel.
+DEFINE_ACTION_FUNCTION(AActor, GetHandVelocity)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_INT(hand);
+
+	DVector3 outVel(0, 0, 0);
+	if (self->player != nullptr && (hand == 0 || hand == 1))
+	{
+		DVector3 avg(0, 0, 0);
+		for (int i = 0; i < 4; i++) avg += self->player->vr_hand_vel_buffer[hand][i];
+		avg /= 4.0;
+		outVel = DVector3(avg.X, avg.Z, avg.Y) * (vr_scale_meters_to_units / 35.0);
+	}
+	ACTION_RETURN_VEC3(outVel);
+}

@@ -875,6 +875,7 @@ public:
 		FString tagstring;
 
 		memset(ld, 0, sizeof(*ld));
+		new (&ld->Keywords) FString(); // line_t.Keywords FString nulled by memset; rebuild before the "keywords" assignment below / teardown
 		ld->alpha = 1.;
 		ld->portalindex = UINT_MAX;
 		ld->portaltransferred = UINT_MAX;
@@ -1680,6 +1681,7 @@ public:
 		const double scrollfactor = 1 / 3.2;	// I hope this is correct, it's just a guess taken from Eternity's code.
 
 		memset(sec, 0, sizeof(*sec));
+		new (&sec->Keywords) FString(); // sector_t.Keywords FString nulled by memset; rebuild before the "keywords" assignment below / teardown
 		sec->Level = Level;
 		sec->lightlevel = 160;
 		sec->SetXScale(sector_t::floor, 1.);	// [RH] floor and ceiling scaling
@@ -2626,6 +2628,7 @@ public:
 			{
 				sector_t sec;
 				memset(&sec, 0, sizeof(sector_t));
+				new (&sec.Keywords) FString(); // sector_t.Keywords FString nulled by memset; rebuild before ParseSector/Push/teardown
 				ParseSector(&sec, ParsedSectors.Size());
 				ParsedSectors.Push(sec);
 			}

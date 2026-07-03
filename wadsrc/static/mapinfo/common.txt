@@ -5,7 +5,7 @@ Gameinfo
 	CheatKey = "maparrows/key.txt"
 	EasyKey = "maparrows/ravenkey.txt"
 	PrecacheSounds = "misc/secret", "misc/teleport", "misc/fallingsplat", "misc/ripslop"
-	AddEventHandlers = "GITD_DeathFXHandler", "HF_GlowHandler", "DarkDoomZ_Handler", "GITD_FlashHandler", "GITD_PresetHandler", "GITD_BloomHandler", "GITD_MuzzleHandler", "gy_EventHandler", "gy_VmAbortHandler", "VRBlackoutHandler", "GITD_JunkerScanHandler"
+	AddEventHandlers = "GITD_DeathFXHandler", "HF_GlowHandler", "DarkDoomZ_Handler", "GITD_FlashHandler", "GITD_PresetHandler", "GITD_BloomHandler", "GITD_MuzzleHandler", "gy_EventHandler", "gy_VmAbortHandler", "VRBlackoutHandler", "GITD_JunkerScanHandler", "SDFComboArbiter"
 }
 
 DoomEdNums

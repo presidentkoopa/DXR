@@ -1075,6 +1075,11 @@ void MapLoader::LoadSectors (MapData *map, FMissingTextureTracker &missingtex)
 	Level->extsectors.Alloc(numsectors);
 	auto sectors = &Level->sectors[0];
 	memset (sectors, 0, numsectors*sizeof(sector_t));
+	// sector_t carries an FString (Keywords, added for the keyword/climb system). The blanket memset
+	// above nulls its Chars pointer; reconstruct each so later assignment (UDMF) and level teardown
+	// (sectors.Clear -> ~FString) don't deref null and crash (-4 write / -12 read). Same bug class as
+	// the FMapThing::Keywords fix. See also LoadLineDefs below.
+	for (unsigned i = 0; i < Level->sectors.Size(); i++) new (&sectors[i].Keywords) FString();
 
 	if (Level->flags & LEVEL_SNDSEQTOTALCTRL)
 		defSeqType = 0;
@@ -1320,6 +1325,12 @@ void MapLoader::LoadThings (MapData * map)
 		short flags = LittleShort(mt->options);
 
 		memset (&mti[i], 0, sizeof(mti[i]));
+		// FMapThing::Keywords is an FString (added for the keyword system). The memset above
+		// zeroes its internal Chars pointer to null, destroying the valid empty-string state that
+		// Resize() constructed -- then any FString method (e.g. SpawnMapThing's Keywords.IsNotEmpty())
+		// dereferences Chars-12 and access-violates. Reconstruct it in place. (Assignment would crash
+		// trying to free the null pointer; placement-new does not read the old value.)
+		new (&mti[i].Keywords) FString();
 
 		mti[i].Gravity = 1;
 		mti[i].Conversation = 0;
@@ -1397,6 +1408,8 @@ void MapLoader::LoadThings2 (MapData * map)
 	for(int i = 0; i< numthings; i++)
 	{
 		memset (&mti[i], 0, sizeof(mti[i]));
+		// Reconstruct the Keywords FString the memset just zeroed (see LoadThings above for why).
+		new (&mti[i].Keywords) FString();
 
 		mti[i].thingid = LittleShort(mth[i].thingid);
 		mti[i].pos.X = LittleShort(mth[i].x);
@@ -1715,6 +1728,9 @@ void MapLoader::LoadLineDefs (MapData * map)
 	}
 	Level->lines.Alloc(numlines);
 	memset(&Level->lines[0], 0, numlines * sizeof(line_t));
+	// line_t also carries an FString (Keywords, for the climb system) -- reconstruct after the memset,
+	// same as sectors, or the null Chars crashes on UDMF assignment / lines.Clear() teardown.
+	for (unsigned i = 0; i < Level->lines.Size(); i++) new (&Level->lines[i].Keywords) FString();
 
 	AllocateSideDefs (map, sidecount);
 
@@ -1829,6 +1845,9 @@ void MapLoader::LoadLineDefs2 (MapData * map)
 	}
 	Level->lines.Alloc(numlines);
 	memset(&Level->lines[0], 0, numlines * sizeof(line_t));
+	// line_t also carries an FString (Keywords, for the climb system) -- reconstruct after the memset,
+	// same as sectors, or the null Chars crashes on UDMF assignment / lines.Clear() teardown.
+	for (unsigned i = 0; i < Level->lines.Size(); i++) new (&Level->lines[i].Keywords) FString();
 
 	AllocateSideDefs (map, sidecount);
 

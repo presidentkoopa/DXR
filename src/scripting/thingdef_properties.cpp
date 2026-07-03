@@ -605,16 +605,26 @@ DEFINE_PROPERTY(tag, S, Actor)
 //==========================================================================
 //
 //==========================================================================
-// TEMPORARILY STRIPPED (to confirm boot): assigning defaults->Keywords crashed because the FString
-// isn't constructed in default objects (native-field construction issue), and the single-string 'S'
-// format also rejected the mod's comma-separated keyword lists ("Too many values"). Format is now 'L'
-// (accepts a variable string list) and the body is a NO-OP, so every existing `Keywords "..."` line
-// parses harmlessly and nothing is stored. REIMPLEMENT later: declare `native String Keywords;` in
-// actor.zs (and rename the colliding GITD_DeathEffect 'keywords' field), then restore the assignment
-// below (concatenating the list into defaults->Keywords).
+// Keywords: a variable-length list of tokens joined space-separated into the actor's Keywords FString
+// (e.g. Keywords "class:pistol", "dmg:ballistic", ... -> "class:pistol dmg:ballistic ...").
+// Format 'L' accepts the comma-separated list. The native FString member (AActor::Keywords in actor.h,
+// exported via DEFINE_FIELD in vmthunks_actors.cpp) is placement-constructed by ConstructNative before
+// any property parses, so appending here is safe. Mirrors the 'translation' L-property idiom, and the
+// house += pattern used for per-instance Keywords in p_mobj.cpp.
 DEFINE_PROPERTY(keywords, L, Actor)
 {
-	// no-op: keywords intentionally not stored while the construction path is being reworked.
+	PROP_INT_PARM(type, 0);
+	if (type == 0)
+	{
+		return;	// a bare number was given instead of a keyword list; nothing to store
+	}
+	for (int i = 1; i < PROP_PARM_COUNT; i++)
+	{
+		PROP_STRING_PARM(str, i);
+		if (str == nullptr || str[0] == '\0') continue;
+		if (defaults->Keywords.IsNotEmpty()) defaults->Keywords += " ";
+		defaults->Keywords += str;
+	}
 }
 
 //==========================================================================
