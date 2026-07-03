@@ -23,7 +23,7 @@ The heart of DoomXR's visual identity. We've bypassed traditional texture sampli
 ### 🥽 Total VR Immersion & 3D Presence
 DoomXR 2.0 isn't just GZDoom in VR; it's a dedicated VR engine fork designed for physical presence:
 *   **Skeletal IQM Hand System**: Fully rigged, animated 3D hands (`vhand.iqm`) that mirror your real-world finger placement. Features analog grip/trigger interpolation for high-fidelity interaction.
-*   **Universal 3D Weapon Shells**: Frame-accurate 3D models replace all 2D sprites. Every firing state and reload is dynamically synchronized to foreign mod logic via our native C++ Animation Time-Scaler.
+*   **Universal 3D Weapon Shells**: Frame-accurate 3D models replace all 2D sprites. Every firing state and reload is dynamically synchronized to foreign mod logic via our native C++ Animation Time-Scaler. Included optional weapons: Flamethrower, Rifle, Revovler, Grenade Launcher, Grenades, IQM Rigged VR Whip, VR Sword (with deflection), dual Ice Picks for climbing.
 *   **Standardized Model Framework**: A high-performance C++ interception layer that synchronizes 3D animation ticks to ZScript `SetState` calls, ensuring mod compatibility without manual patching. - ideally this is unviersal for any loaded pk3, fire real 3d models with your favorite mod's weapon sounds, logic, damage, effects.
 *   **Dynamic Time Scaling (DTS)**: Automatically calculates and adjusts 3D animation playback speeds to match the exact tic-duration of the active 2D weapon state.
 *   **Weapon Archetype Scanner**: A dedicated VR-native UI for real-time weapon mapping. Features dual-pointer interaction support and persistent JSON configuration (`doomxr_weapons.json`).
