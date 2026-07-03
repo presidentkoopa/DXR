@@ -13,9 +13,9 @@ By integrating custom rendering pipelines directly into the hardware renderer, t
 
 ## 🌟 Master Engine Features
 
-### 🎨 The "Wired" Shader Pipeline (`main.fp`)
+### 🎨 Shader Pipeline (`main.fp`)
 The heart of DoomXR's visual identity. We've bypassed traditional texture sampling in favor of a procedural, hardware-accelerated aesthetic:
-*   **TRON-Style Vector Grids**: The floor isn't just a texture—it's a living, breathing outrun grid that reacts to the music and combat intensity.
+*   **Vector Grids**: The floor isn't just a texture—it's a living, breathing outrun grid that reacts to the music and combat intensity.
 *   **Neon Silhouette Reconstruction**: Real-time edge detection and stencil-buffering create pulsating, high-contrast outlines for every enemy, even in total darkness.
 *   **Digital Horizon Skirts**: Procedural UV-fading and wireframe horizons dissolve the boundaries of the map, creating a vast, cyberspace-native feeling.
 *   **High-Resolution Spatial SDFs**: Utilizing GPU-accelerated Signed Distance Fields for razor-sharp, glowing UI and iconography that materializes directly in the world geometry.
