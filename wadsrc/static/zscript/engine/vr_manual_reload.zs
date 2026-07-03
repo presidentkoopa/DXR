@@ -51,14 +51,18 @@ mixin class XR_ManualReload
 	// Call from Ready, before A_WeaponReady, to auto-route to the Reload state
 	// when the chamber is empty. (On-demand reload via the reload button is
 	// handled separately by A_WeaponReady(WRF_ALLOWRELOAD) + the Reload state.)
-	action void A_XR_CheckChamber(statelabel stateReload)
+	// Returns a state so the psprite actually jumps to Reload (called as a 0-tic state action,
+	// e.g. `GLAN A 0 A_XR_CheckChamber("Reload")`). Returning null continues the normal flow.
+	// (invoker.SetStateLabel would set the weapon actor's own state, not the displayed psprite.)
+	action state A_XR_CheckChamber(statelabel stateReload)
 	{
-		if (!invoker.XR_ManualReloadEnabled()) return;
+		if (!invoker.XR_ManualReloadEnabled()) return null;
 		if (invoker.XRChamber <= 0 && !invoker.XRReloading)
 		{
 			invoker.XRReloading = true;
-			return invoker.SetStateLabel(stateReload);
+			return ResolveState(stateReload);
 		}
+		return null;
 	}
 
 	// Chamber-gated fire. Returns true (and decrements the chamber) if a round

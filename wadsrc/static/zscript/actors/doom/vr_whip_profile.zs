@@ -61,7 +61,9 @@ class WhipProfile : Object
 
 	// Elemental follow-up, fired once per confirmed crack at the tip position.
 	// Base profile does nothing -- pure leather is all momentum.
-	virtual void OnCrack(Actor whip, vector3 tip, double tipSpeed) {}
+	// 'play' scope: overrides call DamageMobj / AddGlowPanel (play functions), so this hook
+	// runs in play context (WhipProfile : Object is otherwise data-scoped). Overrides inherit it.
+	virtual play void OnCrack(Actor whip, vector3 tip, double tipSpeed) {}
 
 	double DamageScaleForSpeed(double tipSpeed)
 	{

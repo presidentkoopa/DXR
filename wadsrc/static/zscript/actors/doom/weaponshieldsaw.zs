@@ -111,7 +111,9 @@ class ProtectorShield : Actor
 			if (inflictor.bMISSILE)
 			{
 				A_StartSound("weapons/shield/throw", CHAN_WEAPON);
-				Actor.Spawn("BDWhiteShockWaveSmall", pos + (0, 0, height / 2));
+				// (Removed spawn of 'BDWhiteShockWaveSmall' -- a Brutal Doom cosmetic shockwave
+				//  actor that does not exist in this engine. Deflect still fires its sound; add a
+				//  native shockwave actor here later if a visual is wanted.)
 
 				// carried default: ~30% deflect the missile back out, ~20% partial self-damage otherwise
 				if (random[deflect](0, 9) > 6)
@@ -325,7 +327,7 @@ class ThrownShieldSaw : Actor
 	{
 		invoker.bMISSILE = true;
 		invoker.bRIPPER = true;
-		invoker.damage = int(invoker.ScaledDamage(3));
+		invoker.SetDamage(int(invoker.ScaledDamage(3)));  // Actor.Damage is readonly; SetDamage is the native writable path
 		invoker.ClearBounce();
 		invoker.ReturnToMaster();
 	}
@@ -601,8 +603,8 @@ class ShieldSaw : Weapon
 		if (player == null) return false;
 
 		int laflags = LAF_ISMELEEATTACK;
-		int alflags = bOffhandWeapon ? ALF_ISOFFHAND : 0;
-		if (bOffhandWeapon) laflags |= LAF_ISOFFHAND;
+		int alflags = invoker.bOffhandWeapon ? ALF_ISOFFHAND : 0;   // action fn: self=pawn, so qualify the weapon flag with invoker
+		if (invoker.bOffhandWeapon) laflags |= LAF_ISOFFHAND;
 
 		double damage = random[ShieldAtk](40, 55) * clamp(invoker.shieldDamageMult, 1, 10);
 		if (invoker.owner.CountInv("PowerStrength")) damage *= 5;
