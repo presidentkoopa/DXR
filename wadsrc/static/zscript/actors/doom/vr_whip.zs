@@ -130,9 +130,15 @@ class XRWhip : Weapon
 
 	// ---- Tier 2: rigged model driving (opt-in via `set vr_whip_model 1`) ----
 	XRWhipModel whipModel;
-	const MDL_BONES      = 21;     // whip_root + seg_00..seg_19
-	const MDL_HANDLE_LEN = 0.22;   // MUST match build_whip_iqm.py HANDLE_LEN (bone 0 length)
-	const MDL_SEG_LEN    = 0.12;   // MUST match build_whip_iqm.py SEG_LEN (bones 1..20 length)
+	const MDL_BONES   = 21;     // whip_root + seg_00..seg_19
+	// Bind-pose bone length, MAP UNITS (bones 1..20 are uniform -- confirmed by direct byte-read
+	// of the shipped whip_rigged.iqm: 20 bones x 15.0 = 300 map-unit total reach, matching
+	// build_whip.py's EXPORT_SCALE=75 / TARGET_REACH_MAPUNITS=300). Earlier constants (0.22/0.12)
+	// were leftover "meters" values from the model's pre-map-unit-scale first pass -- this engine
+	// authors IQM models directly in map-unit space (see VRSword's BladeLength convention), so
+	// bind length must be in that same space or the driven mesh visibly detaches/gaps (rigid
+	// per-bone skin weighting doesn't tolerate a translation mismatch against the authored bind).
+	const MDL_SEG_LEN = 15.0;
 
 	Default
 	{
@@ -333,7 +339,7 @@ class XRWhip : Weapon
 			Quat localRot = parentWorldRot.Conjugate() * worldRot;
 
 			// parent-local translation = the PARENT bone's bind length (root->handle, rest->seg)
-			double transLen = (i == 0) ? 0.0 : (i == 1 ? MDL_HANDLE_LEN : MDL_SEG_LEN);
+			double transLen = (i == 0) ? 0.0 : MDL_SEG_LEN;
 			whipModel.SetModelBonePose(i, 0.0, transLen, 0.0,
 				localRot.x, localRot.y, localRot.z, localRot.w);
 

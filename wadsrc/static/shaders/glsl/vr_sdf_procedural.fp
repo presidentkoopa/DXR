@@ -47,15 +47,6 @@ float obeliskSDF(vec2 p, vec2 sz) {
     return max(d, abs(p.y) - sz.y * 0.5);
 }
 
-// [XR] Line-segment / capsule SDF — the primitive for gravity-path ribbons.
-// A tile stretched along the path tangent draws a smooth rounded bar; abutting
-// tiles' glow overlaps into one flowing neon road.
-float xr_segmentSDF(vec2 p, vec2 a, vec2 b, float r) {
-    vec2 pa = p - a, ba = b - a;
-    float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
-    return length(pa - ba * h) - r;
-}
-
 // Material shader: must return ProcessTexel(), not define main() (main.fp already has main()).
 vec4 ProcessTexel() {
     vec2 uv = vTexCoord.st * 2.0 - 1.0;
@@ -70,13 +61,15 @@ vec4 ProcessTexel() {
     
     float d = 1e10;
 
-    // [XR] Gravity-path ribbon segment (Bit 9 / 512): a smooth capsule spanning the
-    // tile's U axis, so tiles stretched along the path tangent read as one flowing road.
-    // Reuses u_MSDFGlitch (complexity) as the ribbon half-width.
+    // [XR] Gravity path TILE (Bit 9 / 512): a solid flat rectangle, inset slightly
+    // from the tile's actor bounds so adjacent tiles show a visible seam where they
+    // abut -- a paved walkway of discrete panels, NOT a blended ribbon/tube. Each
+    // tile is its own independent rectangle; connection is physical (edges touch),
+    // not a shader-side union. u_MSDFGlitch (complexity) controls the inset/seam width.
     if ((hash & 512) != 0)
     {
-        float w = clamp(complexity, 0.05, 0.9);
-        d = xr_segmentSDF(uv, vec2(-1.0, 0.0), vec2(1.0, 0.0), w);
+        float inset = clamp(complexity, 0.02, 0.25);
+        d = boxSDF(uv, vec2(1.0 - inset));
     }
     // Check for Graveyard Marker Type (Bit 8)
     else if ((hash & 256) != 0)

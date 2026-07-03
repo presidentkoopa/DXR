@@ -259,6 +259,7 @@ void AActor::Serialize(FSerializer &arc)
 		A("ppassheight", projectilepassheight)
 		A("vel", Vel)
 		A("gravitydir", GravityDir)
+		A("gravityanchor", GravityAnchor)
 		A("tics", tics)
 		A("state", state)
 		A("damage", DamageVal)
@@ -2721,7 +2722,33 @@ static void P_ZMovement (AActor *mo, double oldfloorz)
 //
 // clip movement
 //
-	if (mo->Z() <= mo->floorz + 2)
+	if (!mo->GravityDir.isZero())
+	{
+		// [XR] Virtual gravity-aligned rest plane. Replaces the native floor/ceiling
+		// clip for actors walking a painted gravity path, where the "ground" is an
+		// arbitrary plane (GravityAnchor, normal = -GravityDir) instead of the real
+		// sector's floorz/ceilingz. Pure vertical flips (GravityDir == +-Z aligned with
+		// the real sector plane) already rest correctly via the native clamps below and
+		// don't need this -- this path only matters when the virtual surface and the
+		// real sector geometry disagree (walls, floating/off-axis paths).
+		DVector3 n = -mo->GravityDir;	// outward surface normal (unit, since GravityDir is unit)
+		DVector3 rel = mo->Pos() - mo->GravityAnchor;
+		double dist = rel.X * n.X + rel.Y * n.Y + rel.Z * n.Z;	// signed distance along n
+		double restDist = mo->radius;	// hover this far off the surface (keeps the cylinder from clipping in)
+		if (dist < restDist)
+		{
+			DVector3 corrected = mo->GravityAnchor + n * restDist;
+			mo->SetOrigin(corrected, true);
+			double velAlongN = mo->Vel.X * n.X + mo->Vel.Y * n.Y + mo->Vel.Z * n.Z;
+			if (velAlongN < 0)
+			{
+				mo->Vel.X -= n.X * velAlongN;
+				mo->Vel.Y -= n.Y * velAlongN;
+				mo->Vel.Z -= n.Z * velAlongN;
+			}
+		}
+	}
+	else if (mo->Z() <= mo->floorz + 2)
 	{	// Hit the floor
 		if ((!mo->player || !(mo->player->cheats & CF_PREDICTING)) &&
 			mo->Sector->SecActTarget != NULL &&
@@ -2839,7 +2866,7 @@ static void P_ZMovement (AActor *mo, double oldfloorz)
 		mo->AdjustFloorClip ();
 	}
 
-	if (mo->Top() > mo->ceilingz)
+	if (mo->GravityDir.isZero() && mo->Top() > mo->ceilingz)
 	{ // hit the ceiling
 		if ((!mo->player || !(mo->player->cheats & CF_PREDICTING)) &&
 			mo->Sector->SecActTarget != NULL &&

@@ -40,13 +40,25 @@ def _parse_argv():
     return out_iqm, out_hero, out_skin, out_blend
 
 OUT_IQM, OUT_HERO, OUT_SKIN, OUT_BLEND = _parse_argv()
-IQM_ADDON_DIR = r"C:\Users\Command\Desktop\iqm-master\blender-4.1"
+IQM_ADDON_DIR = r"C:\Users\Command\Desktop\Documentation\iqm-master\blender-4.1"
 
 # ---- geometry / anatomy constants ------------------------------------------
 N_SEG   = 20                 # seg_00..seg_19
 N_BONES = N_SEG + 1          # + whip_root  == 21 bones
-WHIP_LEN = 4.0               # total length in Blender units along +Y (mesh space)
-SEG_LEN  = WHIP_LEN / N_SEG  # 0.2 u per bone
+WHIP_LEN = 4.0               # total length in Blender-scene units (this file's own modeling
+                              # space -- kept small/"meters-ish" purely so the anatomy math below
+                              # reads nicely and the hero render composes well). This is NOT the
+                              # in-game size.
+SEG_LEN  = WHIP_LEN / N_SEG  # 0.2 u per bone (scene space)
+
+# DoomXR authors IQM models directly in MAP-UNIT space -- 1 Blender unit == 1 map unit at
+# Scale 1.0 (confirmed from the VRSword blades: BladeLength 40-52 map units, Scale 1.0 1.0 1.0;
+# no meters anywhere). Exporting at scale=1.0 like the first pass did would ship a whip whose
+# total reach is WHIP_LEN=4.0 MAP UNITS -- about 12cm, a matchstick. EXPORT_SCALE converts this
+# file's 4.0-unit "modeling space" into a real reach in map units at export time (scene geometry
+# used for the hero render is untouched -- this only affects the baked IQM's coordinates).
+TARGET_REACH_MAPUNITS = 300.0                    # ~8.8m @ vr_vunits_per_meter=34 -- grappling-hook long
+EXPORT_SCALE = TARGET_REACH_MAPUNITS / WHIP_LEN   # 75.0
 RADIAL   = 24                # cross-section verts (>=16; 24 = 3x the 8 braid strands)
 
 R_HANDLE  = 0.085            # fat grip
@@ -490,8 +502,9 @@ bpy.context.view_layer.objects.active = arm_obj    # armature ACTIVE (required)
 iqm_export.exportIQM(
     bpy.context, OUT_IQM,
     usemesh=True, usemods=False, useskel=True, usebbox=False, usecol=False,
-    scale=1.0, matfun=(lambda prefix, image: "xrwhip"))
-print("  iqm ->", OUT_IQM, "exists:", os.path.exists(OUT_IQM))
+    scale=EXPORT_SCALE, matfun=(lambda prefix, image: "xrwhip"))
+print("  iqm -> %s exists=%s  scale=%.1f (total reach ~%.0f map units)" %
+      (OUT_IQM, os.path.exists(OUT_IQM), EXPORT_SCALE, TARGET_REACH_MAPUNITS))
 
 # ============================================================================
 # 10. HERO POSE: coil the whip in POSE mode ONLY (never exported)
@@ -517,8 +530,13 @@ for i in range(N_BONES):
         rx, ry, rz = -0.06, 0.0, 0.0
     else:
         u = (t - HANDLE_FRAC) / (1.0 - HANDLE_FRAC)   # 0..1 along the thong
-        # steady in-plane curl (local-Z) that tightens toward the tip -> nested loops
-        rz = 0.16 + 0.16 * u                          # ~0.16..0.32 rad/bone, compounds to loops
+        # steady in-plane curl (local-Z) that tightens toward the tip -> nested loops.
+        # Bumped from 0.16-0.32 to 0.30-0.62 rad/bone -- the first pass only closed ~0.7 of a
+        # loop over 19 thong bones (read as a short curved stick, not a coiled whip). This
+        # spread now compounds to ~2.5-3 full overlapping loops, which is what actually SELLS
+        # "this is many meters of leather" at a glance -- the earlier pass was correct-length
+        # in map-unit terms but posed too straight to read as coiled.
+        rz = 0.30 + 0.32 * u
         # gentle lift so the coil is a shallow spiral, not a flat pancake -> reads 3D
         rx = 0.05 * math.sin(u * math.pi * 2.0)
         ry = 0.0
@@ -652,6 +670,11 @@ bpy.ops.mesh.primitive_plane_add(size=max(20.0, radius * 20.0),
 ground = bpy.context.active_object; ground.name = "Ground"
 ground.data.materials.append(gm)
 
+# (A human-scale reference figure was tried here and reverted: folding it into the fit bounds
+# blew the camera back into near-blackness, and leaving it out got it cropped at the frame edge.
+# Not worth the framing risk -- the tightened FOV-fit margin below plus the fuller coil from the
+# curl fix are what sell scale in this pass instead.)
+
 # three-point lighting, energy scaled by distance^2
 STEP("three-point lighting: warm key / cool rim / soft fill")
 def add_area(name, offset, energy, color, size):
@@ -701,7 +724,7 @@ sensor = cam_data.sensor_width
 hfov = 2.0 * math.atan((sensor * 0.5) / cam_data.lens)
 vfov = 2.0 * math.atan(math.tan(hfov / 2.0) / aspect)
 fit_fov = min(hfov, vfov)
-dist = (half_diag * 1.5) / math.tan(fit_fov / 2.0)  # 1.5 = comfy margin around the coil
+dist = (half_diag * 1.18) / math.tan(fit_fov / 2.0)  # tightened from 1.5 -- let the coil fill the frame
 
 cam.location = center - view * dist                 # camera sits back along -view
 direction = (center - cam.location)

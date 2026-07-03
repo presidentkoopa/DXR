@@ -167,6 +167,7 @@ class XR_GravityPath : Inventory
 		{
 			onRoad = true;
 			owner.GravityDir = -near.SurfaceNormal;   // <-- native C++ per-actor gravity core
+			owner.GravityAnchor = near.pos;           // <-- the virtual rest plane's anchor point
 		}
 		else if (onRoad)
 		{

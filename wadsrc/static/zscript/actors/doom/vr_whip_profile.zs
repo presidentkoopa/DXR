@@ -77,7 +77,13 @@ class Whip_Leather : WhipProfile
 	{
 		ProfileName = "Bullwhip";
 		WhipModel   = '';                       // glow-panel rope until the rigged IQM lands
-		Reach       = 190;                      // ~5.6 m of thong
+		// 300 map units (~8.8m @ 34u/m) -- matches the Tier-2 rigged model's true bind-pose
+		// length EXACTLY (models/weapons/xrwhip/whip_rigged.iqm, 20 bones x 15.0 map units,
+		// independently byte-verified). Bumped from 190 for two reasons: (1) grappling-hook
+		// reach per direct request, and (2) DriveModelBones() drives ROTATION only with FIXED
+		// per-bone translation -- if Reach != the model's bind length, the rigid-skinned model
+		// visually overshoots/undershoots the sim's real tip. Keep these in lockstep.
+		Reach       = 300;
 		CordWidth   = 3.0;
 		CordColor   = Color(255, 120, 82, 40);  // warm tan leather
 		CrackColor  = Color(255, 255, 245, 210);// hot white snap
@@ -104,7 +110,7 @@ class Whip_Ember : WhipProfile
 	{
 		ProfileName = "Ember Lash";
 		WhipModel   = '';
-		Reach       = 190;
+		Reach       = 300;    // matches the Tier-2 model's bind length -- see Whip_Leather
 		CordWidth   = 3.0;
 		CordColor   = Color(255, 255, 96, 20);  // glowing orange braid
 		CrackColor  = Color(255, 255, 170, 60);
@@ -149,7 +155,7 @@ class Whip_Tesla : WhipProfile
 	{
 		ProfileName = "Tesla Coil";
 		WhipModel   = '';
-		Reach       = 200;
+		Reach       = 300;    // matches the Tier-2 model's bind length -- see Whip_Leather
 		CordWidth   = 2.6;
 		CordColor   = Color(255, 90, 200, 255); // electric cyan
 		CrackColor  = Color(255, 210, 240, 255);

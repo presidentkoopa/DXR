@@ -111,6 +111,7 @@ class Actor : Thinker native
 	native double Roll;
 	native vector3 Vel;
 	native vector3 GravityDir;
+	native vector3 GravityAnchor;
 	native double Speed;
 	native double FloatSpeed;
 	native SpriteID sprite;

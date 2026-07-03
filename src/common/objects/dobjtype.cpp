@@ -611,17 +611,6 @@ PField *PClass::AddField(FName name, PType *type, uint32_t flags, int fileno)
 		{
 			Defaults = (uint8_t *)M_Realloc(Defaults, Size);
 			memset(Defaults + oldsize, 0, Size - oldsize);
-			// The memset above zeroes the newly-grown tail of Defaults, including any bytes that
-			// fall within an ALREADY-INHERITED complex-typed field (e.g. AActor::Keywords, an
-			// FString) whose offset happens to land past oldsize for this class's layout. A
-			// zeroed FString has a null Chars pointer, and the very next Keywords "..." property
-			// assignment (thingdef_properties.cpp Handler_keywords_L_Actor) derefs Chars-12 and
-			// crashes -- this was a real, reproducible boot-crash. SetDefaultValue is a type-aware
-			// virtual: a no-op for plain PODs (correctly leaves the zeroed value), but placement-
-			// news an FString/PArray/PDynArray/PMap/PStruct back into a valid empty state exactly
-			// like PClass::InitializeDefaults already does for a class's initial Defaults creation
-			// (see below) -- this just extends that same correctness to the growth/realloc path.
-			field->Type->SetDefaultValue(Defaults, field->Offset, nullptr);
 		}
 	}
 	else
@@ -634,9 +623,6 @@ PField *PClass::AddField(FName name, PType *type, uint32_t flags, int fileno)
 		{
 			Meta = (uint8_t *)M_Realloc(Meta, MetaSize);
 			memset(Meta + oldsize, 0, MetaSize - oldsize);
-			// Same fix as the Defaults branch above -- see that comment for the full
-			// explanation (complex-typed field landing in the newly-zeroed tail).
-			field->Type->SetDefaultValue(Meta, field->Offset, nullptr);
 		}
 	}
 	if (field != nullptr) Fields.Push(field);

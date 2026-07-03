@@ -496,6 +496,41 @@ void PClassActor::InitializeDefaults()
 			memset(Defaults + sizeof(DObject), 0, Size - sizeof(DObject));
 		}
 
+		// AActor carries native complex-typed (constructed) members that DoomXR added to the struct:
+		// an FString Keywords, and a KeywordProfile vr_metadata (a plain struct holding 7 FStrings +
+		// POD). ConstructNative(Defaults) above built both validly, but the parent-copy memcpy +
+		// grown-tail memset just clobbered those bytes -- either a raw shallow copy (a subclass whose
+		// parent already holds the member) or, for members lying beyond the parent's Size, plain zeros.
+		// A zeroed FString has a null Chars pointer.
+		//
+		// Keywords is a confirmed BOOT-CRASH: the `keywords` actor property handler
+		// (thingdef_properties.cpp: defaults->Keywords += str) writes to the Defaults object at parse
+		// time and dereferences the null Chars -> hard crash with no error text. The stock routine
+		// assumed AActor has no constructed members past its parent -- an invariant broken by adding
+		// these fields.
+		//
+		// vr_metadata is a LATENT sibling of the same bug (its FStrings are null-Chars in the Defaults
+		// object too), reconstructed here for defense-in-depth. It does not currently crash -- nothing
+		// reads or writes defaults->vr_metadata, and CreateNew's ConstructNative(mem) re-builds it on
+		// every spawned instance before any runtime read -- but reconstructing it means a future
+		// property handler or Defaults read can't resurrect this crash class. This changes NO observable
+		// behavior (instances re-init via ConstructNative regardless; nothing reads the Defaults copy).
+		//
+		// All other AActor members are POD or FName (trivially copyable, NAME_None==0), so these two
+		// are the only fields needing reconstruction.
+		{
+			AActor* adef = (AActor*)Defaults;
+			AActor* pdef = (ParentClass->Defaults != nullptr && ParentClass->IsDescendantOf(RUNTIME_CLASS(AActor)))
+				? (AActor*)ParentClass->Defaults : nullptr;
+			new (&adef->Keywords) FString();
+			new (&adef->vr_metadata) KeywordProfile();
+			if (pdef != nullptr)
+			{
+				adef->Keywords = pdef->Keywords;         // refcount-safe FString assignment
+				adef->vr_metadata = pdef->vr_metadata;   // member-wise copy (FStrings refcount-safe)
+			}
+		}
+
 		assert(MetaSize >= ParentClass->MetaSize);
 		if (MetaSize != 0)
 		{

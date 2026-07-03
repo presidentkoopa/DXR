@@ -1172,6 +1172,7 @@ public:
 	DVector3		OldRenderPos;
 	DVector3		Vel;
 	DVector3		GravityDir;		// [XR] per-actor gravity "down" (unit vector); (0,0,0) = normal -Z gravity
+	DVector3		GravityAnchor;	// [XR] a point on the virtual gravity "surface" (only used when GravityDir is set)
 	DVector2		SpriteOffset;
 	DVector3		WorldOffset;
 	double			Speed;
