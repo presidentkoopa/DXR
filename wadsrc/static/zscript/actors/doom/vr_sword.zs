@@ -226,6 +226,12 @@ class VRSword : Weapon
 	Fire:
 		VRSW A 1 A_VRSwordFireFlatscreen();
 		Goto Ready;
+	// AltFire: HURL the blade -- a glowing SDF sword that tumbles end-over-end downrange,
+	// cuts what it passes, then boomerangs back to your hand. The weapon itself stays equipped
+	// (the thrown blade is a projected copy), so you can't lose it.
+	AltFire:
+		VRSW A 1 A_VRSwordThrow();
+		Goto Ready;
 	Spawn:
 		VRSW A -1;
 		Stop;
@@ -268,6 +274,146 @@ class VRSword : Weapon
 			angle = t.angleFromSource;
 			if (player != null) player.resetDoomYaw = true;
 		}
+	}
+
+	// AltFire throw: hurl the current blade as a boomerang ThrownVRSword. Aims along the VR hand
+	// (AttackPos/Angle/Pitch) in headset, along the view on flatscreen. The equipped weapon is
+	// never removed, so it always comes back even if the projectile is destroyed.
+	action void A_VRSwordThrow()
+	{
+		if (invoker.ActiveBlade == null) return;
+
+		int hand = invoker.bOffhandWeapon ? 1 : 0;
+		vector3 origin; double ang, pit;
+		if (player != null && player.PlayInVR)
+		{
+			origin = invoker.bOffhandWeapon ? OffhandPos : AttackPos;
+			ang    = invoker.bOffhandWeapon ? OffhandAngle : AttackAngle;
+			pit    = invoker.bOffhandWeapon ? OffhandPitch : AttackPitch;
+		}
+		else
+		{
+			origin = pos + (0, 0, height * 0.5);
+			ang = angle; pit = pitch;
+		}
+
+		let tsw = ThrownVRSword(Actor.Spawn("ThrownVRSword", origin));
+		if (!tsw) return;
+		tsw.angle = ang; tsw.pitch = pit;
+		tsw.Vel3DFromAngle(tsw.Speed, ang, pit);
+
+		Color gc = invoker.ActiveBlade.GlowColor;
+		vector3 bc = (gc.a > 0) ? (gc.r / 255.0, gc.g / 255.0, gc.b / 255.0) : (0.8, 0.86, 1.0);
+		int throwDmg = int(invoker.ActiveBlade.BaseDamage * invoker.ActiveBlade.SpeedDamageCeil);
+		tsw.Launch(self, hand, throwDmg, invoker.ActiveBlade.DamageType,
+		           (invoker.ActiveBlade.BehaviorFlags & BF_IGNOREARMOR) != 0, bc * 1.5, 55);
+
+		if (invoker.ActiveBlade.SndSwing.Length() > 0)
+			A_StartSound(invoker.ActiveBlade.SndSwing, CHAN_WEAPON);
+	}
+}
+
+// The thrown VR sword: a glowing SDF blade that TUMBLES END-OVER-END through the air (camera-
+// facing so it always reads as a spinning blade), cuts any monster it passes on the way out, then
+// homes back to the throwing hand like a boomerang. NOCLIP + manual distance hit-detection so it
+// can never stall on a wall (same trick as ThrownChainsaw). SDF-drawn (SIGL) -- no assets, no
+// Radiance. The VRSword weapon stays equipped the whole time, so a thrown blade is never lost.
+class ThrownVRSword : Actor
+{
+	vector3 bladeCol;
+	Actor   thrower;
+	int     hand;
+	int     dmg;
+	Name    dmgType;
+	bool    ignoreArmor;
+	bool    returning;
+	int     life, maxLife;
+	double  homeR;
+	Array<Actor> alreadyHit;
+
+	Default
+	{
+		+NOGRAVITY +NOCLIP +NOBLOCKMAP +DONTSPLASH +NOTIMEFREEZE
+		+BRIGHT +FORCEXYBILLBOARD +ROLLSPRITE +ROLLCENTER
+		RenderStyle "Add";
+		Radius 14;
+		Height 14;
+		Speed 30;
+	}
+
+	void Launch(Actor who, int inHand, int d, Name dt, bool noArmor, vector3 col, int lifeTics)
+	{
+		thrower = who; master = who; target = who;
+		hand = inHand; dmg = d; dmgType = dt; ignoreArmor = noArmor;
+		bladeCol = col; maxLife = lifeTics; life = lifeTics; homeR = 54.0;
+	}
+
+	// aim velocity straight at a world point (copied from ThrownChainsaw.Steer).
+	void Steer(vector3 dest, double spd = -1)
+	{
+		if (spd < 0) spd = Speed;
+		vector3 d = dest - pos;
+		double h = d.xy.Length();
+		if (h + abs(d.z) < 1) return;
+		Vel3DFromAngle(spd, atan2(d.y, d.x), -atan2(d.z, h));
+	}
+
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		msdf_enabled = 512;              // stretched SDF rect = glowing blade
+		msdf_glitch  = 0.12;
+		Scale = (0.16, 1.05);            // thin x, long y
+		if (bladeCol.Length() < 0.01) bladeCol = (0.8, 0.86, 1.0);
+	}
+
+	override void Tick()
+	{
+		// spin end-over-end (a thrown blade cartwheels) + glow
+		Roll += 30.0;
+		msdf_color = bladeCol * (1.3 + 0.3 * sin(level.maptime * 40.0));
+		let tr = VRSwordBeamTrail(Actor.Spawn("VRSwordBeamTrail", pos));
+		if (tr) { tr.trailCol = bladeCol; tr.roll = roll; tr.scale = scale; }
+
+		if (life-- <= 0) returning = true;
+
+		if (!returning)
+		{
+			// cut anything we pass (manual distance test since we're NOCLIP)
+			BlockThingsIterator it = BlockThingsIterator.CreateFromPos(pos.x, pos.y, pos.z, radius + 40, radius + 40, false);
+			while (it.Next())
+			{
+				Actor v = it.thing;
+				if (v == null || v == self || v == thrower) continue;
+				if (!v.bIsMonster && !v.bShootable) continue;
+				if (v.bCorpse || v.health <= 0) continue;
+				if (alreadyHit.Find(v) != alreadyHit.Size()) continue;
+				vector3 c = v.pos + (0, 0, v.Height * 0.5);
+				if ((c - pos).Length() > radius + v.radius + 12) continue;
+
+				alreadyHit.Push(v);
+				int df = ignoreArmor ? DMG_NO_ARMOR : 0;
+				v.DamageMobj(self, thrower, dmg, dmgType, df);
+				if ((v.pos - pos).Length() < radius + v.radius) A_StartSound("weapons/vrsword/hithard", CHAN_WEAPON);
+			}
+		}
+		else
+		{
+			if (!thrower) thrower = players[consoleplayer].mo;
+			if (!thrower) { Destroy(); return; }
+			vector3 home = hand ? thrower.OffhandPos : thrower.AttackPos;
+			Steer(home, Speed * 1.5);                       // returns faster than it left
+			if ((home - pos).Length() <= homeR) { Destroy(); return; }   // caught
+		}
+
+		Super.Tick();
+	}
+
+	States
+	{
+	Spawn:
+		SIGL A 1 Bright;
+		Loop;
 	}
 }
 
