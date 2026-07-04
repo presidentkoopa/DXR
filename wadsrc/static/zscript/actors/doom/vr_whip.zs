@@ -610,10 +610,12 @@ class XRWhip : Weapon
 	}
 
 	// Push the sim's shape onto the model's 21 bones. Rotation-only chain: each bone aims its
-	// local +Y (BONE_FWD, per the verified IQM Y-up rest axis) along its segment direction, in
-	// LOCAL space = parentWorldRot.Conjugate() * worldRot. Translation is the parent-local bind
-	// length so segments keep their size. NOTE: bone axis (+Y) and MDL_*_LEN are best-known
-	// values that need one in-headset confirmation once this is built (see patch spec).
+	// local +Y (BONE_FWD) along its segment direction, in LOCAL space =
+	// parentWorldRot.Conjugate() * worldRot. Translation is the parent-local bind length so
+	// segments keep their size. CONFIRMED against build_whip.py (the generator): the armature is a
+	// STRAIGHT +Y 21-bone chain (eb.tail = head + (0, SEG_LEN, 0)) and the exported per-bone length
+	// is SEG_LEN 0.2 * EXPORT_SCALE 75.0 = 15.0 map units == MDL_SEG_LEN. So the +Y axis and 15.0
+	// rest-length here are the model's ACTUAL rig values, not guesses.
 	private void DriveModelBones()
 	{
 		if (whipModel == null || nodes.Size() < 2) return;
@@ -1207,13 +1209,11 @@ class XRWhip : Weapon
 
 		SimulateRope(handPos, assistVel, twoHand);
 
-		// Tier 2 is now the DEFAULT visual: the rigged 300-map-unit braided-leather IQM
-		// (models/weapons/xrwhip/whip_rigged.iqm), bones driven straight from the Verlet sim
-		// every tic. `vr_whip_model` used to gate this but was never declared in CVARINFO --
-		// the model was silently unreachable, not actually "opt-in." Now declared, defaulted
-		// true (CVARINFO), with a menu toggle -- an escape hatch back to the glow-panel rope
-		// if the rigged model ever looks wrong in-headset (bone axis/rest-length are
-		// best-known values per DriveModelBones()'s own comment, not yet in-headset confirmed).
+		// Tier 2 is the leather visual (Whip_Leather / Indiana Jones): the rigged 300-map-unit
+		// braided-leather IQM (models/weapons/xrwhip/whip_rigged.iqm), bones driven straight from
+		// the Verlet sim every tic. The bone axis (+Y) and rest length (15.0) are CONFIRMED correct
+		// against build_whip.py (see DriveModelBones), so the pose math should be right. `vr_whip_model`
+		// toggle is an escape hatch back to the SDF chain if the mesh ever reads wrong in-headset.
 		// The Indiana Jones leather profile (WhipModel='XRWhipRigged') drives the rigged IQM;
 		// the Techno/elemental profiles (WhipModel='') always take the SDF chain path. The
 		// vr_whip_model toggle is an escape hatch: OFF forces the SDF chain even for leather.
