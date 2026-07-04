@@ -25,6 +25,28 @@ A fork of **DoomXR** (iAmErmac's QuestZDoom-based VR fork of GZDoom) rebuilt int
 
 Yo some of this shit is native to the buiid I started from, but a shitload of this is new to DXR.
 Just wait until I get portalstacking in here.
+
+---
+
+## This is an engine fork, not a mod — the native C++ under it
+
+The easy content layer (JSON, ZScript, browser editors) exists **because the hard engineering was paid up front.** The behavior of every VR system lives in a native C++ per-tic subsystem:
+
+* **Two-bone arm-IK solver** — drives a first-person body avatar's arms to your controllers every tic, with auto-fit height.
+* **Per-actor directional gravity** — `FallAndSink` rewritten so `GravityDir` applies even while grounded (wall-walk / ceiling-flip), on a real per-actor field.
+* **Verlet-rope physics** — a 16-node bullwhip: supersonic-tip crack, two-hand coupling, taut-line grapple-swing, entangle-yank.
+* **Grip-intent arbiter** — one grip owner per hand resolved once per tic under single-`Vel`-writer discipline, closing double-write fling bugs between climb / whip / gloves.
+* **Native hardpoint system** — shoulder/hip holsters + wrist ability mounts, markers pulled from the same routine the trigger uses so they can't drift.
+* **Manual-reload FSM** — per-weapon bone-read + hotspot + state machine driving baked model frames.
+* **Universal 3D weapon-model interception** — a hook in `DPSprite::SetState` re-syncs any mod's weapon to an animated 3D shell, foreign-tic accurate, no per-mod patching.
+* **Keyword dispatcher** — native token resolver applying `KEYWORDS.json` behavior with most-specific-match.
+* **Data-driven gesture engine** — per-tic motion-history ring buffer + verb classifier matched against a JSON table.
+* **35 Hz VR timing bridge** — 90 Hz+ VR pose filtered into stable gameplay values (velocity buffer, exponential height smooth).
+* **SDF / shader pipeline** — true-MSDF glyphs, ~30 procedural in-world displays, full-screen visual regimes, all VR-safe.
+* **Crash-hardening** — FString-in-`memset` fixes and null-deref guards across the actor / line / sector / mapthing paths.
+
+Design rule throughout: **behavior is native C++; ZScript and JSON are data and thin override hooks.** Baseline vs. upstream DoomXR: **439 files changed, +18,431 / −10,831 lines.** The native cost is paid; the content phase is script.
+
 ---
 
 ## VR & Input Interaction — native hook surface
