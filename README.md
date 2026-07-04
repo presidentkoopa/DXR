@@ -1,58 +1,59 @@
 ![Radiance Engine](https://github.com/iAmErmac/DoomXR/blob/doomxr/branding/banner.png)
 
-# ⚡ UntitledVRLightGUnGame - Engine Overhaul
+# ⚡ DXR — an Untitled VR Light-Gun / Melee Game (Engine Overhaul)
 
-> [!IMPORTANT]
-> **Status: ACTIVE ENGINE RECONSTRUCTION** -> Currently implementing portal stacking from Eternity Engine.
-> This project is currently undergoing a total transition from ZScript-driven proxies to high-performance, native C++ hardware implementation. Expect major architectural shifts in the rendering and physics pipelines.
+> [!WARNING]
+> **Status: work-in-progress, not yet headset-verified.**
+> Almost everything below is implemented at the code level but has **not** been fully play-tested in a headset — the build currently **crashes on launch** due to an unresolved shader uniform-block (UBO) placement bug that is being worked on separately. Treat this as an active reconstruction, not a shippable release. A file-by-file, honest accounting of every change (including what's built vs. verified) lives in [`Documentation/DXR_VS_DOOMXR_CHANGES.md`](Documentation/DXR_VS_DOOMXR_CHANGES.md).
 
-## 📟 Project Vision
-To transform the Radiance Engine into a reactive, systemic digital layer with native 3D physical presence (IQM), sub-frame VR responsiveness, and a hard pivot away from pixel based rendering into an infitely scalable, vector future.
+## 📟 What this is
 
-By integrating custom rendering pipelines directly into the hardware renderer, this engine allows gameplay logic (ZScript) to drive the environment's visual state in real-time.
+DXR is a fork of **DoomXR** (iAmErmac's QuestZDoom-based VR fork of GZDoom) that turns the general-purpose VR engine into a purpose-built **VR light-gun / physical-melee game**. It adds a native first-person body with arm IK, a physics-driven melee/grapple arsenal, per-actor directional gravity, a hardpoint holster system, and a data-driven keyword metadata engine — while **extracting** the "glow-in-the-dark" (GITD) visual layer out of the core engine into a separate companion mod, so the base engine renders plainly on its own.
 
-## 🌟 Master Engine Features
+**Baseline vs. upstream DoomXR:** 439 files changed, +18.4k / −10.8k lines since the import.
 
-### 🎨 Shader Pipeline (`main.fp`)
-The heart of DoomXR's visual identity. We've bypassed traditional texture sampling in favor of a procedural, hardware-accelerated aesthetic:
-*   **Vector Grids**: The floor isn't just a texture—it's a living, breathing outrun grid that reacts to the music and combat intensity.
-*   **Neon Silhouette Reconstruction**: Real-time edge detection and stencil-buffering create pulsating, high-contrast outlines for every enemy, even in total darkness.
-*   **Digital Horizon Skirts**: Procedural UV-fading and wireframe horizons dissolve the boundaries of the map, creating a vast, cyberspace-native feeling.
-*   **High-Resolution Spatial SDFs**: Utilizing GPU-accelerated Signed Distance Fields for razor-sharp, glowing UI and iconography that materializes directly in the world geometry.
+## 🌟 What DXR adds
 
-### 🥽 Total VR Immersion & 3D Presence
-DoomXR 2.0 isn't just GZDoom in VR; it's a dedicated VR engine fork designed for physical presence:
-*   **Skeletal IQM Hand System**: Fully rigged, animated 3D hands (`vhand.iqm`) that mirror your real-world finger placement. Features analog grip/trigger interpolation for high-fidelity interaction.
-*   **Universal 3D Weapon Shells**: Frame-accurate 3D models replace all 2D sprites. Every firing state and reload is dynamically synchronized to foreign mod logic via our native C++ Animation Time-Scaler. Included optional weapons: Flamethrower, Rifle, Revovler, Grenade Launcher, Grenades, IQM Rigged VR Whip, VR Sword (with deflection), dual Ice Picks for climbing.
-*   **Standardized Model Framework**: A high-performance C++ interception layer that synchronizes 3D animation ticks to ZScript `SetState` calls, ensuring mod compatibility without manual patching. - ideally this is unviersal for any loaded pk3, fire real 3d models with your favorite mod's weapon sounds, logic, damage, effects.
-*   **Dynamic Time Scaling (DTS)**: Automatically calculates and adjusts 3D animation playback speeds to match the exact tic-duration of the active 2D weapon state.
-*   **Weapon Archetype Scanner**: A dedicated VR-native UI for real-time weapon mapping. Features dual-pointer interaction support and persistent JSON configuration (`doomxr_weapons.json`).
-*   **Gravity Glove "Alyx" Mechanics**: The definitive VR interaction system for Doom. Grab objects from across the room with holographic intent cones and flick them back with physics-accurate trajectory arcs.
-*   **Physical Climbing System**: Scale the environment with 1:1 world-space movement. Feel the "texture" of the walls through native surface-haptic micro-pulses in your controllers.
-*   **Systemic VR Throwing**: Don't just "use" objects—launch them. Our physics-integrated throwing logic uses sub-frame velocity tracking to make every grenade or barrel toss feel weighted and precise.
-*   **Locational Damage & Critical Hits**: Native C++ combat layer that calculates height-based headshots and leg-shots. Includes a systemic critical hit engine with configurable probabilities and multipliers for a deeper "arcade" feel.
+### 🧍 Native VR body & hands
+* **First-person body avatar ("OUR BODY")** — your own 3D marine renders in-view, with auto-fit height matching your HMD and facing decoupled from head-turn (no torso-spin).
+* **Native two-bone arm IK** — the avatar's arms track your real controllers via a native solver + procedural IQM bone posing.
+* **Always-on dual VR hands** at both controllers (fixes the old invisible-hands / fist-swap-only behavior).
+* **Analog grip** (continuous squeeze 0–1) on Touch and Index controllers, with a central **grip-intent arbiter** so climb / whip / gloves / holsters never fight over the same hand.
+
+### ⚔️ Physics-driven VR arsenal
+* **XRWhip** — a Verlet-rope bullwhip with a supersonic crack, two-hand control, grapple-swing, and entangle-yank (Indiana Jones / Castlevania IV / Bulletstorm feel).
+* **VRSword** — a physically-swung melee blade with real segment collision that deflects bullets via the native parry system; swappable Steel / Lightsaber / Dragon's-Tooth blades.
+* **ShieldSaw** — an off-hand block / saw / returning-boomerang tool.
+* **IceHook** — a melee pick + thrown embedding hook; picks bite any solid wall for climbing.
+* **M79 grenade launcher**, CVar-gated **alt-fire modes** on the conventional guns, and a **manual-reload chamber system** driven by baked model animations.
+* **XR Gravity Path** — a palm-out power that paints an SDF walkway which reorients your personal gravity (Prey / Inception-style wall & ceiling walking), built on the new native directional-gravity core.
+* **Physics interaction** — grab / throw / catch with sub-frame velocity tracking; barrels are grabbable and detonate on impact with correct kill credit.
+
+### 🌀 Movement, world & engine systems
+* **Per-actor directional gravity** (`GravityDir`) for ceiling-flip / wall-pull traversal.
+* **Native hardpoint holsters** — shoulder / hip weapon holsters and wrist ability mounts you draw and stow by gripping near your body, with visible in-world markers.
+* **Velocity-driven physical climbing**, including ice-pick climbing on any solid wall.
+* **KEYWORDS.json metadata engine** — data-driven per-actor / per-weapon behavior (kickback, roles, anatomy, vulnerability, ballistics) with no hardcoding.
+* **Crash-hardening** of the inherited base: a class of FString-in-`memset` fixes, null-deref guards, and 3D-weapon state-sync fixes.
+
+### 🎨 Visuals split into a companion mod
+The GITD "glow-in-the-dark" layer — neon glow-spots, in-air display panels, hit-reaction FX, and full-screen visual regimes (Tron / Thermal / System Shock / …) — has been **removed from the core engine** and now lives in the **[Radiance Control Panel](https://github.com/presidentkoopa/RadianceControlPanel)** mod, which overrides the engine's shader when loaded. With it absent, the engine renders plainly. The **[NeonGraveyards](https://github.com/presidentkoopa/NeonGraveyards)** mod adds holographic SDF tombstones.
 
 ## 🛠️ Custom Shader Workflow (No Engine Recompile)
-To add new 2D SDFs, glowing textures, or custom screen/material effects without recompiling the C++ engine:
-1.  **Place Shader files** (`.fp`) directly in your PK3 mod (e.g., `shaders/biohazard_sdf.fp`).
-2.  **Bind Shaders via `GLDEFS`** in your PK3 to associate them with textures or sprites:
+Add new SDFs, glowing textures, or custom material/screen effects without recompiling the C++ engine:
+1.  **Place shader files** (`.fp`) in your PK3 (e.g. `shaders/biohazard_sdf.fp`).
+2.  **Bind via `GLDEFS`** in your PK3:
     ```text
     HardwareShader Texture "BIOHAZ0"
     {
         Shader "shaders/biohazard_sdf.fp"
     }
     ```
-3.  **Spawn and Control via ZScript** using standard actors and setting shader uniforms dynamically with `Shader.SetUniform1f()`.
+3.  **Control from ZScript** with standard actors and shader uniforms.
 
-The engine compiles GLSL shaders on the fly at runtime, allowing rapid iteration on visuals!
-
-## 🥽 VR Stereoscopic Consistency
-Special care has been taken in the Vulkan and OpenXR hardware pipelines to ensure:
-1.  **Crash Protection**: Robust `IsInitialized()` state checks gracefully fall back to desktop mono mode when VR runtimes are disconnected.
-2.  **State Pollution Fixes**: Deep fixes to the `hw_sprites.cpp` rendering loops guarantee that custom stencil and depth-bias passes do not leak across left/right eye stereoscopic boundaries.
+The engine compiles GLSL on the fly at runtime for rapid iteration. (Material shaders must define `ProcessTexel()`, not `main()`.)
 
 ---
 
 ### Source Code & Licensing
-This branch builds upon the open-source foundations of DoomXR, GZDoom, and UZDoom.
-Source code licensed under the GPL v3.
+This fork builds on the open-source foundations of **DoomXR** (iAmErmac), **QuestZDoom**, **UZDoom**, and **GZDoom**. Source licensed under the **GPL v3**.
