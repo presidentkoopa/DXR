@@ -207,13 +207,16 @@ class XRWhipModel : Actor
 	}
 	States
 	{
+	// Sprite is XWHP (a real placeholder, sprites/XWHPA0.png) NOT TNT1 -- must match the
+	// modeldef's "FrameIndex XWHP A 0 0" so A_ChangeModel's redirected lookup resolves the model.
+	// modelsareattachments makes the rigged mesh the whole visual; the placeholder is near-invisible.
 	Spawn:
-		TNT1 A 0 NoDelay
+		XWHP A 0 NoDelay
 		{
 			A_ChangeModel('XRWhipRigged');
 			SetModelUseProceduralPose(true);
 		}
-		TNT1 A -1;
+		XWHP A -1;
 		Stop;
 	}
 }

@@ -1,7 +1,10 @@
 // ============================================================================
 //  DoomPlayer body avatar -- the first-person VR "OUR BODY" marine. Uses
-//  marine_nohands.iqm (hands removed): DoomXR draws the higher-detail vhand.iqm at
-//  the tracked controllers, so a no-hands body avoids double hands. Rigged 152-joint
+//  marine_novr.iqm: the SAME 152-joint rig as marine_nohands.iqm (identical joint names +
+//  order, verified) but WITH hand geometry skinned onto the wrist bones -- so the native arm
+//  IK poses CONNECTED hands for free, no separate hand model / scale / offset. The separate
+//  controller-tracked vhand HUD hand is retired (set vr_show_hands 0) to avoid double hands.
+//  Rigged 152-joint
 //  IQM with 0 baked anims -- the native two-bone arm IK (VR_UpdateArmIK, p_user.cpp)
 //  drives the arm bones every tic by writing modelData->proceduralPose.
 //    * `modelsareattachments` is REQUIRED: it is the upload gate at models.cpp:635 that
@@ -16,7 +19,7 @@
 Model DoomPlayer
 {
    Path "models/marine"
-   Model 0 "marine_nohands.iqm"
+   Model 0 "marine_novr.iqm"
    Skin 0 "marine_skin.png"
    Scale 1.0 1.0 1.0
    modelsareattachments
@@ -136,8 +139,10 @@ Model VRSwordBladeNano
 // XRWhipModel via A_ChangeModel('XRWhipRigged') + driven by SetModelBonePose each tic.
 // TWO bindings are required, both proven elsewhere in this file:
 //   1. FrameIndex -- A_ChangeModel REDIRECTS the lookup here, it does NOT bypass it (same as the
-//      VRSword blades, see the note above the Blade_* blocks). XRWhipModel sits on sprite TNT1 A
-//      forever, so one line covers it. Without it FindModelFrameRaw sees hasmodel=false -> null.
+//      VRSword blades, see the note above the Blade_* blocks). XRWhipModel sits on sprite XWHP A
+//      (a dedicated near-invisible placeholder, sprites/XWHPA0.png) -- a REAL sprite, matching the
+//      proven ICHK/VRSW pattern, NOT TNT1 (which no other working model here anchors on). Without
+//      this line FindModelFrameRaw sees hasmodel=false -> null.
 //   2. modelsareattachments -- whip_rigged.iqm is a rigged IQM with 0 baked frames; without this
 //      the GetBasePose() bind-pose upload never fires (identical to the vhand/marine fix), so the
 //      frame resolves but NO bones upload -> zero geometry. (DECOUPLEDANIMATIONS is the WRONG fix
@@ -150,7 +155,7 @@ Model XRWhipRigged
    Scale 1.0 1.0 1.0
    modelsareattachments
 
-   FrameIndex TNT1 A 0 0
+   FrameIndex XWHP A 0 0
 }
 
 Model VRHandModel
@@ -254,10 +259,31 @@ Model Shotgun
    FrameIndex SHTG B 0 6     // fire
    FrameIndex SHTG C 0 14    // pump back
    FrameIndex SHTG D 0 18    // pump forward
-   
+
    // (Removed: speculative "common mod" sprite entries -- SHTN/SHTA/AUTS/AUT2/AUT3/ASHW/AMUZ/
    // MSBS/PASH were never used by any actual state anywhere in this project or doom2.wad; a
    // mod that was never actually included, not a real compatibility need.)
+}
+
+// Dual-wield variant of the Shotgun -- byte-identical model definition. Model lookup is keyed on
+// the EXACT class (FindModelFrameRaw matches smf->type == class), with no parent-chain fallback,
+// so the Shotgun_2 subclass needs its own stanza or it renders sprite-only/invisible. Same md3 /
+// skin / FrameIndex as the base (Shotgun_2 inherits Shotgun's SHTG states). Extend _3.._N alike.
+Model Shotgun_2
+{
+   Path "models/weapons/shotgun"
+   Model 0 "Shotgun.md3"
+   Skin 0 "Shotgun.png"
+   Scale -1.0 1.0 1.0
+   Offset 0.0 0.0 0.0
+   ZOffset -5
+   NoInterpolation
+   BaseFrame
+
+   FrameIndex SHTG A 0 4     // ready
+   FrameIndex SHTG B 0 6     // fire
+   FrameIndex SHTG C 0 14    // pump back
+   FrameIndex SHTG D 0 18    // pump forward
 }
 
 Model PlasmaRifle
@@ -282,29 +308,30 @@ Model PlasmaRifle
 // Merged from two separate top-level blocks (VR_Rifle / VR_Rifle_Firing) that each tried to bind
 // to a nonexistent actor named "VR_Rifle" -- the real class is just "Rifle" (weaponrifle.zs),
 // and a single actor can only have one Model block, with multiple poses as indexed Model N entries.
+// [XR] Repointed to the RIGGED m16.iqm (built by build_m16_iqm.py, in the SAME model space as the MD3 so
+// Scale/Offset/ZOffset carry over -> IDENTICAL rendered size, verified). It carries the hs_foregrip/hs_magwell/
+// hs_rack hotspot bones (weightless, no visual effect) that the native reload FSM + articulated two-hand read.
+// TRADE-OFF: the IQM is bind-pose only (0 baked frames) -- the MD3's per-shot recoil frames are gone (gun is
+// static during fire; procedural recoil is the future). REVERT is one line: point Model 0 back to "m16.md3"
+// (kept in the tree) + restore the old FrameIndex/BaseFrame block below. modelsareattachments is REQUIRED for a
+// 0-baked-frame rigged IQM to upload its bind pose (same fix as whip_rigged/vhand above).
 Model Rifle
 {
    Path "models/weapons/hud/rifle"
-   Model 0 "m16.md3"
-   Model 1 "m16f.md3"
+   Model 0 "m16.iqm"
    Skin 0 "WPN-M16.png"
-   Skin 1 "WPN-M16.png"
    Scale 1.35 1.35 1.35
    Offset 0.0 0.0 0.0
    ZOffset -5
-   BaseFrame   // registers this class for A_SetAnimation("Reload"); see weaponrifle.zs
+   modelsareattachments
 
-   // Full fire-cycle animation on m16.md3 -- frame layout from MASTER_BUILD/DOOM/Modeldef.Rifle
-   // (mesh is byte-identical). RIFL A-Z map to frames 0-25; weaponrifle.zs uses A (ready) + B-E
-   // (fire/recover). Upgraded from the old 2-pose m16/m16f swap to real frame-by-frame animation.
-   FrameIndex RIFL A 0 0    // ready
-   FrameIndex RIFL B 0 1    // fire
-   FrameIndex RIFL C 0 2    // recover
-   FrameIndex RIFL D 0 3
-   FrameIndex RIFL E 0 4
-
-   // Spawn/world-pickup sprite (RFP1, weaponrifle.zs) has no flat graphic anywhere in the tree --
-   // maps it to the ready pose so the dropped weapon isn't undefined/invisible.
+   // All RIFL fire/recover sprites -> the single bind-pose frame (0). No baked animation on the IQM.
+   FrameIndex RIFL A 0 0
+   FrameIndex RIFL B 0 0
+   FrameIndex RIFL C 0 0
+   FrameIndex RIFL D 0 0
+   FrameIndex RIFL E 0 0
+   // Spawn/world-pickup sprite -> bind pose so the dropped weapon isn't invisible.
    FrameIndex RFP1 A 0 0
 }
 
