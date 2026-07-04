@@ -275,12 +275,12 @@ class VRSword : Weapon
 // when the wielder is at full health. Damage + colour are set per-blade by the spawner
 // (SetDamage / SetShade). Uses the stock plasma sprite (guaranteed IWAD asset, no dependency)
 // with additive blend so it reads as a glowing energy blade-bolt.
-// The Zelda sword beam: a projectile that LOOKS LIKE A GLOWING SWORD tumbling end-over-end
-// through the air. Drawn entirely with math -- the engine-resident SDF sprite shader
-// (SIGL -> vr_sdf_procedural.fp), stretched thin-and-long into a blade and spun via +ROLLSPRITE,
-// camera-facing (+FORCEXYBILLBOARD) so it always reads as a blade from any angle. Colour + damage
-// are set per blade by FireZeldaBeam. Trails a fading SDF comet streak. No sprite/model assets,
-// no Radiance -- pure SDF math.
+// The Zelda sword beam: a projectile that LOOKS LIKE A GLOWING SWORD flying STRAIGHT, tip-first,
+// SPINNING ABOUT ITS OWN AXIS like an arrow (no end-over-end tumble). Drawn entirely with math --
+// the engine-resident SDF sprite shader (SIGL -> vr_sdf_procedural.fp), a thin-and-long SDF blade
+// whose long axis is manually oriented (FLATSPRITE Angle/Pitch/Roll) along its velocity, with its
+// flat face spun around the flight axis each tic (the arrow roll). Colour + damage are set per
+// blade by FireZeldaBeam. Trails a fading SDF comet streak. No sprite/model assets, no Radiance.
 class VRSwordBeam : Actor
 {
 	vector3 beamCol;                 // 0..1 rgb (brightened), set by the spawner
