@@ -18,7 +18,7 @@ A fork of **DoomXR** (iAmErmac's QuestZDoom-based VR fork of GZDoom) rebuilt int
 10. **Analog + motion input to gameplay** — smoothed, tic-normalized hand velocity (swing/flick detection) and analog grip squeeze (0–1) exposed to scripts.
 
 > [!WARNING]
-> **Status: work-in-progress, not yet headset-verified.** Everything above is implemented at the code level but has **not** been fully play-tested in a headset — the build currently **crashes on launch** (unresolved shader UBO-placement bug, tracked separately). Treat this as an active reconstruction, not a shippable release.
+> **Status: work-in-progress***
 
 **Baseline vs. upstream DoomXR:** 439 files changed, +18,431 / −10,831 lines.
 
