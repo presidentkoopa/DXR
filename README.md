@@ -153,5 +153,32 @@ The GITD "glow-in-the-dark" visual layer ships as an overriding `main.fp` from t
 
 ---
 
+## Author without recompiling — the content stack
+
+DXR's rule — native behavior, data/script content — means most of the game is authored without touching C++. The full modder surface, by effort:
+
+**Edit a JSON (no tools):**
+* `KEYWORDS.json` — behavior-by-token for any actor / weapon / surface (kickback, vulnerability, ballistics, parry, mass, two-hand radius, grab + climb tags). The master data layer.
+* `vr_gestures.json` — VR gestures: body anchor + motion-verb + gate button → a `VR_GestureFired` ZScript hook. New gesture = one row.
+* `vr_hardpoints.json` — body holster (shoulders / hips) + wrist ability-mount layout.
+* `vr_climb_textures.json` — which surfaces **bare-hand** climb can grab (the ice picks and whip ignore it — they grab any solid surface).
+* `doomxr_weapons.json` — weapon → 3D-model archetype mapping.
+* `sdf_combos.json` — in-world SDF display definitions.
+
+**Run a Python pipeline:**
+* `tools/weapon_iqm_build/` — MD3 → IQM conversion with **geometry-derived two-hand grip hotspots** + validation, driven by `weapon_roster.json`.
+* `tools/sdf_authoring/gif_to_sdf_atlas.py` — animated GIF → resolution-independent SDF atlas.
+
+**Point-and-click HTML editors (in a browser):**
+* `tools/sdf_authoring/sdf_combo_authoring.html` — author SDF combo displays visually.
+* `tools/sdf_authoring/sdf_upgrade_authoring.html` — author upgrade cards visually.
+
+**Drop-in, bind, run (no recompile):**
+* Custom `.fp` shaders — place in a pk3, bind via `GLDEFS`, GLSL compiles at runtime (see below).
+
+Net: weapons, monsters, surfaces, gestures, holsters, HUD / SDF displays, and whole visual regimes are all **content** — one native engine, authored in JSON, ZScript, small pipelines, and a browser.
+
+---
+
 ### Source Code & Licensing
 Builds on the open-source foundations of **DoomXR** (iAmErmac), **QuestZDoom**, **UZDoom**, and **GZDoom**. Licensed under the **GPL v3**.
