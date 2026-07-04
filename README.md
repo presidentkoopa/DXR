@@ -178,6 +178,12 @@ DXR's rule — native behavior, data/script content — means most of the game i
 
 Net: weapons, monsters, surfaces, gestures, holsters, HUD / SDF displays, and whole visual regimes are all **content** — one native engine, authored in JSON, ZScript, small pipelines, and a browser.
 
+## And when data isn't enough — forward native access
+
+Modding DXR isn't a sandbox. Every VR subsystem is native C++ **exposed forward to ZScript** as a composable hook toolkit (~33 hooks + modder virtuals) — you reach straight into the engine's primitives and recombine them into *new* mechanics, with C++-level power and zero C++. The bullwhip is five hooks in a row (`GetHandVelocity` → render rope → `VR_SetWhipSwingLive` → `VR_TrySetHeldItem` → throw); swap two steps and the **same stack** is a grappling hook, lasso, fishing rod, or chain flail. The gesture engine works the same way — a fired gesture hands off to a `VR_GestureFired` virtual you override. Full catalog in **[VR & Input Interaction — native hook surface](#vr--input-interaction--native-hook-surface)** above.
+
+So there are two access levels on one engine: **author in data** for content, **compose native hooks** for mechanics — and neither needs a recompile.
+
 ---
 
 ### Source Code & Licensing
