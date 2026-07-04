@@ -9,9 +9,9 @@ A fork of **DoomXR** (iAmErmac's QuestZDoom-based VR fork of GZDoom) rebuilt int
 1. **First-person body avatar with native arm IK** — your own 3D marine renders in-view; a two-bone C++ solver drives its arms to track your controllers, with auto-fit height.
 2. **Physics bullwhip (XRWhip)** — a 16-node Verlet rope with a supersonic tip crack, taut-line grapple-swing, and entangle-yank that reels an enemy into your hand.
 3. **Per-actor directional gravity** — walk on walls and ceilings via a palm-out power that paints an SDF walkway, built on a native `GravityDir` field.
-4. **Universal 3D weapon models for any mod** — 3D shells sync to any loaded mod's weapon logic/sounds/damage with no per-mod patching; works on flatscreen too.
-5. **Physical hardpoint holsters** — reach to your shoulder/hip to draw a weapon, or a wrist mount to fire an ability; markers read the native trigger position so they can't drift.
-6. **Swing-tracked melee that parries bullets** — VRSword with real per-tic segment collision + native keyword projectile deflection (plus ShieldSaw and IceHook).
+4. **Universal 3D weapon models for any mod** — 3D shells sync to any loaded mod's weapon logic/sounds/damage with no per-mod patching; any mod, any weapon.
+5. **Physical hardpoint holsters** — reach to your hip for a sword and whip, or your shoulders for climbing picks, or a wrist mount to fire an ability / spell; markers read the native trigger position so they can't drift. Extensive debug cones and spheres for customization.
+6. **Swing-tracked melee that parries bullets** — VRSword and other weapons with adjusted collision for real per-tic segment collision + native keyword projectile deflection (plus ShieldSaw and IceHook).
 7. **Composable native hook toolkit (~33 hooks)** — new VR mechanics are ZScript recombinations of existing primitives, not new C++ (see below).
 8. **KEYWORDS.json behavior engine** — per-actor and per-weapon behavior (kickback, vulnerability, ballistics, parry) declared as data, resolved natively, no recompile.
 9. **Grip-intent arbiter** — one owner per hand resolved by priority so climb / whip / gloves / holsters never fight over the same grip; handedness-correct.
