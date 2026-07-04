@@ -3064,9 +3064,9 @@ OptionMenu VRWeaponOptions protected
 	TFLV_Tooltip "\c[Cyan]Pitch Adjust\c-  -  tilts the weapon \c[White]up or down\c- in your hand. Nudge it so the barrel points where the laser/aim actually goes for your controller grip."
 	Slider "$VRWEAPONMNU_SPRITE_MODEL_SCALE",	"vr_weaponScale", 0.1, 3.0, 0.1, 2
 	TFLV_Tooltip "\c[Cyan]Sprite/Model Scale\c-  -  overall \c[White]size\c- of the weapon held in your hand. Shrink or grow it to taste."
-	StaticText "Universal 3D VR Shell", gold
-	Option "Enable Universal VR Shell",		"vr_weapon_shell", "OnOff"
-	TFLV_Tooltip "\c[Gold]Universal VR Shell\c-  -  swaps flat 2D-sprite weapons for a \c[White]3D archetype model\c- so any gun holds and animates as a real 3D model in hand. On by default; off falls back to plain sprites."
+	StaticText "3D Weapon Models", gold
+	Option "Enable 3D Weapon Models",		"vr_weapon_shell", "OnOff"
+	TFLV_Tooltip "\c[Gold]3D Weapon Models\c-  -  shows every gun as a real \c[White]3D model in your hand\c- that moves and animates as you fire and reload, instead of a flat 2D sprite. Works on weapons from any loaded mod. On by default; off falls back to flat sprites."
 	StaticText ""
 	Option "Manual Reload (Chamber + Gesture)",	"vr_manual_reload", "OnOff"
 	TFLV_Tooltip "\c[Cyan]Manual Reload\c-  -  \c[White]On\c- makes you reload with a physical gesture and tracks a live chamber/round counter, instead of auto-reloading. On by default."
@@ -3078,10 +3078,10 @@ OptionMenu VRWeaponOptions protected
 	TFLV_Tooltip "\c[Gold]Gameplay & Spawn Options\c-  -  submenu for \c[White]visual fidelity\c-, weapon-replacement chances, ballistic bullet drop, starting gear, throwables and the grenade trajectory arc."
 	Submenu "XR Whip Options", "VRWhipOptions"
 	TFLV_Tooltip "\c[Cyan]XR Whip Options\c-  -  crack physics, contextual grapple/reel, entangle-yank force, pinball safeguards, and the leather/ember/tesla profile."
+	Submenu "VR Sword Options", "VRSwordOptions"
+	TFLV_Tooltip "\c[Cyan]VR Sword Options\c-  -  blade type (Master Sword / Lightsaber / Dragon's Tooth), Zelda-mode full-health sword beams, and swing sensitivity."
 	Submenu "Ice Hook Options", "IceHookOptions"
 	TFLV_Tooltip "\c[Cyan]Ice Hook Options\c-  -  melee/throw damage, stuck-hook lifetime, and the zip-to-hook auto-pull."
-	Option "Enable Tracked VR Hands",		"vr_weapon_hands", "OnOff"
-	TFLV_Tooltip "\c[Red]Tracked VR Hands\c-  -  intended to draw \c[White]controller-tracked hands\c- alongside the weapon, but this toggle is currently inert in this build (declared but no code reads it)."
 	Option "Dynamic Time Scaling (DTS)",	"vr_weapon_dts", "OnOff"
 	TFLV_Tooltip "\c[Red]Dynamic Time Scaling\c-  -  meant to \c[White]time-warp\c- the 3D shell animation to match the underlying 2D frames, but the hook is still an empty stub and does nothing yet in this build."
 	StaticText " "
@@ -3129,6 +3129,38 @@ OptionValue "WhipProfiles"
 	1, "Techno Chain (SDF)"
 	2, "Ember"
 	3, "Tesla"
+}
+
+OptionValue "SwordBlades"
+{
+	0, "Master Sword (Steel)"
+	1, "Lightsaber"
+	2, "Dragon's Tooth"
+}
+
+OptionMenu VRSwordOptions protected
+{
+	class TFLV_TooltipOptionMenu
+	Title "VR Sword Settings"
+	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+	TFLV_TooltipAppearance "", "", "GITDTTBG"
+
+	StaticText ""
+	StaticText "Blade", gold
+	Option "Blade Type", "vr_sword_blade", "SwordBlades"
+	TFLV_Tooltip "\c[Cyan]Blade Type\c-  -  \c[White]Master Sword\c- is heavy steel that dismembers, \c[White]Lightsaber\c- is a flat-damage energy blade, \c[White]Dragon's Tooth\c- is a near-instant-kill nano blade that ignores armor. All deflect bullets when you swing into incoming fire."
+
+	StaticText ""
+	StaticText "Zelda Mode", gold
+	Option "Full-Health Sword Beam", "vr_sword_zelda_mode", "OnOff"
+	TFLV_Tooltip "\c[Gold]Zelda Mode\c-  -  like the Master Sword: while at \c[White]full health\c-, every swing (or Fire) launches a glowing sword-beam that tumbles through the air and deals \c[White]plasma\c- damage, tinted to your blade. Take one hit and the beams stop until you heal up. Off by default."
+
+	StaticText ""
+	StaticText "Swing Sensitivity", gold
+	Slider "Swing Arm Speed", "vr_sword_swing_on", 10.0, 120.0, 5.0, 0
+	TFLV_Tooltip "\c[Gold]Swing Arm Speed\c-  -  hand speed (map-units/tic) needed to \c[White]start\c- a cut. Lower = easier, higher = needs a faster slash. Default \c[White]35\c-."
+	Slider "Swing Release Speed", "vr_sword_swing_off", 5.0, 100.0, 5.0, 0
+	TFLV_Tooltip "\c[Gold]Swing Release Speed\c-  -  the cut stays live until your hand slows below this. Default \c[White]18\c-."
 }
 
 // The first weapon in this engine with full in-game menu tuning -- Sword/ShieldSaw's CVars

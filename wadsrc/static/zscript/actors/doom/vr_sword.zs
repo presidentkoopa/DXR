@@ -106,6 +106,32 @@ class VRSword : Weapon
 			A_StartSound(ActiveBlade.SndHitFlesh, CHAN_AUTO);
 	}
 
+	// ZELDA MODE: like the Master Sword, at FULL HEALTH a swing/thrust fires a sword beam --
+	// a plasma-typed energy projectile tinted to the current blade's colour. Opt-in via
+	// vr_sword_zelda_mode (VR Weapon Options). Fires from both the physical VR swing (Tick)
+	// and the flatscreen Fire button. Below full health it does nothing, so full HP is a real,
+	// visible reward you feel the moment you take a scratch.
+	void FireZeldaBeam(vector3 origin, double ang, double pit)
+	{
+		if (owner == null || owner.player == null || ActiveBlade == null) return;
+		CVar zc = CVar.FindCVar("vr_sword_zelda_mode");
+		if (!zc || !zc.GetBool()) return;
+		if (owner.health < owner.GetMaxHealth()) return;   // full-health gate (the Zelda rule)
+
+		let beam = VRSwordBeam(Actor.Spawn("VRSwordBeam", origin));
+		if (!beam) return;
+		beam.target = owner;
+		beam.angle  = ang;
+		beam.pitch  = pit;
+		beam.Vel3DFromAngle(beam.Speed, ang, pit);
+		beam.SetDamage(max(6, ActiveBlade.BaseDamage / 2));   // half the blade's melee power, plasma-typed
+		// SDF beam colour from the blade's GlowColor (steel has none -> icy white). Brightened for Add bloom.
+		Color gc = ActiveBlade.GlowColor;
+		vector3 bc = (gc.a > 0) ? (gc.r / 255.0, gc.g / 255.0, gc.b / 255.0) : (0.75, 0.9, 1.0);
+		beam.beamCol = bc * 1.6;
+		A_StartSound("weapons/plasmaf", CHAN_WEAPON);
+	}
+
 	// Physical-swing detection. Meaningless without a real controller feeding
 	// GetHandVelocity, so this only runs in VR -- flatscreen play uses the
 	// button-triggered A_VRSwordFireFlatscreen() attack instead (Fire state),
@@ -140,6 +166,7 @@ class VRSword : Weapon
 			HitThisSwing.Clear();
 			if (ActiveBlade.SndSwing.Length() > 0)
 				A_StartSound(ActiveBlade.SndSwing, CHAN_WEAPON);
+			FireZeldaBeam(tip, ang, pit);   // Zelda mode: full-health swing launches a sword beam
 		}
 		else if (Swinging && tipSpeed < swingOff)
 		{
@@ -228,6 +255,9 @@ class VRSword : Weapon
 		if (invoker.ActiveBlade.SndSwing.Length() > 0)
 			A_StartSound(invoker.ActiveBlade.SndSwing, CHAN_WEAPON);
 
+		// Zelda mode: full-health Fire launches a sword beam along the aim (self = pawn here).
+		invoker.FireZeldaBeam(pos + (0, 0, height * 0.5), angle, pitch);
+
 		if (t.linetarget)
 			invoker.PlayHitFX(t.linetarget, dmg);
 
@@ -238,5 +268,105 @@ class VRSword : Weapon
 			angle = t.angleFromSource;
 			if (player != null) player.resetDoomYaw = true;
 		}
+	}
+}
+
+// The Zelda sword beam: a fast plasma-typed energy projectile fired by VRSword.FireZeldaBeam
+// when the wielder is at full health. Damage + colour are set per-blade by the spawner
+// (SetDamage / SetShade). Uses the stock plasma sprite (guaranteed IWAD asset, no dependency)
+// with additive blend so it reads as a glowing energy blade-bolt.
+// The Zelda sword beam: a projectile that LOOKS LIKE A GLOWING SWORD tumbling end-over-end
+// through the air. Drawn entirely with math -- the engine-resident SDF sprite shader
+// (SIGL -> vr_sdf_procedural.fp), stretched thin-and-long into a blade and spun via +ROLLSPRITE,
+// camera-facing (+FORCEXYBILLBOARD) so it always reads as a blade from any angle. Colour + damage
+// are set per blade by FireZeldaBeam. Trails a fading SDF comet streak. No sprite/model assets,
+// no Radiance -- pure SDF math.
+class VRSwordBeam : Actor
+{
+	vector3 beamCol;   // 0..1 rgb (brightened), set by the spawner
+
+	Default
+	{
+		Radius 6;
+		Height 8;
+		Speed 42;
+		Projectile;
+		+THRUGHOST +BRIGHT +NOGRAVITY
+		+FORCEXYBILLBOARD +ROLLSPRITE +ROLLCENTER
+		RenderStyle "Add";
+		Alpha 1.0;
+		Damage 12;                 // fallback; FireZeldaBeam calls SetDamage() per blade
+		DamageType "Plasma";
+		SeeSound "weapons/plasmaf";
+		DeathSound "weapons/plasmax";
+		Obituary "was struck down by a flying sword beam.";
+	}
+
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		msdf_enabled = 512;              // flat SDF rect -> stretched = a glowing blade
+		msdf_glitch  = 0.15;             // faint energy shimmer
+		Scale = (0.14, 0.9);             // thin x, long y = a sword sliver
+		if (beamCol.Length() < 0.01) beamCol = (0.75, 0.9, 1.0);   // icy-white default
+	}
+
+	override void Tick()
+	{
+		// spin + glow BEFORE Super.Tick (which moves us and may free us on impact this tic).
+		Roll += 22.0;                                            // end-over-end tumble
+		msdf_color = beamCol * (1.35 + 0.35 * sin(level.maptime * 40.0));
+		let t = VRSwordBeamTrail(Actor.Spawn("VRSwordBeamTrail", pos));
+		if (t) { t.trailCol = beamCol; t.roll = roll; }
+		Super.Tick();
+	}
+
+	States
+	{
+	Spawn:
+		SIGL A 1 Bright;
+		Loop;
+	Death:
+		SIGL A 6 Bright;   // brief bloom on impact
+		Stop;
+	}
+}
+
+// Fading SDF after-image dropped by the beam each tic -- the glowing-blade comet streak.
+class VRSwordBeamTrail : Actor
+{
+	vector3 trailCol;
+	int life;
+
+	Default
+	{
+		+NOBLOCKMAP +NOGRAVITY +NOINTERACTION +DONTSPLASH +CLIENTSIDEONLY +NOTIMEFREEZE
+		+BRIGHT +FORCEXYBILLBOARD +ROLLSPRITE +ROLLCENTER
+		RenderStyle "Add";
+		Radius 1;
+		Height 1;
+	}
+
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		msdf_enabled = 512;
+		life = 7;
+	}
+
+	override void Tick()
+	{
+		if (life-- <= 0) { Destroy(); return; }
+		double f = double(life) / 7.0;
+		Scale = (0.12 * f, 0.8 * f);
+		msdf_color = trailCol * (1.1 * f);
+		Alpha = f;
+	}
+
+	States
+	{
+	Spawn:
+		SIGL A 1 Bright;
+		Wait;
 	}
 }

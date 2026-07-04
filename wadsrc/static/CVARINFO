@@ -199,6 +199,9 @@ user bool vr_hardpoint_markers_show = true;
 user float vr_sword_swing_on   = 35.0;  // tip speed (map-units/tic) that arms a cut
 user float vr_sword_swing_off  = 18.0;  // tip speed the cut stays live until it drops below
 user int   vr_sword_blade      = 0;     // 0=Steel, 1=Lightsaber, 2=DragonsTooth
+// ZELDA MODE: at FULL health, a swing/thrust fires a plasma sword beam (Master Sword style),
+// tinted to the blade colour. Opt-in -- a distinct feel, off by default. vr_sword.zs FireZeldaBeam.
+user bool  vr_sword_zelda_mode = false;
 
 // --- Ice Hook (baked in from the standalone IceHook_mod, part of the default class via
 // Player.StartItem -- doomplayer.zs, same mechanism as Pistol/Fist/VRSword). The prototype's
