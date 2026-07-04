@@ -283,7 +283,11 @@ class VRSword : Weapon
 // no Radiance -- pure SDF math.
 class VRSwordBeam : Actor
 {
-	vector3 beamCol;   // 0..1 rgb (brightened), set by the spawner
+	vector3 beamCol;                 // 0..1 rgb (brightened), set by the spawner
+	double  spinAng;                 // running arrow-spin angle about the flight axis
+	const   BEAM_PX  = 64.0;
+	const   BEAM_LEN = 58.0;         // blade length along flight (tip-to-tail)
+	const   BEAM_WID = 11.0;         // blade width
 
 	Default
 	{
@@ -292,7 +296,7 @@ class VRSwordBeam : Actor
 		Speed 42;
 		Projectile;
 		+THRUGHOST +BRIGHT +NOGRAVITY
-		+FORCEXYBILLBOARD +ROLLSPRITE +ROLLCENTER
+		+FLATSPRITE +ROLLCENTER
 		RenderStyle "Add";
 		Alpha 1.0;
 		Damage 12;                 // fallback; FireZeldaBeam calls SetDamage() per blade
@@ -306,18 +310,60 @@ class VRSwordBeam : Actor
 	{
 		Super.PostBeginPlay();
 		msdf_enabled = 512;              // flat SDF rect -> stretched = a glowing blade
-		msdf_glitch  = 0.15;             // faint energy shimmer
-		Scale = (0.14, 0.9);             // thin x, long y = a sword sliver
+		msdf_glitch  = 0.12;             // faint energy shimmer
 		if (beamCol.Length() < 0.01) beamCol = (0.75, 0.9, 1.0);   // icy-white default
+	}
+
+	// Orient the flat SDF quad so its LONG axis points along 'fwd' (tip-first, straight flight)
+	// and its face-normal = 'faceN' (which we spin about fwd for the arrow roll). Same flat-quad
+	// orient math as XR_GravityPathNode, minus the move -- a projectile owns its own position.
+	void OrientArrow(vector3 fwd, vector3 faceN)
+	{
+		double horiz = sqrt(faceN.x * faceN.x + faceN.y * faceN.y);
+		double yaw = (horiz > 0.0001) ? VectorAngle(faceN.x, faceN.y) : angle;
+		Angle = yaw;
+		Pitch = atan2(horiz, faceN.z);
+
+		double ryaw = yaw - 90.0;
+		vector3 baseRight = (cos(ryaw), sin(ryaw), 0.0);
+		double tdotn = fwd.x * faceN.x + fwd.y * faceN.y + fwd.z * faceN.z;
+		vector3 tproj = (fwd.x - faceN.x * tdotn, fwd.y - faceN.y * tdotn, fwd.z - faceN.z * tdotn);
+		double tl = tproj.Length();
+		if (tl > 0.0001)
+		{
+			tproj /= tl;
+			vector3 c = (baseRight.y * tproj.z - baseRight.z * tproj.y,
+						 baseRight.z * tproj.x - baseRight.x * tproj.z,
+						 baseRight.x * tproj.y - baseRight.y * tproj.x);
+			double cdn = c.x * faceN.x + c.y * faceN.y + c.z * faceN.z;
+			double drt = baseRight.x * tproj.x + baseRight.y * tproj.y + baseRight.z * tproj.z;
+			Roll = atan2(cdn, drt);
+		}
+		Scale = (BEAM_WID / BEAM_PX, BEAM_LEN / BEAM_PX);
 	}
 
 	override void Tick()
 	{
-		// spin + glow BEFORE Super.Tick (which moves us and may free us on impact this tic).
-		Roll += 22.0;                                            // end-over-end tumble
+		// flight direction = the tip direction (straight, no tumble)
+		vector3 v = Vel;
+		double vl = v.Length();
+		vector3 fwd = (vl > 0.01) ? v / vl : (cos(pitch) * cos(angle), cos(pitch) * sin(angle), -sin(pitch));
+
+		// orthonormal basis perpendicular to fwd, then a face-normal that SPINS about fwd = arrow roll
+		vector3 up0 = (abs(fwd.z) < 0.9) ? (0.0, 0.0, 1.0) : (1.0, 0.0, 0.0);
+		vector3 rgt = (fwd.y * up0.z - fwd.z * up0.y, fwd.z * up0.x - fwd.x * up0.z, fwd.x * up0.y - fwd.y * up0.x);
+		double rl = rgt.Length(); if (rl > 0.0001) rgt /= rl;
+		vector3 upp = (rgt.y * fwd.z - rgt.z * fwd.y, rgt.z * fwd.x - rgt.x * fwd.z, rgt.x * fwd.y - rgt.y * fwd.x);
+		spinAng += 34.0;                                        // arrow-spin rate, deg/tic
+		vector3 faceN = rgt * cos(spinAng) + upp * sin(spinAng);
+
+		OrientArrow(fwd, faceN);
 		msdf_color = beamCol * (1.35 + 0.35 * sin(level.maptime * 40.0));
+
+		// glowing comet trail: a fading copy of the blade at this pose
 		let t = VRSwordBeamTrail(Actor.Spawn("VRSwordBeamTrail", pos));
-		if (t) { t.trailCol = beamCol; t.roll = roll; }
+		if (t) { t.trailCol = beamCol; t.angle = angle; t.pitch = pitch; t.roll = roll; t.scale = scale; }
+
 		Super.Tick();
 	}
 
@@ -333,6 +379,7 @@ class VRSwordBeam : Actor
 }
 
 // Fading SDF after-image dropped by the beam each tic -- the glowing-blade comet streak.
+// Keeps the beam's orientation/scale (copied at spawn) and just dims out.
 class VRSwordBeamTrail : Actor
 {
 	vector3 trailCol;
@@ -341,7 +388,7 @@ class VRSwordBeamTrail : Actor
 	Default
 	{
 		+NOBLOCKMAP +NOGRAVITY +NOINTERACTION +DONTSPLASH +CLIENTSIDEONLY +NOTIMEFREEZE
-		+BRIGHT +FORCEXYBILLBOARD +ROLLSPRITE +ROLLCENTER
+		+BRIGHT +FLATSPRITE +ROLLCENTER
 		RenderStyle "Add";
 		Radius 1;
 		Height 1;
@@ -351,16 +398,15 @@ class VRSwordBeamTrail : Actor
 	{
 		Super.PostBeginPlay();
 		msdf_enabled = 512;
-		life = 7;
+		life = 6;
 	}
 
 	override void Tick()
 	{
 		if (life-- <= 0) { Destroy(); return; }
-		double f = double(life) / 7.0;
-		Scale = (0.12 * f, 0.8 * f);
-		msdf_color = trailCol * (1.1 * f);
-		Alpha = f;
+		double f = double(life) / 6.0;
+		msdf_color = trailCol * f;
+		Alpha = f * 0.7;
 	}
 
 	States
