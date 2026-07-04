@@ -33,6 +33,9 @@ imprints — and **90 physical VR gestures** are the skilled input that drives a
 - **Skill escalates the game.** Dominating summons the difficulty director's bullet-time
   set-pieces — the arena where your bought gestures pay off. Getting good makes the game
   *bigger*, not emptier.
+- **The map is a spatial roguelite.** Reconfigurable holodeck-style cube rooms (rotating,
+  gravity-flipping) wired into a portal lattice — 8 exits per room to another arena, the
+  shop, a bonus, or a joke. Your playstyle + optional goals nudge which portals open.
 
 ## Read in this order
 
@@ -48,6 +51,7 @@ imprints — and **90 physical VR gestures** are the skilled input that drives a
 10. [Open questions](10_open-questions.md) — every unresolved fork, in one place.
 11. [The gesture engine](11_gesture-engine.md) — **native C++ + `vr_gestures.json` + HTML editor.** The architecture.
 12. [The hardpoint & loadout map](12_hardpoint-map.md) — wrist ability slots, tool holsters, the shieldsaw, the re-seed spec.
+13. [Arenas & the run structure](13_arenas-and-run.md) — **reconfigurable holodeck rooms, the portal lattice, earned path control.** The level layer.
 
 ## The gesture catalog (companion)
 
