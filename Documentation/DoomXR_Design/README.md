@@ -52,6 +52,7 @@ imprints — and **90 physical VR gestures** are the skilled input that drives a
 11. [The gesture engine](11_gesture-engine.md) — **native C++ + `vr_gestures.json` + HTML editor.** The architecture.
 12. [The hardpoint & loadout map](12_hardpoint-map.md) — wrist ability slots, tool holsters, the shieldsaw, the re-seed spec.
 13. [Arenas & the run structure](13_arenas-and-run.md) — **reconfigurable holodeck rooms, the portal lattice, earned path control.** The level layer.
+14. [Replay & capture](14_replay-capture.md) — a watchable, **horizon-locked stabilized** run video, rendered offline. Live view never touched.
 
 ## The gesture catalog (companion)
 
