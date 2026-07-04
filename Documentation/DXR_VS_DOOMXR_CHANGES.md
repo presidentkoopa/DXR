@@ -920,3 +920,114 @@ planned and built VR-engine features.
   undeclared CVARs and missing font atlases.
 - **De-partying.** The GITD/Radiance glow FX (ZScript, shaders, CVARs, menus) were extracted into a
   standalone Radiance Control Panel mod so the core renders plainly on its own.
+
+---
+
+## 8. VR Timing & Motion Smoothing — the 35 Hz bridge
+
+Doom's game logic runs at a fixed **35 tics/sec**, but VR head/hand pose is sampled **per-frame on the
+render thread** (90 Hz+). That mismatch produces jittery, noisy tracking if fed straight into gameplay.
+DXR adds smoothing/normalization filters that turn the fast, noisy per-frame VR signal into stable
+values the 35 Hz tick can consume. (The underlying "render motion smoothly *between* tics"
+interpolation itself is inherited from GZDoom/QuestZDoom, not added here.)
+
+### 8.1 Hand-velocity rolling buffer + tic-rate normalization
+**What:** `player_t` carries a 4-sample rolling buffer `vr_hand_vel_buffer[hand][4]`, filled every tic
+by `VR_UpdateGravityGloves` (`p_user.cpp`). `Actor.GetHandVelocity(hand)` averages the 4 samples,
+remaps map space `(X,Z,Y)`, and scales by `vr_scale_meters_to_units / 35.0` — the `/35.0` converting
+metres/sec into map-units **per tic**.
+**Why:** raw per-frame controller velocity is noisy; a 4-sample average normalized to the 35 Hz tick
+gives one stable number that every swing/flick/throw threshold reads (whip crack, sword swing,
+ShieldSaw motion-throw, glove flick-throw). Without it, swing detection would trigger on tracking noise.
+**Files:** `p_user.cpp`, `p_actionfunctions.cpp`, `d_player.h`.
+
+### 8.2 Body-avatar height auto-fit exponential smoothing
+**What:** `RenderModel` (`models.cpp`) smooths the live HMD eye-height with
+`smoothedEye += (eyeAboveFeet - smoothedEye) * 0.03;` (an exponential lerp toward target each frame)
+before deriving `bodyScale`.
+**Why:** the avatar is scaled to your real standing height, but reading it smoothed stops the model
+scale from pumping/jittering with per-frame head-bob. Code comment: "heavily smoothed, so no sync is
+needed."
+**Files:** `r_data/models.cpp`.
+
+> Related timing note: the old README's "Dynamic Time Scaling" refers to a *separate* mechanism —
+> matching a 3D weapon model's animation playback to the tic-duration of the active 2D weapon state
+> (see §6.3 / the universal 3D-weapon framework), not to VR pose smoothing.
+
+---
+
+## 9. Native Hook Capabilities & Roadmap (current use → potential)
+
+The value of the ~33-hook native surface (§2, §3.18) is that the hooks are **composable primitives** —
+most "what's next" is recombining primitives already shipped, not new C++. What each group powers today
+and unlocks next:
+
+### 9.1 Pose & analog input reads
+- **`GetHandVelocity`** — *Now:* whip crack (supersonic tip), sword swing gate, ShieldSaw/glove
+  motion-throw, catch timing. *Next:* velocity-scaled damage curves, gesture recognition
+  (chop/thrust/slash from the vector), "must actually swing it" enforcement, deflection timing windows,
+  motion-charged abilities.
+- **`GetHeadPos` / `GetHeadAngles`** — *Now:* body-avatar facing/IK targeting, head-relative render.
+  *Next:* lean-to-peek cover, enemies targeting your real head, duck/dodge as real movement, gaze-to-
+  highlight interaction, head-aim secondary mode, velocity-driven comfort vignette.
+- **`GetGripValue`** — *Now:* the arbiter's analog commit/release Schmitt gate. *Next:* squeeze-force
+  mechanics — heavier props need a firmer grip, chargeable/crush weapons, chainsaw throttle,
+  white-knuckle climbing where grip strength = hold security.
+
+### 9.2 Metadata & render fields
+- **`GravityDir` / `GravityAnchor`** — *Now:* XR Gravity Path (wall/ceiling walking). *Next:* gravity-
+  cube puzzles, gravity wells/black-hole hazards, magnetic boots, props/ragdolls falling to a flipped
+  surface, folding "Inception" levels, per-enemy gravity (throw a monster off the ceiling).
+- **`Keywords` (as a live field)** — *Now:* static per-actor tagging. *Next:* runtime re-tagging — an
+  enemy that becomes `flammable` after an oil splash, difficulty rewriting vulnerability tokens live,
+  wet-floor `climbable:false` state.
+- **`msdf_color/enabled/glitch`** — *Now:* floating damage numbers, gravity-path tiles, SDF sigils.
+  *Next:* sprite-less SDF monsters, wrist-HUD holograms, glitch-driven materialize/dissolve deaths,
+  per-actor HP-state color shifts.
+
+### 9.3 Procedural model / arm-IK
+- **`SetModelUseProceduralPose` / `SetModelBonePose`** — *Now:* the XRWhip's 21-bone rope rig follows
+  the Verlet sim per tic. *Next:* any script-driven rig — chain/flail, tentacles, a deforming rope
+  ladder, procedural SDF-monster animation, a two-hand-tracked bow, cloth/banner sim, a held prop the
+  arm visibly grips.
+- **`SetArmIKEnabled`** — *Now:* body-avatar arms reach the controllers. *Next:* correct elbow bend on
+  two-handed poses, visible reach when climbing/grabbing, IK feet, companion NPCs whose arms track aim.
+
+### 9.4 Hardpoints (8 fns)
+- *Now:* shoulder/hip weapon holsters + wrist ability mounts, reach-to-draw/stow, drift-proof markers
+  (positions read from the same native routine the trigger uses). *Next:* full physical loadout (back
+  quiver, belt grenades, forearm shield), body-relative inventory/health, physical reload pouches, gear-
+  is-where-it-hangs loadout menus, co-op weapon hand-off via a shared slot.
+
+### 9.5 Grip-intent arbiter (`VR_GetGripOwner` / `VR_PhysicalHandForSlot` / `VR_SetWhipSwingLive` / `VR_SetWhipRopeAttached` / `GRIP_*`)
+- *Now:* one owner per hand; kills the whip-swing-vs-climb double-Vel-write fling; handedness-correct
+  slot→controller. *Next:* the coordination substrate for **every** future grip mechanic — grappling
+  hook, two-handed bow, rope-ladder climb, akimbo dual-wield, steering wheel/lever — each registered in
+  the priority order instead of fighting existing consumers. `VR_PhysicalHandForSlot` makes every new
+  mechanic left-hander-correct for free.
+
+### 9.6 Held-item / throw (`VR_TrySetHeldItem`)
+- *Now:* whip yank-catch lands an entangled enemy in your hand to throw. *Next:* catch-and-throw-back
+  projectiles, disarm-and-steal enemy weapons, in-hand returning boomerang, juggling/combo mechanics,
+  co-op item hand-off, general telekinetic grab.
+
+### 9.7 Weapon-model mapping (`GetVRWeaponArchetype`)
+- *Now:* the archetype scanner / universal-3D-model binding. *Next:* auto-map an unknown mod's weapons
+  to the nearest archetype, a remap UI, per-mod model packs — the key to scaling "load any mod, get 3D
+  models."
+
+### 9.8 Modder virtual dispatch (`VR_DoHolster` / `VR_HardpointAbility`)
+- *Now:* default holster teardown; ability slot is a no-op stub. *Next:* the sanctioned, C++-free
+  extension seam — override `VR_HardpointAbility` to make a wrist slot launch a grappling hook, cast a
+  spell, deploy a turret, or trigger a special.
+
+### 9.9 Why this compounds
+None of these is impressive alone; the leverage is composition. The whip already chains
+`GetHandVelocity` (crack) → `SetModelBonePose` (rope render) → `VR_SetWhipSwingLive` (arbiter) →
+`VR_TrySetHeldItem` (yank-catch) → throw. The **same stack recombined** is a grappling hook, fishing
+rod, lasso, chain weapon, or rope bridge. DXR shipped a VR **interaction toolkit**, not just a weapon
+list — the hooks are the primitives.
+
+> **Verification caveat:** this section describes the *designed* capability of the hooks as they exist
+> in source. The build is not yet headset-verified (known launch crash), so treat every "Next" as
+> unlocked-on-paper until each hook is confirmed live in a headset.
