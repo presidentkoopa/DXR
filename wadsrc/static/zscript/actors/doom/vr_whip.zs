@@ -450,6 +450,15 @@ class XRWhip : Weapon
 	// Draw the rope as CONNECTED SDF SEGMENTS through the engine-resident SDF sprite shader --
 	// no AddGlowPanel, no Radiance dependency, no floating dots. One XRWhipChainLink bridges each
 	// pair of adjacent Verlet nodes, billboarded toward the head so it reads from any angle.
+	//
+	// REACTIVE ENERGY ROPE: every segment's width / colour / glow / glitch is driven live from the
+	// Verlet sim's own state, so the whip visibly LOADS and CRACKS:
+	//   * speed  (node velocity = pos-prev) -> the crack travels handle->tip as a white-hot pulse,
+	//     and the segment THINS as it goes supersonic (a real whip thins toward the tip).
+	//   * tension (segment stretch vs rest length) -> taut segments thin, brighten and glitch
+	//     (strained energy) while a slack rope is thick and dim.
+	//   * tip taper -> the tip is the hottest, thinnest point of the whole rope.
+	// All of it is data the sim already computes -- pure math, no new shader, engine-standalone.
 	private void RenderRope()
 	{
 		int last = nodes.Size() - 1;
@@ -457,11 +466,14 @@ class XRWhip : Weapon
 
 		vector3 headPos = owner ? owner.GetHeadPos() : pos;
 
-		// techno profiles rainbow-cycle the colour; leather-style profiles use their fixed tint.
-		Color col = ActiveWhip.CordColor;
-		if (ActiveWhip.RopeCycleHue)
-			col = HueToNeon(level.maptime * 4.0 + BoundWhipIndex * 40.0);
-		Vector3 fcol = (col.r / 255.0, col.g / 255.0, col.b / 255.0);
+		// fixed tint for non-cycling profiles; techno computes a per-segment hue in the loop -- a
+		// neon gradient that flows DOWN the rope over time (Blood Dragon synthwave, not a flat hue).
+		// CrackColor = the white-hot energy colour segments blend toward as speed/tension climb.
+		vector3 fixedCol = (ActiveWhip.CordColor.r / 255.0, ActiveWhip.CordColor.g / 255.0, ActiveWhip.CordColor.b / 255.0);
+		double  hueBase  = level.maptime * 4.0 + BoundWhipIndex * 40.0;
+		vector3 hotCol = (ActiveWhip.CrackColor.r / 255.0, ActiveWhip.CrackColor.g / 255.0, ActiveWhip.CrackColor.b / 255.0);
+
+		double crackSpd = max(1.0, ActiveWhip.CrackSpeed);
 
 		for (int i = 0; i < last; i++)
 		{
@@ -470,17 +482,42 @@ class XRWhip : Weapon
 			XRWhipChainLink lk = chainLinks[i];
 			if (!lk) continue;
 
-			vector3 a = nodes[i].pos;
-			vector3 b = nodes[i + 1].pos;
-			double  w = max(1.0, nodes[i].radius + nodes[i + 1].radius);   // tapered rope width
+			XRWhipNode na = nodes[i];
+			XRWhipNode nb = nodes[i + 1];
+			vector3 a = na.pos, b = nb.pos;
+
+			// ---- reactive terms, all straight from the Verlet sim ----
+			double spd     = ((na.pos - na.prev).Length() + (nb.pos - nb.prev).Length()) * 0.5;
+			double energy  = clamp(spd / crackSpd, 0.0, 1.4);                          // 0 idle .. >1 mid-crack
+			double segNow  = (b - a).Length();
+			double taut    = clamp((segNow - segLen) / max(1.0, segLen), 0.0, 1.5);    // 0 slack .. stretched
+			double tipFrac = double(i) / double(max(1, last - 1));                     // 0 handle .. 1 tip
+
+			// width: taper to the tip, then THIN with speed (supersonic) and tension
+			double baseW = max(1.0, na.radius + nb.radius);
+			double w = max(0.6, baseW * (1.0 - 0.55 * energy) * (1.0 - 0.35 * taut));
+
+			// per-segment base colour: techno flows a neon hue gradient handle->tip; others fixed.
+			vector3 baseCol = fixedCol;
+			if (ActiveWhip.RopeCycleHue)
+			{
+				Color hc = HueToNeon(hueBase + tipFrac * 150.0);   // 150deg span down the rope
+				baseCol = (hc.r / 255.0, hc.g / 255.0, hc.b / 255.0);
+			}
+
+			// colour: idle base -> white-hot as energy/tension/tip climb; brightness blooms with both
+			double heat   = clamp(energy * 0.9 + taut * 0.5 + tipFrac * energy * 0.7, 0.0, 1.0);
+			double bright = 0.55 + 0.95 * energy + 0.55 * taut + ActiveWhip.GlowBoost;
+			vector3 col   = (baseCol * (1.0 - heat) + hotCol * heat) * bright;
+
 			vector3 faceN = headPos - (a + b) * 0.5;
 			if (faceN.Length() < 0.0001) faceN = (0.0, 0.0, 1.0);
 
 			lk.OrientSegment(a, b, faceN.Unit(), w);
-			lk.msdf_enabled = 512;                 // vr_sdf_procedural.fp bit 9 = seamed flat rect (chain link)
-			lk.msdf_glitch  = ActiveWhip.RopeGlitch;
-			lk.msdf_color   = fcol;
-			lk.Alpha = 1.0;
+			lk.msdf_enabled = 512;                                                     // seamed flat rect = chain link
+			lk.msdf_glitch  = clamp(ActiveWhip.RopeGlitch + energy * 0.35 + taut * 0.35, 0.0, 1.0);
+			lk.msdf_color   = col;
+			lk.Alpha        = clamp(0.65 + 0.35 * energy + 0.35 * taut, 0.4, 1.0);
 		}
 		HideChain(last);   // any surplus links from a longer previous rope get hidden
 	}

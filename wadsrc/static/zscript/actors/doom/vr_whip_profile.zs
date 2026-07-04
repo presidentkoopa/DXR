@@ -41,7 +41,8 @@ class WhipProfile : Object
 	// engine's own vr_sdf_procedural.fp (msdf bit 512 = seamed flat rect = chain-link look), NOT
 	// the Radiance glow-panel shader. RopeCycleHue rainbow-cycles the colour = "techno" look.
 	bool   RopeCycleHue;      // true => ignore CordColor, cycle neon hue over time
-	double RopeGlitch;        // msdf_glitch amount on each segment (0 = clean, up to ~0.5 = jittery)
+	double RopeGlitch;        // base msdf_glitch on each segment (0 = clean, ~0.5 = jittery). Energy/tension add on top.
+	double GlowBoost;         // extra base emission on the SDF chain (0 = subtle, ~0.6 = hot neon)
 
 	// ---- Audio (SNDINFO by FULL path; MONO only -- stereo is silent on desktop) ----
 	string SndCreak;          // idle leather creak (looped)
@@ -128,6 +129,7 @@ class Whip_Techno : WhipProfile
 
 		RopeCycleHue = true;                      // rainbow neon "techno" cycle
 		RopeGlitch   = 0.30;                      // slight digital jitter on each link
+		GlowBoost    = 0.60;                       // hot neon base emission
 
 		SndCreak     = "weapons/xrwhip/tesla/hum";
 		SndWhoosh    = "weapons/xrwhip/tesla/whoosh";
@@ -154,7 +156,9 @@ class Whip_Ember : WhipProfile
 		Reach       = 300;    // matches the Tier-2 model's bind length -- see Whip_Leather
 		CordWidth   = 3.0;
 		CordColor   = Color(255, 255, 96, 20);  // glowing orange braid
-		CrackColor  = Color(255, 255, 170, 60);
+		CrackColor  = Color(255, 255, 220, 90); // white-hot ember flash
+		RopeGlitch  = 0.10;
+		GlowBoost   = 0.40;
 
 		SndCreak    = "weapons/xrwhip/ember/hum";
 		SndWhoosh   = "weapons/xrwhip/ember/whoosh";
@@ -199,7 +203,9 @@ class Whip_Tesla : WhipProfile
 		Reach       = 300;    // matches the Tier-2 model's bind length -- see Whip_Leather
 		CordWidth   = 2.6;
 		CordColor   = Color(255, 90, 200, 255); // electric cyan
-		CrackColor  = Color(255, 210, 240, 255);
+		CrackColor  = Color(255, 235, 250, 255); // arc-white
+		RopeGlitch  = 0.25;                       // electric crackle jitter
+		GlowBoost   = 0.45;
 
 		SndCreak    = "weapons/xrwhip/tesla/hum";
 		SndWhoosh   = "weapons/xrwhip/tesla/whoosh";
