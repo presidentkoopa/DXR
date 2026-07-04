@@ -2,7 +2,7 @@
 
 // --- New Weapon Logic ---
 server bool vr_start_with_rifle = false;
-server bool vr_start_with_whip = false;
+server bool vr_start_with_whip = true;   // XRWhip is a default weapon (Indiana Jones leather; set vr_whip_profile 1 for the SDF techno chain)
 server bool vr_start_with_shieldsaw = false;
 server bool vr_grenade_trajectory = true;
 server bool vr_weapon_throwable = true;
@@ -217,7 +217,7 @@ user int   vr_icehook_return_delay  = 70;    // tics before an idle stuck pick s
 // --- XR Whip (Verlet rope, crack physics, contextual grapple/entangle) ---
 // Starting estimates for in-headset tuning, not finished balance values. The first weapon in
 // this engine with full in-game menu exposure -- Sword/ShieldSaw's CVars above are console-only.
-user int   vr_whip_profile            = 0;     // 0=Leather, 1=Ember, 2=Tesla
+user int   vr_whip_profile            = 0;     // 0=Leather(Indiana Jones model), 1=Techno(SDF chain), 2=Ember, 3=Tesla
 // DEFAULT TRUE -- the rigged 300-map-unit braided-leather IQM is the whip's real visual now, not
 // an opt-in. Was previously referenced via CVar.FindCVar("vr_whip_model") with NO declaration
 // anywhere -- FindCVar returned null, so the model was silently unreachable even via console.

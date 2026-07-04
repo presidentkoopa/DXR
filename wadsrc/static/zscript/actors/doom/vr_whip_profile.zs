@@ -30,11 +30,18 @@ class WhipProfile : Object
 	string ProfileName;
 
 	// ---- Visual ----
-	name   WhipModel;         // MODELDEF entry for the rigged IQM handle (Tier 2); '' => glow-panel rope only
+	name   WhipModel;         // MODELDEF entry for the rigged IQM handle (Indy leather); '' => SDF chain rope
 	double Reach;             // total thong length, map units -- drives node spacing and reach
 	double CordWidth;         // map units -- collision half-width + base glow radius
-	Color  CordColor;         // rope glow tint (NO dynamic light -- glow panel / GITD only)
+	Color  CordColor;         // rope tint
 	Color  CrackColor;        // sonic-boom flash tint at the tip
+
+	// ---- SDF chain rope render (engine-resident, no Radiance) ----
+	// When WhipModel == '' the rope is drawn as connected SDF segments (XRWhipChainLink) via the
+	// engine's own vr_sdf_procedural.fp (msdf bit 512 = seamed flat rect = chain-link look), NOT
+	// the Radiance glow-panel shader. RopeCycleHue rainbow-cycles the colour = "techno" look.
+	bool   RopeCycleHue;      // true => ignore CordColor, cycle neon hue over time
+	double RopeGlitch;        // msdf_glitch amount on each segment (0 = clean, up to ~0.5 = jittery)
 
 	// ---- Audio (SNDINFO by FULL path; MONO only -- stereo is silent on desktop) ----
 	string SndCreak;          // idle leather creak (looped)
@@ -78,7 +85,7 @@ class Whip_Leather : WhipProfile
 	override void Setup()
 	{
 		ProfileName = "Bullwhip";
-		WhipModel   = '';                       // glow-panel rope until the rigged IQM lands
+		WhipModel   = 'XRWhipRigged';           // Indiana Jones: the rigged braided-leather IQM (modeldef FrameIndex + modelsareattachments now wired)
 		// 300 map units (~8.8m @ 34u/m) -- matches the Tier-2 rigged model's true bind-pose
 		// length EXACTLY (models/weapons/xrwhip/whip_rigged.iqm, 20 bones x 15.0 map units,
 		// independently byte-verified). Bumped from 190 for two reasons: (1) grappling-hook
@@ -101,6 +108,38 @@ class Whip_Leather : WhipProfile
 		MaxSpeed    = 240; SpeedCeil  = 2.6;     // reward a genuinely fast swing
 		CrackSpeed  = 95;
 		Knockback   = 14.0;
+		BehaviorFlags = WF_DISARM;
+	}
+}
+
+// ---- Techno: SDF neon chain whip. Rope = connected engine-SDF segments, hue-cycling. ---------
+// No model, no Radiance -- draws entirely through the engine-resident vr_sdf_procedural.fp, so
+// it works standalone. Same Verlet sim/crack/grapple as leather; only the render + colour differ.
+class Whip_Techno : WhipProfile
+{
+	override void Setup()
+	{
+		ProfileName  = "Techno Chain";
+		WhipModel    = '';                       // '' => SDF chain render path (not the leather model)
+		Reach        = 300;                       // keep in lockstep with the others
+		CordWidth    = 3.0;
+		CordColor    = Color(255, 60, 220, 255);  // base tint (overridden by the hue cycle)
+		CrackColor   = Color(255, 255, 255, 255);
+
+		RopeCycleHue = true;                      // rainbow neon "techno" cycle
+		RopeGlitch   = 0.30;                      // slight digital jitter on each link
+
+		SndCreak     = "weapons/xrwhip/tesla/hum";
+		SndWhoosh    = "weapons/xrwhip/tesla/whoosh";
+		SndCrack     = "weapons/xrwhip/tesla/crack";
+		SndHitFlesh  = "weapons/xrwhip/tesla/zap";
+
+		DamageType   = 'Melee';
+		BaseDamage   = 22;
+		MinSpeed     = 70;  SpeedFloor = 0.5;
+		MaxSpeed     = 240; SpeedCeil  = 2.6;
+		CrackSpeed   = 95;
+		Knockback    = 14.0;
 		BehaviorFlags = WF_DISARM;
 	}
 }

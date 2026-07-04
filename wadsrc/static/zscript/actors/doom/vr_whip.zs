@@ -69,6 +69,74 @@ class XRWhipNode : Object
 	double  radius;    // taper, drives mass and glow size
 }
 
+// One connected SDF rope segment: a flat, camera-facing SDF quad stretched between two adjacent
+// Verlet nodes and drawn by the ENGINE-RESIDENT SDF sprite shader (shaders/glsl/vr_sdf_procedural.fp,
+// bound to SIGL via gldefs -- NOT the Radiance glow-panel cascade). This is what makes the whip a
+// real connected rope/chain that renders in the base engine with no companion mod loaded. The
+// flat-quad orient math is copied verbatim from XR_GravityPathNode.XR_Orient (vr_gravity_path.zs),
+// which uses the same SIGL sprite + msdf bit 512 (seamed flat rectangle = chain-link look).
+class XRWhipChainLink : Actor
+{
+	const XR_LINK_PX = 64.0;   // base pixel size backing SIGL (matches XR_GravityPathNode.XR_BASE_PX)
+
+	Default
+	{
+		+NOGRAVITY +NOCLIP +NOBLOCKMAP +DONTSPLASH +NOTIMEFREEZE +NOINTERACTION
+		+FLATSPRITE +ROLLCENTER
+		RenderStyle "Add";
+	}
+	States
+	{
+	Spawn:
+		SIGL A -1 Bright;
+		Stop;
+	}
+
+	// spherical yaw/pitch tilting a FLATSPRITE quad so its face-normal = n (Pitch=0 => facing +Z,
+	// no tilt). Copied from XR_GravityPathNode.XR_VectorToYawPitch.
+	static void LinkYawPitch(Vector3 n, out double yaw, out double pitch)
+	{
+		double horiz = sqrt(n.x * n.x + n.y * n.y);
+		yaw   = (horiz > 0.0001) ? VectorAngle(n.x, n.y) : 0.0;
+		pitch = atan2(horiz, n.z);
+	}
+
+	// Span a->b with the flat face pointing along faceN (toward the camera), sized len x width.
+	void OrientSegment(Vector3 a, Vector3 b, Vector3 faceN, double width)
+	{
+		Vector3 seg = b - a;
+		double len = seg.Length();
+		if (len < 0.0001) { bInvisible = true; return; }
+		bInvisible = false;
+		Vector3 tangent = seg / len;
+
+		SetOrigin(a + seg * 0.5, true);
+
+		double yaw, pitch;
+		LinkYawPitch(faceN, yaw, pitch);
+		Angle = yaw;
+		Pitch = pitch;
+
+		double ryaw = yaw - 90.0;
+		Vector3 baseRight = (cos(ryaw), sin(ryaw), 0.0);
+		Vector3 nn = faceN.Unit();
+		double tdotn = tangent.x * nn.x + tangent.y * nn.y + tangent.z * nn.z;
+		Vector3 tproj = (tangent.x - nn.x * tdotn, tangent.y - nn.y * tdotn, tangent.z - nn.z * tdotn);
+		double tlen = tproj.Length();
+		if (tlen > 0.0001)
+		{
+			tproj /= tlen;
+			Vector3 c = (baseRight.y * tproj.z - baseRight.z * tproj.y,
+						 baseRight.z * tproj.x - baseRight.x * tproj.z,
+						 baseRight.x * tproj.y - baseRight.y * tproj.x);
+			double crossDotN = c.x * nn.x + c.y * nn.y + c.z * nn.z;
+			double dotRT = baseRight.x * tproj.x + baseRight.y * tproj.y + baseRight.z * tproj.z;
+			Roll = atan2(crossDotN, dotRT);
+		}
+		Scale = (len / XR_LINK_PX, width / XR_LINK_PX);
+	}
+}
+
 // TIER 2 -- world-space carrier for the rigged whip IQM (models/weapons/xrwhip/whip_rigged.iqm,
 // 21 bones). Spawned by XRWhip only when the vr_whip_model CVar is on; XRWhip parks it at the
 // hand and drives its bones each tic from the Verlet sim via SetModelBonePose. Invisible sprite
@@ -188,6 +256,9 @@ class XRWhip : Weapon
 	// wind-up-then-trigger swing register.
 	double  handSpeedPeak;
 
+	// ---- SDF chain rope render (default when the profile has no model) ----
+	Array<XRWhipChainLink> chainLinks;   // one per rope segment, repositioned every render tic
+
 	// ---- Tier 2: rigged model driving (opt-in via `set vr_whip_model 1`) ----
 	XRWhipModel whipModel;
 	const MDL_BONES   = 21;     // whip_root + seg_00..seg_19
@@ -231,9 +302,10 @@ class XRWhip : Weapon
 	// ---- profile binding (state context only, like VRSword.BindBlade) --------------------
 	private void BindWhip(int idx)
 	{
-		class<WhipProfile> cls = "Whip_Leather";
-		if (idx == 1) cls = "Whip_Ember";
-		else if (idx == 2) cls = "Whip_Tesla";
+		class<WhipProfile> cls = "Whip_Leather";   // 0 = Indiana Jones (rigged leather model)
+		if (idx == 1) cls = "Whip_Techno";         // 1 = SDF techno-colour chain (engine-resident, no Radiance)
+		else if (idx == 2) cls = "Whip_Ember";
+		else if (idx == 3) cls = "Whip_Tesla";
 
 		ActiveWhip = WhipProfile(new(cls));
 		ActiveWhip.Setup();
@@ -346,18 +418,71 @@ class XRWhip : Weapon
 		}
 	}
 
+	// hue in [0,360) -> saturated neon RGB (HSV with S=V=1). Cheap 6-segment ramp.
+	private static Color HueToNeon(double h)
+	{
+		h = h - floor(h / 360.0) * 360.0;
+		double x = 1.0 - abs((h / 60.0) - 2.0 * floor(h / 120.0) - 1.0);
+		double r, g, b;
+		int seg = int(h / 60.0);
+		if      (seg == 0) { r = 1.0; g = x;   b = 0.0; }
+		else if (seg == 1) { r = x;   g = 1.0; b = 0.0; }
+		else if (seg == 2) { r = 0.0; g = 1.0; b = x;   }
+		else if (seg == 3) { r = 0.0; g = x;   b = 1.0; }
+		else if (seg == 4) { r = x;   g = 0.0; b = 1.0; }
+		else               { r = 1.0; g = 0.0; b = x;   }
+		return Color(255, int(r * 255.0), int(g * 255.0), int(b * 255.0));
+	}
+
+	private void HideChain(int fromIndex)
+	{
+		for (int i = fromIndex; i < chainLinks.Size(); i++)
+			if (chainLinks[i]) chainLinks[i].bInvisible = true;
+	}
+
+	void DestroyChain()
+	{
+		for (int i = 0; i < chainLinks.Size(); i++)
+			if (chainLinks[i]) chainLinks[i].Destroy();
+		chainLinks.Clear();
+	}
+
+	// Draw the rope as CONNECTED SDF SEGMENTS through the engine-resident SDF sprite shader --
+	// no AddGlowPanel, no Radiance dependency, no floating dots. One XRWhipChainLink bridges each
+	// pair of adjacent Verlet nodes, billboarded toward the head so it reads from any angle.
 	private void RenderRope()
 	{
 		int last = nodes.Size() - 1;
-		for (int i = 0; i <= last; i++)
+		if (last < 1) { HideChain(0); return; }
+
+		vector3 headPos = owner ? owner.GetHeadPos() : pos;
+
+		// techno profiles rainbow-cycle the colour; leather-style profiles use their fixed tint.
+		Color col = ActiveWhip.CordColor;
+		if (ActiveWhip.RopeCycleHue)
+			col = HueToNeon(level.maptime * 4.0 + BoundWhipIndex * 40.0);
+		Vector3 fcol = (col.r / 255.0, col.g / 255.0, col.b / 255.0);
+
+		for (int i = 0; i < last; i++)
 		{
-			XRWhipNode n = nodes[i];
-			double r = 2.0 + n.radius * 1.2;
-			level.AddGlowPanel(ActiveWhip.CordColor, r, n.pos.x, n.pos.y, n.pos.z, 15, 0.6, 0.0, 0.0, 0);
+			if (i >= chainLinks.Size())
+				chainLinks.Push(XRWhipChainLink(Spawn("XRWhipChainLink", nodes[i].pos)));
+			XRWhipChainLink lk = chainLinks[i];
+			if (!lk) continue;
+
+			vector3 a = nodes[i].pos;
+			vector3 b = nodes[i + 1].pos;
+			double  w = max(1.0, nodes[i].radius + nodes[i + 1].radius);   // tapered rope width
+			vector3 faceN = headPos - (a + b) * 0.5;
+			if (faceN.Length() < 0.0001) faceN = (0.0, 0.0, 1.0);
+
+			lk.OrientSegment(a, b, faceN.Unit(), w);
+			lk.msdf_enabled = 512;                 // vr_sdf_procedural.fp bit 9 = seamed flat rect (chain link)
+			lk.msdf_glitch  = ActiveWhip.RopeGlitch;
+			lk.msdf_color   = fcol;
+			lk.Alpha = 1.0;
 		}
-		// the popper: a brighter dot at the very tip
-		XRWhipNode tip = nodes[last];
-		level.AddGlowPanel(ActiveWhip.CrackColor, 5.0, tip.pos.x, tip.pos.y, tip.pos.z, 15, 0.9, 0.0, 0.0, 0);
+		HideChain(last);   // any surplus links from a longer previous rope get hidden
 	}
 
 	// ---- Tier 2 bone driving --------------------------------------------------------------
@@ -941,6 +1066,7 @@ class XRWhip : Weapon
 			simReady = false;
 			nodes.Clear();
 			if (whipModel != null) { whipModel.Destroy(); whipModel = null; }
+			DestroyChain();
 			return;
 		}
 
@@ -977,7 +1103,10 @@ class XRWhip : Weapon
 		// true (CVARINFO), with a menu toggle -- an escape hatch back to the glow-panel rope
 		// if the rigged model ever looks wrong in-headset (bone axis/rest-length are
 		// best-known values per DriveModelBones()'s own comment, not yet in-headset confirmed).
-		bool useModel = CVB("vr_whip_model", true);
+		// The Indiana Jones leather profile (WhipModel='XRWhipRigged') drives the rigged IQM;
+		// the Techno/elemental profiles (WhipModel='') always take the SDF chain path. The
+		// vr_whip_model toggle is an escape hatch: OFF forces the SDF chain even for leather.
+		bool useModel = CVB("vr_whip_model", true) && ActiveWhip && ActiveWhip.WhipModel != '';
 		if (useModel)
 		{
 			if (whipModel == null)
@@ -994,10 +1123,11 @@ class XRWhip : Weapon
 			whipModel = null;
 		}
 
-		// Glow-panel rope is the FALLBACK visual now, not the primary -- only draw the
-		// per-node cord glow when the physical model is off, so a real leather whip doesn't
-		// get an overlay of 16 glowing dots down its own length.
+		// Rope visual: the rigged leather MODEL (Indy) when useModel, otherwise the connected
+		// SDF CHAIN (default for techno/elemental, and the fallback if vr_whip_model is off).
+		// Never both -- so a real leather whip doesn't get a chain drawn down its own length.
 		if (!useModel) RenderRope();
+		else HideChain(0);
 
 		// crack evaluation
 		XRWhipNode tipN = nodes[nodes.Size() - 1];

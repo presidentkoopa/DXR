@@ -3125,9 +3125,10 @@ OptionMenu VRWeaponOptions protected
 
 OptionValue "WhipProfiles"
 {
-	0, "Leather"
-	1, "Ember"
-	2, "Tesla"
+	0, "Indiana Jones (Leather)"
+	1, "Techno Chain (SDF)"
+	2, "Ember"
+	3, "Tesla"
 }
 
 // The first weapon in this engine with full in-game menu tuning -- Sword/ShieldSaw's CVars
@@ -3147,7 +3148,7 @@ OptionMenu VRWhipOptions protected
 	StaticText ""
 	StaticText "Profile & Crack Physics", gold
 	Option "Whip Type", "vr_whip_profile", "WhipProfiles"
-	TFLV_Tooltip "\c[Cyan]Whip Type\c-  -  \c[White]Leather\c- is the classic bullwhip, \c[White]Ember\c- ignites on a crack, \c[White]Tesla\c- arcs lightning to nearby enemies."
+	TFLV_Tooltip "\c[Cyan]Whip Type\c-  -  \c[White]Indiana Jones\c- is the rigged leather bullwhip model, \c[White]Techno Chain\c- draws a hue-cycling connected SDF chain (works with no visual mod), \c[White]Ember\c- ignites on a crack, \c[White]Tesla\c- arcs lightning."
 	Slider "Crack Threshold", "vr_whip_crack_threshold", 40.0, 250.0, 5.0, 0
 	TFLV_Tooltip "\c[Gold]Crack Threshold\c-  -  tip speed needed to trigger the sonic crack. Lower = easier to crack, higher = need a faster swing. Default \c[White]95\c-."
 	Option "Two-Hand Boost", "vr_whip_two_hand_boost", "OnOff"
