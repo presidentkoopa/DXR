@@ -986,10 +986,13 @@ and unlocks next:
   per-actor HP-state color shifts.
 
 ### 9.3 Procedural model / arm-IK
-- **`SetModelUseProceduralPose` / `SetModelBonePose`** — *Now:* the XRWhip's 21-bone rope rig follows
-  the Verlet sim per tic. *Next:* any script-driven rig — chain/flail, tentacles, a deforming rope
-  ladder, procedural SDF-monster animation, a two-hand-tracked bow, cloth/banner sim, a held prop the
-  arm visibly grips.
+- **`SetModelUseProceduralPose` / `SetModelBonePose`** — *Now:* the XRWhip **calls** this each tic to
+  push its Verlet sim onto a 21-bone rigged IQM (`vr_whip_model` on by default), but the rigged model
+  is **not yet rendering** — `modeldef` `XRWhipRigged` has no `FrameIndex` and it awaits the procedural-
+  bone wiring, so the whip's *visible* rope is currently the glow-panel billboards, not the bone model.
+  The hook is wired and invoked; the bone-driven render is unfinished/unverified. *Next:* once the model
+  renders — any script-driven rig: chain/flail, tentacles, a deforming rope ladder, procedural SDF-
+  monster animation, a two-hand-tracked bow, cloth/banner sim, a held prop the arm visibly grips.
 - **`SetArmIKEnabled`** — *Now:* body-avatar arms reach the controllers. *Next:* correct elbow bend on
   two-handed poses, visible reach when climbing/grabbing, IK feet, companion NPCs whose arms track aim.
 

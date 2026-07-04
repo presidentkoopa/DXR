@@ -74,7 +74,9 @@ Every VR subsystem is native C++ exposed to the VM through `Actor` (and two `Pla
 
 ### The hooks compose
 
-The hooks are single-purpose primitives; new mechanics are recombinations, not new C++. The whip is a five-primitive pipeline: `GetHandVelocity` (crack) → `SetModelBonePose` (draw the rope) → `VR_SetWhipSwingLive` (claim motion) → `VR_TrySetHeldItem` (catch) → throw. Swap the rope sim and drop/keep steps and the **same stack** is a grappling hook, fishing rod, lasso, chain flail, or rope bridge — each a ZScript file, zero recompiles. The native cost was paid up front; the content phase is script.
+The hooks are single-purpose primitives; new mechanics are recombinations, not new C++. The whip is a five-primitive pipeline: `GetHandVelocity` (crack) → render the rope → `VR_SetWhipSwingLive` (claim motion) → `VR_TrySetHeldItem` (catch) → throw. Swap the rope sim and drop/keep steps and the **same stack** is a grappling hook, fishing rod, lasso, chain flail, or rope bridge — each a ZScript file, zero recompiles. The native cost was paid up front; the content phase is script.
+
+> The whip's visible rope is drawn today with **glow-panel billboards** (`level.AddGlowPanel`) following the Verlet sim. A `SetModelBonePose` path that pushes the sim onto a 21-bone rigged IQM runs each tic (`vr_whip_model` on by default), but that model is **not yet rendering** — its modeldef has no `FrameIndex` and it awaits the procedural-bone wiring. So the bone hook is called; the bone-driven *model* is not what you currently see.
 
 ---
 
