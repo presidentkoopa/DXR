@@ -4,7 +4,7 @@
 
 A fork of **DoomXR** (iAmErmac's QuestZDoom-based VR fork of GZDoom) rebuilt into a purpose-built VR light-gun / physical-melee game. Design rule throughout: **behavior lives in native C++ per-tic subsystems; ZScript is limited to data and thin override hooks.** Full technical accounting in [`Documentation/DXR_VS_DOOMXR_CHANGES.md`](Documentation/DXR_VS_DOOMXR_CHANGES.md).
 
-## Top 11 features
+## Top 15 features
 
 1. **First-person body avatar with native arm IK** — your own 3D marine renders in-view; a two-bone C++ solver drives its arms to track your controllers, with auto-fit height.
 2. **Physics bullwhip (XRWhip)** — a 16-node Verlet rope with a supersonic tip crack, taut-line grapple-swing, and entangle-yank that reels an enemy into your hand.
@@ -17,6 +17,10 @@ A fork of **DoomXR** (iAmErmac's QuestZDoom-based VR fork of GZDoom) rebuilt int
 9. **Grip-intent arbiter** — one owner per hand resolved by priority so climb / whip / gloves / holsters never fight over the same grip; handedness-correct.
 10. **Analog + motion input to gameplay** — smoothed, tic-normalized hand velocity (swing/flick detection) and analog grip squeeze (0–1) exposed to scripts.
 11. **Data-driven gesture engine** — a native per-tic classifier reads a per-hand motion-history ring buffer and names the verb (flick / thrust / slash / circle / reversal / …), matched against a declarative `vr_gestures.json` table; a fired gesture calls one `VR_GestureFired` ZScript hook. New gestures are a JSON row plus a script case — no recompile. The planned 90-gesture library (and a whole magic game's worth of sigils beyond it) ships as a JSON file, not 90 hardcoded C++ moves — one engine, infinite content.
+12. **Manual per-weapon reload FSM** — physically break the action, eject the mag/shell, and reach to a chest pouch to pull a fresh one; a native bone-read + hotspot state machine (14 weapons wired) tracks the chamber and drives baked model frames. Rides a mixin so mod weapons inherit it; eject step, tactical mag-out hook, and ~25 options exposed.
+13. **Physical throwing + mid-air catch** — throw any equipped weapon or held object at real controller velocity (`VR_ThrowEquippedWeapon`, mass-scaled), inject an actor into a hand's native held-item slot (`VR_TrySetHeldItem`), and catch → throw back — the whip's entangle-yank feeds straight into the same throw path. You can rip a grenade out of the air and pitch it back.
+14. **Native SDF display + runtime shader layer** — ~30 procedural in-world displays (digits, gauges, oscilloscope, spectrum bars, shockwave rings, reticles, materialize skull) and resolution-independent true-MSDF glyphs, streamed per-frame as pure distance-field math with **zero sprites**; per-actor `msdf_*` fields route content, drop-in `.fp` shaders compile at runtime, and full-screen visual regimes (System Shock / Tron / Thermal / Digital Noir / …) ride a **world-space proximity mask** so they never warp screen-space near your face.
+15. **Two-handed weapon stabilization** — bring your off-hand to any long gun's foregrip and the aim steadies through a **barrel-axis capsule test** (point-to-segment, per-weapon grip geometry from `KEYWORDS.json`), not a fixed second-grip point — so the natural forward grip engages and accidental two-hands don't.
 
 > [!WARNING]
 > **Status: work-in-progress***
@@ -43,7 +47,14 @@ The easy content layer (JSON, ZScript, browser editors) exists **because the har
 * **Data-driven gesture engine** — per-tic motion-history ring buffer + verb classifier matched against a JSON table.
 * **35 Hz VR timing bridge** — 90 Hz+ VR pose filtered into stable gameplay values (velocity buffer, exponential height smooth).
 * **SDF / shader pipeline** — true-MSDF glyphs, ~30 procedural in-world displays, full-screen visual regimes, all VR-safe.
-* **Crash-hardening** — FString-in-`memset` fixes and null-deref guards across the actor / line / sector / mapthing paths.
+* **Two-hand capsule stabilization** — off-hand foregrip resolved by a point-to-segment test down the weapon's barrel axis (perpendicular tolerance + forward length per weapon), replacing the sphere test that mis-fired.
+* **Physical throw + held-item slots** — native injection of an actor into a hand's held slot and a mass-scaled weapon throw at real controller velocity; the entangle-yank → catch → throwback loop is one shared path.
+* **Per-hand haptic pulses** — `VR_HapticPulse(hand, intensity, duration)` fired from swing / impact / parry / gesture events.
+* **Net-deterministic VR input reduction** — 6DoF controller pose collapsed onto net-safe button bits (reload / grip / user) so VR actions stay multiplayer-deterministic instead of leaking render-thread pose into the sim.
+* **VR-safe glow / SDF render plumbing** — per-frame `level.AddGlowPanel` streaming, per-actor `msdf_*` fields, and StreamData UBO uniforms carrying it to the shader — including the std140 alignment fix that cured the black-world corruption.
+* **Procedural-bone model path** — `SetModelUseProceduralPose` + `SetModelBonePose(bone, TRS+quat)` push script-computed skeletons onto IQM models each tic (the arm-IK and the whip rig ride this).
+* **Directional-gravity SDF walkway** — a palm-out power paints capture tiles that re-solve the player's `GravityDir`, with a rail-guard `MovePlayer` override that re-projects momentum onto the path basis (redirect, never speed).
+* **Crash-hardening** — FString-in-`memset` fixes and null-deref guards across the actor / line / sector / mapthing paths; undeclared-CVAR fixes.
 
 Design rule throughout: **behavior is native C++; ZScript and JSON are data and thin override hooks.** Baseline vs. upstream DoomXR: **439 files changed, +18,431 / −10,831 lines.** The native cost is paid; the content phase is script.
 
