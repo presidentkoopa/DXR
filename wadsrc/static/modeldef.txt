@@ -132,12 +132,25 @@ Model VRSwordBladeNano
 // its rope via glow panels and does NOT attach this model, so no FrameIndex is claimed here --
 // this block exists so the asset is registered/loadable and ready to wire. Scale is a Tier-2
 // tuning knob (model ~2.6 blender-units long vs the sim's map-unit reach).
+// XRWhip rigged rope model (whip_rigged.iqm, 21 joints, 0 baked frames). Attached per-actor to
+// XRWhipModel via A_ChangeModel('XRWhipRigged') + driven by SetModelBonePose each tic.
+// TWO bindings are required, both proven elsewhere in this file:
+//   1. FrameIndex -- A_ChangeModel REDIRECTS the lookup here, it does NOT bypass it (same as the
+//      VRSword blades, see the note above the Blade_* blocks). XRWhipModel sits on sprite TNT1 A
+//      forever, so one line covers it. Without it FindModelFrameRaw sees hasmodel=false -> null.
+//   2. modelsareattachments -- whip_rigged.iqm is a rigged IQM with 0 baked frames; without this
+//      the GetBasePose() bind-pose upload never fires (identical to the vhand/marine fix), so the
+//      frame resolves but NO bones upload -> zero geometry. (DECOUPLEDANIMATIONS is the WRONG fix
+//      on a 0-animation IQM.) SetModelUseProceduralPose then feeds our per-tic bone TRS.
 Model XRWhipRigged
 {
    Path "models/weapons/xrwhip"
    Model 0 "whip_rigged.iqm"
    Skin 0 "XRWhipLeather.png"
    Scale 1.0 1.0 1.0
+   modelsareattachments
+
+   FrameIndex TNT1 A 0 0
 }
 
 Model VRHandModel
