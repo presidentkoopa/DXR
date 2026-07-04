@@ -80,6 +80,7 @@ class ArachnotronPlasma : Actor
 		Alpha 0.75;
 		SeeSound "baby/attack";
 		DeathSound "baby/shotx";
+		Keywords "kickback:880";
 	}
 	States
 	{

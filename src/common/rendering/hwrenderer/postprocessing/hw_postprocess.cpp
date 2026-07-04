@@ -334,6 +334,12 @@ void PPDataHaze::Render(PPRenderState *renderstate, double timer)
 	uniforms.Timer = (float)timer;
 	uniforms.Density = vr_data_haze_density;
 	uniforms.Padding0 = FVector2(0, 0);
+	// Same real depth-linearization constants as the SSAO LinearDepth pass (see above): turns the
+	// raw hardware depth this shader samples into an actual map-unit distance.
+	uniforms.LinearizeDepthA = 1.0f / screen->GetZFar() - 1.0f / screen->GetZNear();
+	uniforms.LinearizeDepthB = max(1.0f / screen->GetZNear(), 1.e-8f);
+	uniforms.InverseDepthRangeA = 1.0f;
+	uniforms.InverseDepthRangeB = 0.0f;
 
 	renderstate->Clear();
 	renderstate->Shader = &Shader;

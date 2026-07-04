@@ -23,7 +23,7 @@ class LostSoul : Actor
 		ActiveSound "skull/active";
 		Obituary "$OB_SKULL";
 		Tag "$FN_LOST";
-		Keywords "mass:50", "grab", "class:lostsoul", "species:lostsoul", "role:kamikaze", "trait:charging", "anatomy:fire", "weight:light", "status:expendable";
+		Keywords "mass:50", "grab", "class:lostsoul", "species:lostsoul", "role:kamikaze", "trait:charging", "anatomy:fire", "weight:light", "status:expendable", "kickback:moderate";
 	}
 	States
 	{

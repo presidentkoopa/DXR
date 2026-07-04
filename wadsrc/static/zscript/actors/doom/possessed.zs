@@ -23,7 +23,7 @@ class ZombieMan : Actor
 		Obituary "$OB_ZOMBIE";
 		Tag "$FN_ZOMBIE";
 		DropItem "Clip";
-		Keywords "mass:100", "grab", "class:zombieman", "species:human", "role:fodder", "trait:hitscan", "anatomy:undead", "weight:medium", "vulnerability:head_crit";
+		Keywords "mass:100", "grab", "class:zombieman", "species:human", "role:fodder", "trait:hitscan", "anatomy:undead", "weight:medium", "vulnerability:head_crit", "kickback:175";
 	}
 	States
 	{
@@ -88,7 +88,7 @@ class ShotgunGuy : Actor
 		Obituary "$OB_SHOTGUY";
 		Tag "$FN_SHOTGUN";
 		DropItem "Shotgun";
-		Keywords "mass:100", "grab", "class:shotgunguy", "species:human", "role:fodder", "trait:spread", "anatomy:undead", "weight:medium", "vulnerability:head_crit";
+		Keywords "mass:100", "grab", "class:shotgunguy", "species:human", "role:fodder", "trait:spread", "anatomy:undead", "weight:medium", "vulnerability:head_crit", "kickback:light";
 	}
 	States
 	{
@@ -153,7 +153,7 @@ class ChaingunGuy : Actor
 		Obituary "$OB_CHAINGUY";
 		Tag "$FN_HEAVY";
 		Dropitem "Chaingun";
-		Keywords "mass:100", "grab", "class:chaingunguy", "species:human", "role:heavy", "trait:rapid", "anatomy:undead", "weight:heavy", "vulnerability:head_crit";
+		Keywords "mass:100", "grab", "class:chaingunguy", "species:human", "role:heavy", "trait:rapid", "anatomy:undead", "weight:heavy", "vulnerability:head_crit", "kickback:trivial";
 	}
 	States
 	{

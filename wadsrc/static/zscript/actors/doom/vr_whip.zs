@@ -12,15 +12,29 @@
 //   TWO-HAND            -- bring the off hand near the handle and its velocity
 //                          feeds energy into the whole chain: bigger cracks,
 //                          lower crack threshold, +damage (Castlevania IV).
-//   SECONDARY (AltFire) -- GRAPPLE: LineTrace from the hand, context-picks a mode:
-//                          * REEL  -- snag low/level geometry, fly yourself to it.
-//                          * SWING -- snag geometry high above you, pendulum on a
-//                                     taut line; release keeps your tangential speed
-//                                     so you launch off (Indy gap-swing).
-//                          * YANK  -- snag a monster, rip it to you (or reel toward a
-//                                     boss too heavy to move). WF_DISARM staggers +
-//                                     stuns it on the pull.
-//                          Hold to keep the line, release to let go.
+//   SECONDARY (AltFire) -- GRAPPLE: LineTrace from the hand (range = ActiveWhip.Reach, the SAME
+//                          number the rope sim/crack use -- it can't grab farther than the whip
+//                          physically reaches). Two outcomes:
+//                          * Geometry hit -> GM_ATTACHED, one unified tension-physics state:
+//                            self-gravity + a taut-line distance constraint. Airborne, this alone
+//                            produces a pendulum swing (Indy gap-swing); release keeps your
+//                            tangential speed so you launch off. Grounded, nothing visibly happens
+//                            -- the floor already absorbs it every tic, no explicit branch needed.
+//                            Hold FIRE while attached for a deliberate reel-in (contextual, not
+//                            automatic); off-hand grip (BT_USER1) mid-swing pumps the rope length
+//                            for real angular-momentum speed changes (climb up = speed up).
+//                          * Monster hit -> GM_YANK, entangle-yank: pull force is
+//                            handSpeed*massRatio (100/targetMass, mirrors the throw-formula
+//                            convention) -- heavier enemies resist more, a harder swing pulls
+//                            harder. Bosses/too-light-a-swing never get pulled (the crack still
+//                            hits via FireCrack's own collision). A caught enemy tumbles (Roll)
+//                            and lands in front of the player (not their exact origin) for a
+//                            guaranteed melee-followup window -- the Bulletstorm-into-chainsaw combo.
+//                          Rope-tension knockback (fireballs etc. while attached) is clamped by a
+//                          dedicated pinball safeguard -- velocity ceiling, per-hit impulse cap,
+//                          diminishing returns on rapid repeat hits, and a damage-aware taper so
+//                          getting wrecked reads in the health bar, not as loss of physical control.
+//                          Hold AltFire to keep the line, release to let go.
 //
 // RENDERING: the rope is drawn with in-world glow panels (level.AddGlowPanel,
 // the same neon-billboard path PlasmaBeam uses) -- zero sprite assets, fits
@@ -111,15 +125,30 @@ class XRWhip : Weapon
 	// simulated rope could ever physically reach. That's not a whip grapple, that's a hitscan
 	// with a leather prop attached. One reach number for the whole weapon, no exceptions.
 	const WHIP_GRAPPLE_TIME  = 140;     // ~4s max hold
-	const WHIP_REEL_SPEED    = 22.0;
-	const WHIP_YANK_SPEED    = 18.0;
-	const WHIP_SWING_MINRISE = 40.0;    // anchor this far above you => pendulum swing, not reel
-	const WHIP_SWING_GRAV    = 0.9;     // self-applied gravity while swinging
+	// Self-applied gravity while attached (bNoGravity is on during a grapple, so we supply our own).
+	// NOTE (physics audit 2026-07-03): the engine's real gravity is 1.0 units/tic^2
+	// (GetGravity() = sv_gravity(800) * 0.00125). 0.9 is a deliberate ~10% "floatier swing" FEEL
+	// choice, NOT a bug -- left as-is per the no-silent-balance-changes rule. Set to 1.0 (or read
+	// owner.GetGravity()) if you want the swing to match world gravity exactly.
+	const WHIP_SWING_GRAV    = 0.9;
+	// A yanked enemy lands in front of the player, not on top of them -- so a follow-up melee
+	// swing (chainsaw, etc.) actually connects instead of the enemy overlapping/behind you.
+	// 80 = DEFMELEERANGE/chainsaw reach (64, see weaponchainsaw.zs A_Saw) + 16 (Lost Soul, the
+	// smallest-radius combat monster) -- zero-margin for Lost Soul, generous for everything else.
+	const WHIP_MELEE_LANDING_RANGE = 80.0;
+	// Shared floor for grapple rope length (used at catch-time AND in ApplySwingPump) -- one
+	// constant so the two can't drift apart. Also the min a pumped rope can shorten to.
+	const WHIP_MIN_ROPE_DIST = 24.0;
 
-	const GM_NONE  = 0;
-	const GM_REEL  = 1;
-	const GM_YANK  = 2;
-	const GM_SWING = 3;
+	// GM_REEL and GM_SWING (two different pull mechanisms picked once at catch-time by anchor
+	// height) are GONE -- replaced by ONE unified tension-physics state, GM_ATTACHED. Airborne
+	// naturally swings (gravity + taut-line constraint, nothing else needed); grounded naturally
+	// does nothing (the floor already absorbs the self-applied fake-gravity, no explicit
+	// player.onground branch required). The old unconditional "fly straight to whatever you hit"
+	// behavior is replaced by an opt-in deliberate pull: hold Fire while attached.
+	const GM_NONE     = 0;
+	const GM_YANK     = 2;
+	const GM_ATTACHED = 3;
 
 	WhipProfile ActiveWhip;
 	int         BoundWhipIndex;
@@ -140,6 +169,17 @@ class XRWhip : Weapon
 	Actor   grappleVictim;
 	bool    grappleSetNoGrav;
 	int     grappleTimer;
+	// whip-owned entangle countdown -- was grappleVictim.special1, but special1 is a SHARED actor
+	// scratch field other actors use, so writing it could collide. Single-victim state, so one
+	// plain int on the whip is correct and needs zero AActor-side fields (audit fix).
+	int     grappleEntangleTimer;
+
+	// ---- pinball safeguards (while GM_ATTACHED) ----
+	vector3 prevGrappleVel;
+	int     lastBigImpulseTic;
+	double  recentDamage;
+	int     lastKnownHealth;
+	bool    healthTracked;
 
 	// ---- Tier 2: rigged model driving (opt-in via `set vr_whip_model 1`) ----
 	XRWhipModel whipModel;
@@ -162,6 +202,23 @@ class XRWhip : Weapon
 		Tag "Whip";
 		Keywords "class:xrwhip", "dmg:whip", "style:melee", "style:grapple";
 		Inventory.PickupMessage "Picked up the XR Whip!";
+	}
+
+	// ---- CVar helpers (VR Weapon Options) -- mirrors CheckWhipCVar's null-check pattern ----
+	private double CVF(string name, double def)
+	{
+		CVar c = CVar.FindCVar(name);
+		return c ? c.GetFloat() : def;
+	}
+	private bool CVB(string name, bool def)
+	{
+		CVar c = CVar.FindCVar(name);
+		return c ? c.GetBool() : def;
+	}
+	private int CVI(string name, int def)
+	{
+		CVar c = CVar.FindCVar(name);
+		return c ? c.GetInt() : def;
 	}
 
 	// ---- profile binding (state context only, like VRSword.BindBlade) --------------------
@@ -409,9 +466,20 @@ class XRWhip : Weapon
 			v.DamageMobj(self, owner, dmg, ActiveWhip.DamageType);
 			v.TraceBleed(dmg, self);
 
-			vector3 kd = pull ? (owner.pos - v.pos) : tipDir;
-			if (kd.Length() > 0.001) kd = kd.Unit();
-			v.Vel += kd * knock;
+			// Mass-scaled + ceiling-clamped knockback (physics audit): mirrors the throw formula's
+			// 100/Mass convention (heavier enemies shove less) and the native ApplyKickback 32 u/tic
+			// cap, so no single crack -- even two-handed supersonic on a light target -- can fling
+			// anything to absurd speed. Respects +DONTTHRUST (native no-knockback opt-out).
+			if (!v.bDontThrust)
+			{
+				vector3 kd = pull ? (owner.pos - v.pos) : tipDir;
+				if (kd.Length() > 0.001)
+				{
+					kd = kd.Unit();
+					double vKnock = min(knock * (100.0 / max(1.0, v.Mass)), CVF("vr_whip_crack_knock_ceiling", 32.0));
+					v.Vel += kd * vKnock;
+				}
+			}
 
 			// Indy stagger
 			if ((ActiveWhip.BehaviorFlags & WF_DISARM) != 0 && !v.bBoss)
@@ -469,15 +537,33 @@ class XRWhip : Weapon
 		{
 			grappleVictim = lt.HitActor;
 			grappleMode = GM_YANK;
+			grappleEntangleTimer = CVI("vr_whip_entangle_duration", 12);   // whip-owned, not victim.special1
+			// Mark the player as responsible from the moment the yank locks on, not just once
+			// caught -- covers a flags:grabprop prop (e.g. the barrel) colliding with something
+			// mid-pull, before it ever reaches the catch threshold. Standard Doom convention
+			// (A_Explode's RadiusAttack reads self.target for kill credit).
+			grappleVictim.target = owner;
 		}
 		else
 		{
 			grappleAnchor = lt.HitLocation;
-			grappleDist = (grappleAnchor - owner.pos).Length();
-			// anchor well above you => pendulum SWING; otherwise REEL yourself in
-			grappleMode = (grappleAnchor.z - owner.pos.z > WHIP_SWING_MINRISE) ? GM_SWING : GM_REEL;
+			// Floor the rope length so a point-blank catch can't create a near-zero grappleDist
+			// (degenerate rope direction + inverted first swing-pump response). LOWER bound only --
+			// NOT clamped to Reach, because the trace originates hz above owner.pos, so the true 3D
+			// catch distance can legitimately exceed Reach by up to |hz| (triangle inequality).
+			grappleDist = max((grappleAnchor - owner.pos).Length(), WHIP_MIN_ROPE_DIST);
+			// Unconditional now -- no more height check picking REEL vs SWING. Airborne naturally
+			// swings (gravity + taut-line), grounded naturally does nothing (floor absorbs it).
+			grappleMode = GM_ATTACHED;
 			if (!owner.bNoGravity) { owner.bNoGravity = true; grappleSetNoGrav = true; }
 		}
+
+		// seed the pinball-safeguard trackers fresh for this grapple session
+		prevGrappleVel = owner.Vel;
+		lastBigImpulseTic = 0;
+		recentDamage = 0.0;
+		lastKnownHealth = owner.health;
+		healthTracked = true;
 
 		if (ActiveWhip && ActiveWhip.SndCrack.Length() > 0)
 			A_StartSound(ActiveWhip.SndCrack, CHAN_WEAPON, 0, 0.7);   // the catch
@@ -489,50 +575,257 @@ class XRWhip : Weapon
 		if (!(owner.player.cmd.buttons & BT_ALTATTACK)) { EndGrapple(); return; }
 		if (--grappleTimer <= 0) { EndGrapple(); return; }
 
-		if (grappleMode == GM_REEL)
+		// recent-damage tracker for the damage-aware taper (pinball safeguard) -- runs regardless
+		// of mode, decays every tic so a hit from 3 seconds ago stops mattering.
+		if (healthTracked)
 		{
-			vector3 toA = grappleAnchor - owner.pos;
-			double d = toA.Length();
-			if (d < 56.0) { EndGrapple(); return; }        // arrived
-			owner.Vel = toA.Unit() * WHIP_REEL_SPEED;
+			int dmgThisTic = lastKnownHealth - owner.health;
+			if (dmgThisTic > 0) recentDamage += dmgThisTic;
+			recentDamage *= 0.92;
+			lastKnownHealth = owner.health;
 		}
-		else if (grappleMode == GM_SWING)
+
+		if (grappleMode == GM_ATTACHED)
 		{
-			// Pendulum: hang at fixed rope length from a high anchor, gravity does the
-			// rest. Release (BT_ALTATTACK up) keeps your tangential speed -> you fly off.
 			vector3 toA = grappleAnchor - owner.pos;
 			double d = toA.Length();
-			if (d < 24.0) { EndGrapple(); return; }
-			vector3 rope = toA / d;                          // unit, toward anchor
-			owner.Vel += (0.0, 0.0, -WHIP_SWING_GRAV);       // self-applied (bNoGravity is on)
-			double radial = owner.Vel dot rope;              // + = toward anchor
-			if (radial < 0.0) owner.Vel -= rope * radial;    // cancel only the rope-stretching part
-			if (d > grappleDist)                             // taut-line length constraint
-				owner.SetOrigin(grappleAnchor - rope * grappleDist, true);
+			if (d < 1.0) { EndGrapple(); return; }            // degenerate: anchor ~= player, bail (parity w/ GM_YANK guard)
+			vector3 rope = toA / d;                           // unit, toward anchor
+
+			// Tension physics -- the ONE state for any geometry catch. ENERGY-CONSERVING taut line
+			// via predict-and-project, with the ENGINE as the sole integrator: the player pawn is a
+			// thinker whose native Tick (P_XYMovement/P_ZMovement) applies owner.Vel to pos every
+			// tic. So we set Vel to the exact displacement that lands on the rope sphere and let the
+			// engine do the one move -- we must NOT ALSO SetOrigin, or the player double-moves off
+			// the sphere and flings outward (caught by the physics re-audit; the VR climb system
+			// p_user.cpp sets Vel and lets native movement integrate it, never SetOrigin -- same
+			// convention). Only project when actually overshooting; otherwise leave Vel as the free
+			// gravity/swing velocity (this is what conserves energy -- no per-tic radial cancel).
+			// Airborne this is a pendulum; grounded the floor cancels the self-gravity, nothing moves.
+			owner.Vel += (0.0, 0.0, -WHIP_SWING_GRAV);        // self-applied (bNoGravity is on)
+			vector3 predicted = owner.pos + owner.Vel;         // where the engine WILL move us this tic
+			vector3 toAnchorP = grappleAnchor - predicted;
+			double dP = toAnchorP.Length();
+			if (dP > grappleDist && dP > 0.0001)               // only correct a real overshoot
+			{
+				vector3 ropeP = toAnchorP / dP;
+				predicted = grappleAnchor - ropeP * grappleDist;  // project back onto the rope sphere
+				owner.Vel = predicted - owner.pos;                 // engine will integrate this -> lands ON the sphere
+				d = grappleDist;                                   // d authoritative after the correction
+			}
+			else d = dP;
+
+			// Contextual deliberate pull: Fire is free while AltFire holds the line, so holding
+			// it here means "reel me in on purpose" instead of the old unconditional auto-fly.
+			// (Ordering: must stay AFTER the taut-line correction and BEFORE the pinball clamp.)
+			if (CVB("vr_whip_contextual_yank", true) && (owner.player.cmd.buttons & BT_ATTACK))
+			{
+				double reelSpeed = CVF("vr_whip_reel_speed", 22.0);
+				owner.Vel += rope * reelSpeed * 0.15;         // ramping pull while held (saturates to the ceiling in ~12 tics)
+				if (d < 56.0) { EndGrapple(); return; }       // arrived
+			}
+
+			// Climb-to-pump-the-swing: off-hand grip (BT_USER1, unclaimed) shortens/lengthens the
+			// effective rope length; angular momentum conservation (v*L = const) means shortening
+			// speeds you up, same trick as a skater pulling their arms in.
+			ApplySwingPump(rope);
+
+			// Pinball safeguards -- clamp per-hit impulse, then the overall ceiling. Runs LAST so
+			// it also catches anything ApplySwingPump or a stray native ApplyKickback added.
+			ApplyGrapplePinballSafeguard();
 		}
 		else if (grappleMode == GM_YANK)
 		{
-			if (grappleVictim == null || grappleVictim.health <= 0) { EndGrapple(); return; }
+			// bDestroyed guards a use-after-Destroy window: something else could destroy the victim
+			// this same tic (before health drops), and reading a destroyed actor's fields is UB.
+			if (grappleVictim == null || grappleVictim.bDestroyed || grappleVictim.health <= 0) { EndGrapple(); return; }
 
-			if (grappleVictim.bBoss || grappleVictim.Mass > 400)
+			int hand = bOffhandWeapon ? 1 : 0;
+			double handSpeed = owner.GetHandVelocity(hand).Length();     // "the player velocity check"
+			// "Easier Grabbing" gameplay toggle: halves EFFECTIVE mass (pull force only, not the
+			// actor's real Mass/collision physics) for flags:grabprop props -- same toggle and
+			// keyword the gravity-glove throw/pull code checks (p_user.cpp), kept consistent here.
+			double yankMass = grappleVictim.Mass;
+			if (CVB("vr_easy_grab_props", false) && grappleVictim.Keywords.IndexOf("flags:grabprop") != -1)
+				yankMass *= 0.5;
+			double massRatio = 100.0 / max(1.0, yankMass);      // mirrors the throw-formula convention
+			// #1 CRITICAL (physics audit): clamp pullSpeed at the SOURCE. handSpeed is a raw VR
+			// controller reading with NO ceiling anywhere in the native pipeline, so a tracking spike
+			// (or a genuinely violent real swing) would otherwise inject an arbitrarily huge velocity
+			// straight into a monster. Clamping here also keeps the Roll-tumble below consistent with
+			// the actual pull.
+			double pullSpeed = handSpeed * CVF("vr_whip_yank_force_scale", 1.0) * massRatio;
+			pullSpeed = min(pullSpeed, CVF("vr_whip_yank_pull_cap", 45.0));
+			double minSpeed  = CVF("vr_whip_entangle_minspeed", 4.0);
+
+			if (grappleVictim.bBoss || pullSpeed < minSpeed)
 			{
-				// too heavy to move -- reel the player toward it instead
-				owner.Vel = (grappleVictim.pos - owner.pos).Unit() * WHIP_REEL_SPEED;
+				if (grappleVictim.bBoss)
+				{
+					// reel the player toward the immovable boss -- guard .Unit() against a zero
+					// vector (boss teleporting onto you, coincident positions), else NaN permanently
+					// corrupts owner.Vel with no self-recovery. Route through the pinball safeguard so
+					// this owner.Vel write is clamped like every other one.
+					vector3 toVictim = grappleVictim.pos - owner.pos;
+					if (toVictim.Length() > 0.001)
+					{
+						owner.Vel = toVictim.Unit() * CVF("vr_whip_reel_speed", 22.0);
+						ApplyGrapplePinballSafeguard();
+					}
+					else EndGrapple();
+				}
+				else
+					EndGrapple();          // too weak to catch -- the crack still hit via FireCrack, no pull
+				return;
 			}
-			else
+
+			// ENTANGLED: pull toward a point in front of the player, not their exact origin, so a
+			// follow-up melee swing actually connects instead of the enemy landing on/behind you.
+			vector3 fwd = (cos(owner.angle), sin(owner.angle), 0.0);
+			vector3 landing = owner.pos + fwd * WHIP_MELEE_LANDING_RANGE;
+
+			// Reverse-throw ARC (Bulletstorm-style yank), not a flat straight-line drag. Horizontal
+			// steering is continuous (still tracks a moving player); the vertical component climbs
+			// toward an apex while there's meaningful ground left to cover, then hands off to the
+			// object's own natural gravity to arc it back down as it closes in -- instead of fighting
+			// gravity every tic with a raw 3D pull vector (which is why it used to read as "dragged
+			// along the ground").
+			vector2 toLandingXY = (landing.x - grappleVictim.pos.x, landing.y - grappleVictim.pos.y);
+			double horizDist = toLandingXY.Length();
+			vector2 horizDir = (horizDist > 0.001) ? toLandingXY / horizDist : (0.0, 0.0);
+
+			double arcHeight = CVF("vr_whip_yank_arc_height", 80.0);
+			double apexZ = max(owner.pos.z, grappleVictim.pos.z) + arcHeight;
+			double liftNeeded = apexZ - grappleVictim.pos.z;
+
+			double liftSpeed = 0.0;
+			if (horizDist > WHIP_MELEE_LANDING_RANGE * 0.35 && liftNeeded > 0.0)
 			{
-				grappleVictim.Vel += (owner.pos - grappleVictim.pos).Unit() * WHIP_YANK_SPEED;
+				// Still meaningfully far out and below the arc's apex -- keep climbing toward it.
+				liftSpeed = min(liftNeeded * 0.2, CVF("vr_whip_yank_lift_cap", 20.0));
+			}
+			// else: close enough, or already past the apex -- stop adding lift and let existing
+			// Vel.Z + native gravity carry it back down into the landing, same as a real thrown
+			// object falling out of its arc.
+
+			grappleVictim.Vel.X = horizDir.X * pullSpeed;
+			grappleVictim.Vel.Y = horizDir.Y * pullSpeed;
+			grappleVictim.Vel.Z += liftSpeed;   // additive: blends with gravity's own per-tic pull
+
+			// Clamp the RESULTANT victim speed every tic. Mirrors the owner-side pinball ceiling.
+			// Full 3-vector clamp to match the native P_XYMovement backstop's shape.
+			double vCeil = CVF("vr_whip_yank_vel_ceiling", 60.0);
+			if (grappleVictim.Vel.Length() > vCeil)
+				grappleVictim.Vel = grappleVictim.Vel.Unit() * vCeil;
+
+			// roll/tumble, scaled to how hard the yank is -- Roll is a real, plain read/write
+			// native field (actor.zs:111); harder yank, faster tumble.
+			double rollScale = CVF("vr_whip_roll_speed_scale", 1.0);
+			grappleVictim.Roll += clamp(pullSpeed * 0.4, 2.0, 40.0) * rollScale;
+
+			// guaranteed vulnerability window -- whip-owned countdown (was grappleVictim.special1,
+			// a shared actor scratch field other actors write -- collision risk, now whip-local).
+			if (grappleEntangleTimer > 0)
+			{
+				grappleEntangleTimer--;
 				if (ActiveWhip && (ActiveWhip.BehaviorFlags & WF_DISARM) != 0)
 				{
-					// disarm: interrupt whatever it's doing and stagger it briefly
 					let ps = grappleVictim.FindState("Pain");
 					if (ps) grappleVictim.SetState(ps);
 					grappleVictim.reactiontime += 8;
 				}
-				double d = (grappleVictim.pos - owner.pos).Length();
-				if (d < 72.0) EndGrapple();
+			}
+
+			double d = (landing - grappleVictim.pos).Length();
+			if (d < 40.0)
+			{
+				// Catch: hand a flags:grabprop prop (currently just ExplosiveBarrel) into the
+				// player's native held-item slot instead of just dropping it loose on arrival --
+				// from then on it's a normal held item (throwable, shootable, voxel-shown) via the
+				// existing gravity-glove machinery. Monsters (no flags:grabprop) are unaffected --
+				// they keep landing loose in front of the player exactly as before.
+				if (grappleVictim.Keywords.IndexOf("flags:grabprop") != -1)
+				{
+					if (owner.VR_TrySetHeldItem(hand, grappleVictim))
+					{
+						if (CVB("vr_whip_catch_damage", false))
+							owner.DamageMobj(self, owner, int(CVF("vr_whip_catch_damage_amount", 5.0)), 'None');
+					}
+				}
+				EndGrapple();
 			}
 		}
+	}
+
+	// Angular-momentum-conserving rope-length change: v_new = v_old * (L_old / L_new). Shortening
+	// the rope speeds up the tangential (swinging) component; lengthening slows it. Only the
+	// tangential component is rescaled -- the radial component is already governed by the taut-line
+	// constraint above and shouldn't be touched here.
+	private void ApplySwingPump(vector3 rope)
+	{
+		if (!(owner.player.cmd.buttons & BT_USER1)) return;
+
+		int hand = bOffhandWeapon ? 1 : 0;
+		int offHand = 1 - hand;
+		vector3 offVel = owner.GetHandVelocity(offHand);
+		double climbRate = -(offVel dot rope);       // hand moving TOWARD anchor shortens the rope
+
+		double pumpScale = CVF("vr_whip_swing_pump", 1.0);
+		if (pumpScale <= 0.0) return;
+
+		// Clamp the per-tic length CHANGE, not just the resulting distance. This bounds BOTH the
+		// velocity rescale ratio (so a huge climbRate spike can't multiply your speed wildly in one
+		// tic) AND the taut-line SetOrigin snap distance next tic (grappleDist can't jump far).
+		// Clamping the derived ratio alone missed the position-teleport half. (Physics audit.)
+		double maxStep = 8.0;   // max rope-length change per tic, map units
+		double step = clamp(climbRate * pumpScale, -maxStep, maxStep);
+		// Upper bound is max(grappleDist, Reach), NOT a flat Reach: a catch can legitimately start
+		// with grappleDist > Reach (the trace originates hz above owner.pos -- see StartGrappleFromAim).
+		// A flat Reach cap would SNAP such a rope down to Reach in one tic, defeating maxStep and
+		// giving a free tangential-speed spike (ratio = grappleDist/newDist jumps well above 1). This
+		// lets the rope only walk toward Reach at <= maxStep/tic. (Physics re-audit.)
+		double newDist = clamp(grappleDist - step, WHIP_MIN_ROPE_DIST, max(grappleDist, ActiveWhip.Reach));
+		if (abs(newDist - grappleDist) < 0.001) return;
+
+		double ratio = grappleDist / max(0.0001, newDist);   // epsilon guard independent of the design floor
+		vector3 tangential = owner.Vel - rope * (owner.Vel dot rope);
+		owner.Vel = owner.Vel - tangential + tangential * ratio;
+		grappleDist = newDist;
+	}
+
+	// Rope-tension knockback safety valve. Never touches the shared native ApplyKickback (used by
+	// every actor in the game) -- this only re-clamps whatever the player's Vel already is each
+	// tic while attached, regardless of what pushed it there (fireball, splash, swing-pump, etc.).
+	private void ApplyGrapplePinballSafeguard()
+	{
+		vector3 delta = owner.Vel - prevGrappleVel;
+		double deltaLen = delta.Length();
+
+		// per-hit impulse cap, with diminishing returns on rapid repeat hits (anti-juggle-lock).
+		// max(0.001,...) floors the CVar so a negative/zero config value can't turn the .Unit()
+		// below into a zero-vector call (which would NaN owner.Vel). Belt-and-suspenders with the
+		// deltaLen > 0.001 guard so a future refactor reading the CVar elsewhere is still safe.
+		double perHitCap = max(0.001, CVF("vr_whip_grapple_hit_cap", 26.0));
+		int t = level.maptime;
+		if (t - lastBigImpulseTic < 10) perHitCap *= 0.5;
+
+		if (deltaLen > perHitCap && deltaLen > 0.001)
+		{
+			owner.Vel = prevGrappleVel + delta.Unit() * perHitCap;
+			lastBigImpulseTic = t;
+		}
+
+		// damage-aware taper: the more you've recently been hurt, the harder the ceiling clamps --
+		// getting wrecked should read in the health bar, not as loss of physical control.
+		double baseCeiling = max(0.001, CVF("vr_whip_grapple_vel_ceiling", 40.0));
+		double hitScale    = CVF("vr_whip_grapple_hit_scale", 0.5);
+		double ceiling = baseCeiling * clamp(1.0 - (recentDamage / 100.0) * hitScale, 0.25, 1.0);
+
+		double speed = owner.Vel.Length();
+		if (speed > ceiling && speed > 0.001)
+			owner.Vel = owner.Vel.Unit() * ceiling;
+
+		prevGrappleVel = owner.Vel;
 	}
 
 	void EndGrapple()
@@ -543,6 +836,8 @@ class XRWhip : Weapon
 		grappleMode = GM_NONE;
 		grappleVictim = null;
 		grappleTimer = 0;
+		grappleEntangleTimer = 0;
+		healthTracked = false;
 	}
 
 	private void RenderGrappleLine(vector3 handPos)
@@ -603,17 +898,20 @@ class XRWhip : Weapon
 
 		// two-hand: off hand near the handle feeds its velocity into the chain
 		vector3 otherPos = bOffhandWeapon ? owner.AttackPos : owner.OffhandPos;
-		bool twoHand = (otherPos - handPos).Length() < WHIP_TWOHAND_R;
+		bool twoHand = CVB("vr_whip_two_hand_boost", true) && (otherPos - handPos).Length() < WHIP_TWOHAND_R;
 		vector3 assistVel = twoHand ? owner.GetHandVelocity(1 - hand) : (0.0, 0.0, 0.0);
 
 		SimulateRope(handPos, assistVel, twoHand);
-		RenderRope();
 
-		// Tier 2 (opt-in): spawn the rigged model, park it at the hand, drive its bones from
-		// the sim. Default OFF -- glow rope stays the visual until `set vr_whip_model 1` AND a
-		// rebuild (the SetModelBonePose native ships with the Tier-2 C++ patch).
-		CVar mc = CVar.FindCVar("vr_whip_model");
-		if (mc && mc.GetBool())
+		// Tier 2 is now the DEFAULT visual: the rigged 300-map-unit braided-leather IQM
+		// (models/weapons/xrwhip/whip_rigged.iqm), bones driven straight from the Verlet sim
+		// every tic. `vr_whip_model` used to gate this but was never declared in CVARINFO --
+		// the model was silently unreachable, not actually "opt-in." Now declared, defaulted
+		// true (CVARINFO), with a menu toggle -- an escape hatch back to the glow-panel rope
+		// if the rigged model ever looks wrong in-headset (bone axis/rest-length are
+		// best-known values per DriveModelBones()'s own comment, not yet in-headset confirmed).
+		bool useModel = CVB("vr_whip_model", true);
+		if (useModel)
 		{
 			if (whipModel == null)
 				whipModel = XRWhipModel(Spawn("XRWhipModel", handPos));
@@ -629,6 +927,11 @@ class XRWhip : Weapon
 			whipModel = null;
 		}
 
+		// Glow-panel rope is the FALLBACK visual now, not the primary -- only draw the
+		// per-node cord glow when the physical model is off, so a real leather whip doesn't
+		// get an overlay of 16 glowing dots down its own length.
+		if (!useModel) RenderRope();
+
 		// crack evaluation
 		XRWhipNode tipN = nodes[nodes.Size() - 1];
 		vector3 tipVel = tipN.pos - tipN.prev;
@@ -636,7 +939,10 @@ class XRWhip : Weapon
 		double handSpeed = owner.GetHandVelocity(hand).Length();
 		double effTip = max(tipSpeed, handSpeed);      // sim leads, hand speed is the floor
 
-		double crackAt = ActiveWhip.CrackSpeed;
+		// vr_whip_crack_threshold is a global override on top of the profile's own CrackSpeed --
+		// profiles differ from each other by a multiplicative ratio to their own 95.0 baseline, so
+		// changing the CVar shifts every profile together instead of erasing their differences.
+		double crackAt = ActiveWhip.CrackSpeed * (CVF("vr_whip_crack_threshold", 95.0) / 95.0);
 		if (twoHand) crackAt *= 0.7;
 
 		// whoosh telegraph just under threshold
@@ -682,6 +988,11 @@ class XRWhip : Weapon
 	action void A_XRWhipFireFlatscreen()
 	{
 		if (invoker.ActiveWhip == null) return;
+		// Fire's role changes while grappling: it's the deliberate-reel input (read directly from
+		// cmd.buttons in UpdateGrapple), not another attack. Without this guard, holding both
+		// buttons together would re-trigger a full lash/LineAttack every tic via A_WeaponReady's
+		// normal fire-button polling, stacking damage on top of the pull.
+		if (invoker.grappleActive) return;
 
 		invoker.LashFromAim();   // VR: feed the sim so the rope also cracks visually
 

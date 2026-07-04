@@ -7,8 +7,11 @@ void main()
     float scanline = scanline_pos;
     
     if (uv.y > scanline) {
-        // Wireframe / Grid area
-        vec2 gridUV = uv * vec2(120.0, 120.0 * (ScreenSize.y / ScreenSize.x));
+        // Wireframe / Grid area. Aspect-correct with a fixed 16:9 constant (0.5625 = 9/16):
+        // the 'ScreenSize' builtin isn't provided to this PostProcess-shader path (it was an
+        // undeclared identifier and hard-crashed the GLSL compile). Cosmetic boot grid, so a
+        // fixed aspect is fine.
+        vec2 gridUV = uv * vec2(120.0, 120.0 * 0.5625);
         float grid = 0.0;
         if (fract(gridUV.x) < 0.08 || fract(gridUV.y) < 0.08) grid = 0.5;
         

@@ -82,6 +82,7 @@ class FatShot : Actor
 		Alpha 1;
 		SeeSound "fatso/attack";
 		DeathSound "fatso/shotx";
+		Keywords "kickback:extreme";
 	}
 	States
 	{

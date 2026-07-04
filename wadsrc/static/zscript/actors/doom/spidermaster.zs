@@ -29,7 +29,12 @@ class SpiderMastermind : Actor
 		ActiveSound "spider/active";
 		Obituary "$OB_SPIDER";
 		Tag "$FN_SPIDER";
-		Keywords "mass:3000", "grab", "class:spidermastermind", "species:spidermastermind", "role:boss", "trait:rapid_fire", "anatomy:mechanical", "weight:boss", "vulnerability:explosive";
+		// Fires via A_SPosAttack -- the SAME 3-pellet-per-burst function ShotgunGuy uses, confirmed
+		// during the kickback audit (an earlier pass misidentified this as a different, continuous
+		// function and gave it the highest hitscan value in the roster, which would have produced
+		// ~15 thrust PER PELLET fired 3x rapidly -- exactly the stacking problem ChaingunGuy was
+		// deliberately kept low to avoid). Recalibrated down, consistent with that same reasoning.
+		Keywords "mass:3000", "grab", "class:spidermastermind", "species:spidermastermind", "role:boss", "trait:rapid_fire", "anatomy:mechanical", "weight:boss", "vulnerability:explosive", "kickback:300";
 	}
 	States
 	{

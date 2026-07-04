@@ -14,6 +14,7 @@ struct KeywordProfile {
     bool climbable = false;
     float climb_speed = 1.0f;
     int mass = 0;
+    int kickback = 0;   // mirrors mass -- see ResolveKeywordKickback / AActor::PostBeginPlay
 
     // Flags
     bool throwable = false;
@@ -71,6 +72,7 @@ public:
     static bool ResolveKeywordColor(const FString& keywords, uint8_t& out_r, uint8_t& out_g, uint8_t& out_b, uint8_t& out_a, bool& out_pulse, float& out_freq);
     static bool IsClimbable(const FString& keywords, float& out_speed);
     static bool ResolveKeywordMass(const FString& keywords, int& out_mass);
+    static bool ResolveKeywordKickback(const FString& keywords, int& out_kickback);
     static bool ResolveMetadata(const FString& keywords, KeywordProfile& out_profile);
     static bool IsThrowable(const FString& keywords);
     static bool IsGrenade(const FString& keywords);

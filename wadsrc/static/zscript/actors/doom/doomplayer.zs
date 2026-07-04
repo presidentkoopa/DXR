@@ -18,6 +18,7 @@ class DoomPlayer : PlayerPawn
 		Player.StartItem "Pistol";
 		Player.StartItem "Fist";
 		Player.StartItem "VRSword";
+		Player.StartItem "IceHook";
 		Player.StartItem "Clip", 50;
 		// XRWhip and ShieldSaw are opt-in only -- granted by WeaponReplacementHandler
 		// (vr_weapon_logic.zs) when vr_start_with_whip / vr_start_with_shieldsaw is on.

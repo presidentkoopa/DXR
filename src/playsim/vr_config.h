@@ -3,6 +3,7 @@
 #include "tarray.h"
 #include "zstring.h"
 #include "name.h"
+#include "vr_hardpoint.h"   // FHardpointSlot, EHardpointAnchor/Action, VR_MAX_HARDPOINTS
 
 struct FVRTaxonomy
 {
@@ -25,7 +26,11 @@ struct FVRConfig
 {
     static TArray<FString> ClimbableTextures;
     static TMap<FName, FVRTaxonomy> Taxonomies;
-    
+
+    // Data-driven hardpoint slot defaults, loaded from vr_hardpoints.json.
+    // Mirrored per-player into player_t.vr_hardpoints[] at pawn spawn (VR_InitHardpoints).
+    static TArray<FHardpointSlot> Hardpoints;
+
     // Taxonomy Dictionary
     static FVRTaxonomy* GetTaxonomy(const FString& className);
 

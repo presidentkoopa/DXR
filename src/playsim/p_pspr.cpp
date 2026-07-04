@@ -677,11 +677,37 @@ void DPSprite::SetState(FState *newstate, bool pending)
 				PClassActor* archClass = FVRWeaponResolver::GetActorClassForArchetype(weapon->vr_weapon_data->Archetype);
 				if (archClass && State != nullptr)
 				{
-					FString stateName = FState::StaticGetStateName(State, Caller->GetClass());
-					
+					// Find which of the weapon's OWN top-level labels (Ready/Fire/AltFire/Reload/...)
+					// this exact frame is the anchor of, if any. StaticGetStateName returns a debug
+					// "ClassName.index" string (see p_states.cpp), never a real label name, so the old
+					// FindState(FName(stateName)) call here always failed -- for every frame, in every
+					// state -- and silently fell through to the NAME_Ready fallback below on every
+					// single tic. That's why the 3D model was permanently frozen on the Ready pose
+					// during Fire/AltFire/Reload for every weapon using this hook: it was being reset
+					// back to Ready every tic, never actually reaching the Fire/Reload archetype state.
+					FName labelName = NAME_None;
+					FStateLabels* lbls = Caller->GetClass()->GetStateLabels();
+					if (lbls)
+					{
+						for (int li = 0; li < lbls->NumLabels; li++)
+						{
+							if (lbls->Labels[li].State == State)
+							{
+								labelName = lbls->Labels[li].Label;
+								break;
+							}
+						}
+					}
+
+					// Only re-sync on a genuine label anchor. Mid-sequence continuation frames (e.g.
+					// the 2nd/3rd/4th frame under "Fire:") aren't label anchors -- leave Current3DState
+					// alone for those and let the separate "Advance 3D Tics" hook (above, in
+					// DPSprite::Tick) carry the 3D animation forward on its own independent schedule.
+					if (labelName != NAME_None)
+					{
 					// Find the corresponding state in the 3D archetype
-					FState* archState = archClass->FindState(FName(stateName));
-					
+					FState* archState = archClass->FindState(labelName);
+
 					// Fallback: If modded weapon enters a state the 3D model doesn't have (like AltFire),
 					// safely return the 3D model to Ready.
 					if (!archState)
@@ -713,7 +739,8 @@ void DPSprite::SetState(FState *newstate, bool pending)
 						weapon->vr_weapon_data->Current3DState = archState;
 						weapon->vr_weapon_data->Current3DTics = 0;
 						// Store the scaling factor indirectly via max tics
-						weapon->vr_weapon_data->Max3DTics = total3DTics; 
+						weapon->vr_weapon_data->Max3DTics = total3DTics;
+					}
 					}
 				}
 			}

@@ -165,6 +165,29 @@
         "mass": 999999
       }
     },
+    "kickback": {
+      "trivial": {
+        "kickback": 160
+      },
+      "light": {
+        "kickback": 200
+      },
+      "moderate": {
+        "kickback": 480
+      },
+      "heavy": {
+        "kickback": 650
+      },
+      "severe": {
+        "kickback": 800
+      },
+      "brutal": {
+        "kickback": 960
+      },
+      "extreme": {
+        "kickback": 1350
+      }
+    },
     "color": {
       "neon_cyan": {
         "rgb": [

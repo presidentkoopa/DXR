@@ -77,6 +77,7 @@ EXTERN_CVAR(Float, r_actorspriteshadowalpha)
 EXTERN_CVAR(Float, r_actorspriteshadowfadeheight)
 EXTERN_CVAR(Bool, gl_texture_thread)
 EXTERN_CVAR(Bool, gl_texture_thread_models)
+EXTERN_CVAR(Int, vr_mode)   // [XR] read directly for the body-avatar gate (see vrBodyAvatar below)
 
 //==========================================================================
 //
@@ -871,6 +872,15 @@ bool IsDistanceCulled(AActor* thing)
 CVAR(Float, vr_voxel_cull_items, 0.0, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Float, vr_voxel_cull_monsters, 0.0, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 
+// [XR] "OUR BODY" first-person avatar. When on (default), the local player's own pawn model
+// (DoomPlayer -> marine_nohands.iqm) is DRAWN at the player's own position in first-person VR,
+// instead of being culled as the view actor. In stock GZDoom the camera actor is skipped in
+// first person (hw_sprites viewmaster==camera block), so you never see your own body; this cvar
+// lifts that cull for VR only. The mesh renders at BIND POSE even before/without arm IK
+// (r_data/models.cpp MODELSAREATTACHMENTS -> GetBasePose), which VR_UpdateArmIK then refines
+// per-tic. Non-VR is unaffected (gated on vrmode->IsVR()).
+CVAR(Bool, vr_show_body, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+
 bool IsVoxelCulled(AActor* thing)
 {
 	bool isMonster = (thing->flags3 & MF3_ISMONSTER) != 0;
@@ -969,12 +979,45 @@ void HWSprite::Process(HWDrawInfo *di, AActor* thing, sector_t * sector, area_t 
 			sprscale *= 1.2;
 		}
 
-		if (thruportal == 1) vieworigin += di->Level->Displacements.getOffset(viewmaster->Sector->PortalGroup, sector->PortalGroup);
-		if (fabs(vieworigin.X - vp.ActorPos.X) < 2 && fabs(vieworigin.Y - vp.ActorPos.Y) < 2) return;
+		// [XR] "OUR BODY" avatar: keep the local player's own model drawn AT their own position in
+		// first-person VR. The two returns below cull the camera actor once it sits on top of the
+		// viewpoint (which it always does when you are NOT teleport-aiming), which is why you never
+		// see your own body in stock first person. When this is the local VR player, vr_show_body is
+		// on, and the pawn actually has a 3D model (so we never paste a flat player sprite at the
+		// feet), skip those culls and fall through to the normal world-model render path. The
+		// teleport-ghost path above is unaffected: there vieworigin is the teleport target, far from
+		// ActorPos, so the distance cull never fired for it in the first place.
+		FSpriteModelFrame* bodyMF = FindModelFrame(thing, spritenum, thing->frame, !!(thing->flags & MF_DROPPED), IsVoxelCulled(thing));
+		// VR is "on" if either the cached VRMode says so OR the vr_mode cvar is non-zero. The cached
+		// object can go stale across threads/frames, so we don't trust it alone -- we own the engine,
+		// so gate on the actual setting.
+		const bool vrIsOn = vrmode->IsVR() || (int)vr_mode != 0;
+		const bool vrBodyAvatar =
+			vr_show_body &&
+			vrIsOn &&
+			viewmaster->player != nullptr &&
+			bodyMF != nullptr;
 
-		// Necessary in order to prevent sprite pop-ins with viewpos and models. 
+		// [XR] TEMP diagnostic (throttled per process run): logs the first dozen times the local
+		// player pawn reaches this view-actor cull, so we can see WHY the body avatar does/doesn't
+		// render without a headset round-trip. If NO [VRBODY] lines appear, the pawn never reaches
+		// here (culled earlier / not iterated). Remove once the body is confirmed.
+		static int s_vrBodyDbg = 0;
+		if (s_vrBodyDbg < 12)
+		{
+			s_vrBodyDbg++;
+			Printf("[VRBODY] isVR=%d vr_mode=%d show=%d player=%d spr=%d frm=%d modelframe=%d -> avatar=%d\n",
+				(int)vrmode->IsVR(), (int)vr_mode, (int)vr_show_body,
+				(int)(viewmaster->player != nullptr), spritenum, thing->frame,
+				(int)(bodyMF != nullptr), (int)vrBodyAvatar);
+		}
+
+		if (thruportal == 1) vieworigin += di->Level->Displacements.getOffset(viewmaster->Sector->PortalGroup, sector->PortalGroup);
+		if (!vrBodyAvatar && fabs(vieworigin.X - vp.ActorPos.X) < 2 && fabs(vieworigin.Y - vp.ActorPos.Y) < 2) return;
+
+		// Necessary in order to prevent sprite pop-ins with viewpos and models.
 		auto* sec = viewmaster->Sector;
-		if (sec && !sec->PortalBlocksMovement(sector_t::ceiling))
+		if (!vrBodyAvatar && sec && !sec->PortalBlocksMovement(sector_t::ceiling))
 		{
 			double zh = sec->GetPortalPlaneZ(sector_t::ceiling);
 			double top = (viewmaster->player ? max<double>(viewmaster->player->viewz, viewmaster->Top()) + 1 : viewmaster->Top());

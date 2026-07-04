@@ -22,7 +22,7 @@ class Cacodemon : Actor
 		Obituary "$OB_CACO";
 		HitObituary "$OB_CACOHIT";
 		Tag "$FN_CACO";
-		Keywords "mass:400", "grab", "class:cacodemon", "species:caco", "role:floater", "trait:projectile", "anatomy:flesh", "weight:heavy", "vulnerability:eye_crit";
+		Keywords "mass:400", "grab", "class:cacodemon", "species:caco", "role:floater", "trait:projectile", "anatomy:flesh", "weight:heavy", "vulnerability:eye_crit", "kickback:560";
 	}
 	States
 	{
@@ -78,6 +78,7 @@ class CacodemonBall : Actor
 		Alpha 1;
 		SeeSound "caco/attack";
 		DeathSound "caco/shotx";
+		Keywords "kickback:severe";
 	}
 	States
 	{

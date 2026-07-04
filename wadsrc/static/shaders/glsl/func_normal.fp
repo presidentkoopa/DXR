@@ -1,5 +1,5 @@
 
 void SetupMaterial(inout Material material)
 {
-	SetMaterialProps(material, vTexCoord.st);
+	SetMaterialProps(material, GetAffineTexCoord(vTexCoord.st));
 }

@@ -866,6 +866,10 @@ class Actor : Thinker native
 	// VR hand linear velocity, map-space (units/tic), 4-sample rolling average. hand: 0=main, 1=off.
 	// Returns (0,0,0) if not in VR or the buffer hasn't been populated yet (VR_UpdateGravityGloves must have run this tic).
 	native vector3 GetHandVelocity(int hand);
+	// Hands an actor into the native VR held-item slot for that hand (player_t::vr_held_items),
+	// so it becomes a normal grabbed/throwable item from then on. Returns false (no-op) if the
+	// hand isn't free or the caller isn't a VR player. hand: 0=main, 1=off.
+	native bool VR_TrySetHeldItem(int hand, Actor item);
 	// Procedural IQM bone posing: drive this actor's model bones directly from script each
 	// tic (physics whip Tier 2). Enable, then write one TRS per bone by index. Bone rotation
 	// is a quaternion (qx,qy,qz,qw); translation is parent-local (0,0,segLen for a chain).
@@ -874,6 +878,36 @@ class Actor : Thinker native
 	// VR head (HMD) world position in map-space. Local render viewpoint only
 	// (client presentation: holster zones / HUD anchors), not a networked field.
 	native vector3 GetHeadPos();
+	// VR head (HMD) world orientation (yaw,pitch,roll in degrees) -- the real per-frame
+	// HMD orientation, distinct from the actor's body-facing Angle. Local render
+	// viewpoint only (client presentation), not a networked field.
+	native vector3 GetHeadAngles();
+	// ---- Native VR hardpoint mounts + analog grip + arm IK (engine-level) ----
+	// All per-tic math is in C++ (VR_UpdateHardpoints / VR_UpdateArmIK). A modder
+	// declares a mount slot with ONE line; anchor/action use the HP_* consts below.
+	// anchor: 0=HP_ANCHOR_BODY (chest/head + yaw offset), 1=HP_ANCHOR_WRIST (other hand).
+	// action: 0=HP_ACT_HOLSTER (draw/stow the hand weapon), 1=HP_ACT_ABILITY (fire event).
+	// hand:   -1 either hand may reach, 0=main, 1=off. Returns slot index, or -1 if full.
+	native int  AssignHardpoint(int anchor, int actionType, int hand, double ox, double oy, double oz, double radius, Name weaponClass, Name abilityName);
+	// Disable a previously-assigned slot (drops any stowed-weapon GC reference).
+	native void ClearHardpoint(int slotIndex);
+	// Nearest enabled slot within reach of the given hand this tic, else -1.
+	native int  IsHardpointNear(int hand);
+	// The weapon actor currently holstered at a slot, or null.
+	native Actor GetHardpointStowed(int slotIndex);
+	// Analog VR squeeze 0..1 for a hand (0=main,1=off). 0 when not in VR.
+	native double GetGripValue(int hand);
+	// Toggle the native two-bone arm IK solver for this player's avatar.
+	native void SetArmIKEnabled(bool enable);
+	// Stow the hand's weapon into a slot (clears the PSprite via VR_DoHolster).
+	native void VR_HolsterHand(int hand, int slotIndex);
+	// Number of currently-configured hardpoint slots (iterate 0..count-1 for a marker spawner).
+	native int  GetHardpointCount();
+	// Anchor type of a slot (0=body, 1=wrist), or -1 if invalid.
+	native int  GetHardpointAnchorType(int slotIndex);
+	// WORLD position of ANY slot regardless of hand proximity -- same anchor math the
+	// native draw/stow detection uses, so a drawn marker never drifts from the real trigger.
+	native vector3 GetHardpointWorldPos(int slotIndex, int forHand);
 	native void Thrust(double speed = 1e37, double angle = 1e37);
 	native clearscope bool isFriend(Actor other) const;
 	native clearscope bool isHostile(Actor other) const;

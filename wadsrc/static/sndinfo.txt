@@ -26,6 +26,13 @@ $random *pain			{ *pain100  *pain75  *pain50  *pain25 }
 $alias misc/keytry		*usefail
 $alias misc/teleport		dstelept
 misc/critical		railgf1
+// VRLocationalArbiter (vr_locational_damage.zs) plays a crit sound on a headshot kill, selected by
+// the vr_crit_sound cvar (VR Combat Options menu): 1=Railgun 2=Plasma 3=Metal 4=Energy (0=Off, no
+// sound played). Each maps to an existing engine sound so the cue is always audible.
+$alias vr/critical_hit		railgf1
+$alias vr/critical_hit2		plfire
+$alias vr/critical_hit3		shdehit1
+$alias vr/critical_hit4		vrsw_hite
 
 // Pickup sounds that were not unique before
 $alias misc/health_pkup		misc/i_pkup	// Pickup health

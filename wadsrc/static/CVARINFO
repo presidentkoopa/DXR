@@ -20,9 +20,23 @@ server float vr_locational_head_threshold = 0.8;
 server float vr_locational_leg_threshold = 0.3;
 // (head_mult / leg_mult live in C++ hw_vrmodes.cpp with defaults 2.0 / 0.5 -- do not redeclare.)
 user bool vr_debug_locational = false;
+// Headshot-kill crit sound (VRLocationalArbiter, vr_locational_damage.zs). User-side audio
+// preference: 0=Off, 1=Railgun Ping, 2=Plasma Zap, 3=Metal Tink, 4=Energy Crack. Each maps to a
+// vr/critical_hit* SNDINFO alias.
+user int vr_crit_sound = 1;
 
 // (Graveyard persistent-storage cvars gy_hashes/gy_locations/gy_obituaries, plus every other
 // GITD/glow-in-the-dark cvar, moved to the Radiance Control Panel mod's own cvarinfo.txt.)
+
+// --- Grabbable Props (ExplosiveBarrel etc, "flags:grabprop" keyword) ---
+// vr_easy_grab_props itself is a NATIVE C++ cvar (hw_vrmodes.cpp) -- read directly in p_user.cpp's
+// per-tic grab/throw code, so it can't also be declared here (fatal "cvar already exists").
+// Whip-yank "catch": once a yanked flags:grabprop prop reaches the player, it's handed into the
+// held-item slot (VR_TrySetHeldItem) instead of just landing loose. Off by default: catching a
+// live prop (e.g. a primed barrel) deals no damage. On: a small self-damage tick on catch, for
+// players who want that as a risk/reward on the whip-retrieve.
+user bool vr_whip_catch_damage = false;
+server float vr_whip_catch_damage_amount = 5.0;
 
 // --- Barrel Explosion ---
 // Pretty grenade-style fireball (at 60% scale) is layered on the barrel by default. Set this
@@ -103,15 +117,38 @@ user bool hf_condition = true;
 
 
 // --- Atmospheric Fog Suite ---
+// Feeds u_gitd_fog_* uniforms (main.fp applyOmniFog); read via FindCVar in HWDrawInfo::StartScene,
+// same idiom as the Monster Neon cvars above. gitd_fog_mode gates the whole effect (0 = off).
+user int   gitd_fog_mode        = 0;    // 0=Off 1=Ground-Mist 2=Spectral 3=Bit-Crush 4=Vortex
+user float gitd_fog_density     = 0.5;
+user float gitd_fog_height      = 0.0;
+user float gitd_fog_quantize    = 32.0;
+user float gitd_fog_rim_power   = 2.0;
+user float gitd_fog_speed       = 1.0;
+user bool  gitd_fog_lightlink   = false;
 
 // --- Global Visual Regimes ---
-
+// vr_visual_regime itself and vr_affine_warp/vr_arcade_crt are native C++ cvars
+// (hw_postprocess_cvars.cpp) -- do not redeclare here. Everything below is the per-regime
+// tuning surface, feeding u_vr_regime_* uniforms the same way.
+user float vr_regime_param1       = 1.0;
+user float vr_regime_param2       = 1.0;
+user float vr_regime_speed        = 1.0;
 
 // --- Reactive Regime Settings ---
-
+user bool  vr_regime_react        = false;
+user bool  vr_regime_center_mask  = false;
+user float vr_regime_bubble_size  = 1.0;
+user float vr_regime_jitter       = 0.0;
+user bool  vr_regime_speed_link   = false;
+user float vr_regime_ping_inten   = 1.0;
 
 // --- Advanced Regime Customization ---
-
+user color vr_regime_blueprint_col  = "40 c0 ff";
+user float vr_regime_thermal_inten  = 1.0;
+user float vr_regime_noir_sat       = 0.15;
+user bool  vr_regime_ripples        = false;
+user float vr_regime_ripple_scale   = 1.0;
 
 
 // --- Shield Saw (ported from the RLVR devbuild prototype) ---
@@ -128,6 +165,15 @@ user int   vr_shieldsaw_aim          = 2;   // 0 = no auto-guide, 1 = aim-assist
 // existing gravity-glove flick threshold (p_user.cpp) for consistency, not a new balance number.
 user float vr_shieldsaw_throwspeed   = 10.0;
 
+// --- Chainsaw boomerang throw (AltFire multi-target lock) ---
+// Hold AltFire to lock up to _lock_max monsters within _lock_range that fall inside a
+// _lock_cone angular window of your view; release to hurl the saw through them and back.
+// Starting values, headset-tunable -- not finished balance.
+user int   vr_chainsaw_lock_max      = 3;      // 1..5 targets (clamped in code)
+user float vr_chainsaw_lock_range    = 640.0;  // map units
+user float vr_chainsaw_lock_cone     = 35.0;   // angular view-cone window (SphericalCoords units)
+user float vr_chainsaw_throw_dmg     = 25.0;   // damage per target the flying saw cuts
+
 // --- Manual Reload (chamber counter + gesture, VR Weapon Options toggle) ---
 // ON by default per project convention (ship features on; user is in VR and won't reach
 // console). Gates the whole XR_ManualReload mixin -- see zscript/engine/vr_manual_reload.zs.
@@ -141,9 +187,86 @@ user bool vr_manual_reload = true;
 // uses), not a ported third-party mod. See possessed.zs A_VRHitscanOrDodgeable.
 user bool vr_enemy_hitscans = true;
 
+// --- VR hardpoint slot markers (visible billboards at holsters + wrist ability mounts) ---
+// ZScript-read (vr_hardpoint_markers.zs). The native hardpoint SYSTEM cvars
+// (vr_hardpoint_enable / vr_hardpoint_radius / vr_ik_enable / vr_ik_*) are defined in C++
+// (hw_vrmodes.cpp) and must NOT be redeclared here.
+user bool vr_hardpoint_markers_show = true;
+
 // --- VR Sword (swing-tracked blade, cosmetic-swappable via BladeProfile) ---
 // Starting estimates for in-headset tuning, not finished balance values.
 user float vr_sword_swing_on   = 35.0;  // tip speed (map-units/tic) that arms a cut
 user float vr_sword_swing_off  = 18.0;  // tip speed the cut stays live until it drops below
 user int   vr_sword_blade      = 0;     // 0=Steel, 1=Lightsaber, 2=DragonsTooth
+
+// --- Ice Hook (baked in from the standalone IceHook_mod, part of the default class via
+// Player.StartItem -- doomplayer.zs, same mechanism as Pistol/Fist/VRSword). The prototype's
+// vr_icehook_enabled/vr_icehook_autogive CVars are dropped: StartItem is now unconditional,
+// so a CVar claiming to gate the give would be a dead, misleading toggle.
+user int   vr_icehook_melee_damage = 40;     // swing (main trigger) damage
+user float vr_icehook_throw_speed  = 40.0;   // thrown-hook launch speed
+user int   vr_icehook_stick_life   = 30;     // stuck-hook lifetime in seconds (0 = forever)
+user bool  vr_icehook_pick_liquids = false;  // can the pick bite liquid surfaces? default no (all else IS pickable)
+user bool  vr_icehook_autopull     = true;   // zip the thrower toward the hook when it sticks
+user float vr_icehook_pull_speed   = 30.0;   // reel speed, map units/tic
+user float vr_icehook_pull_range   = 900.0;  // abandon the pull past this distance
+
+// --- XR Whip (Verlet rope, crack physics, contextual grapple/entangle) ---
+// Starting estimates for in-headset tuning, not finished balance values. The first weapon in
+// this engine with full in-game menu exposure -- Sword/ShieldSaw's CVars above are console-only.
+user int   vr_whip_profile            = 0;     // 0=Leather, 1=Ember, 2=Tesla
+// DEFAULT TRUE -- the rigged 300-map-unit braided-leather IQM is the whip's real visual now, not
+// an opt-in. Was previously referenced via CVar.FindCVar("vr_whip_model") with NO declaration
+// anywhere -- FindCVar returned null, so the model was silently unreachable even via console.
+// Kept as a toggle (not made unconditional) as an escape hatch back to the glow-panel rope if
+// the rigged model looks wrong in-headset -- bone axis/rest-length are best-known values per
+// DriveModelBones()'s own comment, not yet confirmed against a real headset.
+user bool  vr_whip_model              = true;
+user float vr_whip_crack_threshold    = 95.0;  // tip speed (map-units/tic) that triggers a crack
+user bool  vr_whip_two_hand_boost     = true;  // off-hand velocity feeds the chain for bigger cracks
+user bool  vr_whip_contextual_yank    = true;  // hold Fire while attached = deliberate reel-in
+user float vr_whip_reel_speed         = 22.0;  // deliberate-reel pull speed (map-units/tic)
+user float vr_whip_swing_pump         = 1.0;   // climb-to-pump-the-swing strength (0 = off)
+user float vr_whip_yank_force_scale   = 1.0;   // entangle-yank strength multiplier
+user float vr_whip_entangle_minspeed  = 4.0;   // min pull speed (map-units/tic) needed to catch at all
+user int   vr_whip_entangle_duration  = 12;    // tics an enemy stays in the guaranteed-vulnerable window
+user float vr_whip_roll_speed_scale   = 1.0;   // entangled-enemy tumble-rate multiplier
+user float vr_whip_grapple_vel_ceiling= 40.0;  // pinball safeguard: max player speed while attached
+user float vr_whip_grapple_hit_cap    = 26.0;  // pinball safeguard: max velocity change from one hit
+user float vr_whip_grapple_hit_scale  = 0.5;   // pinball safeguard: how hard recent damage tapers the ceiling
+// safety clamps added after the physics audit -- bound the velocity the whip can inject into a
+// monster (yanked enemies + crack knockback), so a VR tracking spike can't fling anything absurdly.
+user float vr_whip_yank_pull_cap      = 45.0;  // max per-tic pull speed added to a yanked enemy
+user float vr_whip_yank_vel_ceiling   = 60.0;  // max total speed a yanked enemy can accumulate
+user float vr_whip_crack_knock_ceiling= 32.0;  // max crack knockback per hit (mirrors native ApplyKickback cap)
+
+// --- XR Gravity Path (palm-out, draw walkable SDF-tile paths across surfaces/air) ---
+// All read live each tick by XR_GravityPath.DoEffect (vr_gravity_path.zs). Starting
+// estimates for in-headset tuning, not finished values.
+user color xr_gp_color          = "40 c0 ff";  // tile color
+user float xr_gp_tile_width     = 40.0;   // plank width (map units, ~player diameter)
+user float xr_gp_tile_length    = 40.0;   // plank length = spawn spacing along the sweep
+user float xr_gp_cast_dist      = 512.0;  // aim/reach distance for painting
+// capture-box HEIGHT above the plank face = attach range. MUST stay > player radius (~16)
+// or you oscillate (attach -> C++ clamp pushes you to radius -> outside box -> detach). 18 floor.
+user float xr_gp_capture_h      = 28.0;
+user float xr_gp_capture_margin = 8.0;    // footprint slack around plank edges
+user float xr_gp_lerp_time      = 0.2;    // seconds to smoothly rotate gravity on mount / tile-to-tile
+user bool  xr_gp_fall_catch     = true;   // catch a falling player who enters a plank capture box
+user float xr_gp_alpha          = 0.9;    // tile brightness / alpha
+user int   xr_gp_max_tiles      = 128;    // max planks kept before the oldest recycles
+user float xr_gp_beam_width     = 10.0;   // width of the live paint-stream beam from hand to aim point
+user float xr_gp_palm_lo        = 45.0;   // palm-out gate: |OffhandRoll| lower bound (deg)
+user float xr_gp_palm_hi        = 135.0;  // palm-out gate: upper bound (deg)
+// A new tile spawns as a small square anchored to the PREVIOUS tile's edge, then
+// extrudes forward and locks into the full rectangle. Not attachable while growing.
+user float xr_gp_grow_time      = 0.15;   // seconds for a plank to extrude from seed to full length
+// Debug overlay: particles drawing the aim ray + hit, each tile's face rectangle,
+// its capture-height normal stub, and highlighting the tile you're attached to.
+user bool  xr_gp_debug          = false;
+// Rail Guard: while attached to the path, your forward/side push is redirected
+// along the path's own direction instead of your view/body facing, so a curving
+// path doesn't require perfect joystick aim to stay on. ON by default -- it only
+// ever engages while already standing on a gravity-path tile.
+user bool  xr_gp_railguard      = true;
 

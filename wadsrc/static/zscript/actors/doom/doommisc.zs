@@ -16,7 +16,13 @@ class ExplosiveBarrel : Actor
 		+OLDRADIUSDMG
 		DeathSound "world/barrelx";
 		Obituary "$OB_BARREL";
-		Keywords "mass:100", "grab", "class:barrel", "type:hazard", "trait:volatile", "dmg:splash", "weight:medium", "status:reactive";
+		// "flags:grabprop" lets the VR gravity-glove grab-candidate scan pick this up despite
+		// lacking MF_SPECIAL/MF_MISSILE (p_user.cpp's native filter checks this specific token --
+		// NOT the bare "grab" tag below, which is a general mass-namespace marker shared by nearly
+		// every actor in the game, monsters included, and would be unsafe to gate grabbability on);
+		// "flags:throwable" makes a release-with-velocity actually throw it instead of just
+		// dropping it (KeywordDispatcher::IsThrowable).
+		Keywords "mass:100", "grab", "class:barrel", "type:hazard", "trait:volatile", "dmg:splash", "weight:medium", "status:reactive", "flags:throwable", "flags:grabprop";
 	}
 	States
 	{
@@ -51,6 +57,38 @@ class ExplosiveBarrel : Actor
 		TNT1 A 1050 BRIGHT A_BarrelDestroy;
 		TNT1 A 5 A_Respawn;
 		Wait;
+	}
+
+	// VR impact explosive: grabbing+throwing the barrel and hitting a shootable actor with it
+	// detonates it on contact, same as being shot -- reuses the Death:BEXP sequence above
+	// untouched. Gated on real throw speed so a barrel merely resting/rolling on the floor (or
+	// nudged by physics) doesn't self-detonate; only a genuine VR throw does.
+	override void Tick()
+	{
+		Super.Tick();
+
+		if (health > 0 && Vel.Length() > 10.0)
+		{
+			BlockThingsIterator it = BlockThingsIterator.Create(self, radius + 64);
+			while (it.Next())
+			{
+				let targ = it.thing;
+				if (targ == null || targ == self || !targ.bShootable || targ.health <= 0) continue;
+
+				double blockdist = radius + targ.radius;
+				if (Distance3D(targ) > blockdist) continue;
+
+				// Credit whoever grabbed/threw this (set at grab time in p_user.cpp / whip
+				// catch) so A_Explode's RadiusAttack correctly attributes the kill to the
+				// player, not the barrel itself. Falls back to self if it was never grabbed
+				// (e.g. shoved into motion some other way). (Plain assign + null-check, NOT a
+				// ?: ternary -- ZScript can't reconcile Actor 'target' with ExplosiveBarrel 'self'.)
+				Actor killer = target;
+				if (killer == null) killer = self;
+				Die(killer, killer);
+				break;
+			}
+		}
 	}
 }
 

@@ -85,6 +85,19 @@ EXTERN_CVAR(Int, vr_laser_fixed_length)
 EXTERN_CVAR(Float, vr_laser_source_offset_x)
 EXTERN_CVAR(Float, vr_laser_source_offset_y)
 EXTERN_CVAR(Float, vr_laser_source_offset_z)
+// [XR] grab-glove + gravity-path debug wireframe cones + interaction-radius spheres
+EXTERN_CVAR(Bool,  vr_grab_debug)
+EXTERN_CVAR(Bool,  vr_grab_debug_cone)
+EXTERN_CVAR(Bool,  vr_grab_debug_sphere)
+EXTERN_CVAR(Float, vr_grab_cone_angle)
+EXTERN_CVAR(Float, vr_grab_max_dist)
+EXTERN_CVAR(Float, vr_twohand_radius)
+EXTERN_CVAR(Float, vr_catch_radius)
+EXTERN_CVAR(Float, vr_climb_radius)
+// [XR] solid (filled, additive-glow) debug spheres drawn IN ADDITION to the wireframe
+// rings. Defined here (my file) so linkage is self-contained. GPU-heavy by design.
+CVAR(Bool, vr_grab_debug_sphere_solid, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Bool, vr_grab_debug_cone_solid,   true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 EXTERN_CVAR(Color, vr_hitscan_tracer_color)
 EXTERN_CVAR(Float, vr_hitscan_tracer_alpha)
 EXTERN_CVAR(Float, vr_hitscan_tracer_length)
@@ -829,8 +842,297 @@ void DrawHitscanTracers(FRenderState& state)
 	}
 }
 
+// ==========================================================================
+// [XR] Debug wireframe cones (grab gloves + gravity path). Drawn as real tube
+// geometry -- the same VR-visible primitive as the laser beam, NOT particles
+// (particles do not reach the VR stereo render). Factored from DrawLaserBeamGeometry.
+// ==========================================================================
+// [XR] BATCHED wireframe tube path. The old DrawDebugTube issued one
+// Map/AllocVertices/Unmap/Draw PER ring segment -- 20 draws/cone + 30 draws/sphere,
+// ~190 draws for the full grab-debug set, doubled again per-eye in VR stereo. These
+// helpers instead accumulate every tube of a single primitive and emit them in ONE
+// triangle-list draw, so a cone or sphere is 1 draw (the whole set drops ~190 -> ~8).
+// Additive + no depth write => triangle winding and inter-tube overlap are irrelevant,
+// exactly like the solid volumes below. World-space points; .Set() applies the Y<->Z swap.
+struct XRDebugTube { DVector3 a, b; };
+
+static void XR_FlushTubes(FRenderState& state, const XRDebugTube* tubes, int n, float radius,
+	float cr, float cg, float cb, float alpha)
+{
+	if (n <= 0) return;
+	constexpr int ringSegs = 5;                 // 5-sided tube cross-section (matches old DrawDebugTube)
+	const unsigned total = (unsigned)n * ringSegs * 6; // 2 tris (6 verts) per ring quad
+	state.SetColor(cr, cg, cb, alpha);
+	screen->mVertexData->Map();
+	auto verts = screen->mVertexData->AllocVertices(total);
+	auto vp = verts.first;
+	unsigned o = 0;
+	for (int k = 0; k < n; ++k)
+	{
+		DVector3 a = tubes[k].a, b = tubes[k].b;
+		DVector3 dir = b - a;
+		const double len = dir.Length();
+		DVector3 right, up;
+		if (len < 1e-4) { dir = DVector3(0, 0, 1); right = DVector3(1, 0, 0); up = DVector3(0, 1, 0); } // degenerate -> harmless zero-area quads
+		else { dir.MakeUnit(); dir.GetRightUp(right, up); }
+		DVector3 rA[ringSegs + 1], rB[ringSegs + 1];
+		for (int i = 0; i <= ringSegs; ++i)
+		{
+			const double ang = (double)i / (double)ringSegs * 6.28318530717958647692;
+			const DVector3 off = (right * std::cos(ang) + up * std::sin(ang)) * radius;
+			rA[i] = a + off; rB[i] = b + off;
+		}
+		for (int i = 0; i < ringSegs; ++i)
+		{
+			const DVector3& A0 = rA[i];     const DVector3& B0 = rB[i];
+			const DVector3& A1 = rA[i + 1]; const DVector3& B1 = rB[i + 1];
+			vp[o++].Set((float)A0.X, (float)A0.Z, (float)A0.Y, 0.f, 0.f);
+			vp[o++].Set((float)B0.X, (float)B0.Z, (float)B0.Y, 0.f, 1.f);
+			vp[o++].Set((float)A1.X, (float)A1.Z, (float)A1.Y, 0.f, 0.f);
+			vp[o++].Set((float)A1.X, (float)A1.Z, (float)A1.Y, 0.f, 0.f);
+			vp[o++].Set((float)B0.X, (float)B0.Z, (float)B0.Y, 0.f, 1.f);
+			vp[o++].Set((float)B1.X, (float)B1.Z, (float)B1.Y, 0.f, 1.f);
+		}
+	}
+	screen->mVertexData->Unmap();
+	state.Draw(DT_Triangles, verts.second, total, true);
+}
+
+static void DrawDebugWireCone(FRenderState& state, const DVector3& apex, DVector3 dir,
+	double length, double halfAngleDeg, float cr, float cg, float cb, float alpha)
+{
+	if (dir.LengthSquared() < 1e-8 || length < 1.0) return;
+	dir.MakeUnit();
+	DVector3 right, up;
+	dir.GetRightUp(right, up);
+	const double rimR = length * std::tan(halfAngleDeg * 3.14159265358979323846 / 180.0);
+	const float tubeR = 0.4f;
+
+	XRDebugTube tubes[32];   // 4 edges + 2 rings x 8 segs = 20 tubes
+	int n = 0;
+	const int lonLines = 4;
+	for (int i = 0; i < lonLines; ++i)
+	{
+		const double ang = (double)i / (double)lonLines * 6.28318530717958647692;
+		const DVector3 rimPt = apex + dir * length + (right * std::cos(ang) + up * std::sin(ang)) * rimR;
+		tubes[n++] = { apex, rimPt };
+	}
+	const int ringCount = 2, ringSegs = 8;
+	for (int r = 1; r <= ringCount; ++r)
+	{
+		const double t = (double)r / (double)ringCount;
+		const DVector3 ringCenter = apex + dir * (length * t);
+		const double ringR = rimR * t;
+		DVector3 prev = ringCenter + right * ringR;
+		for (int i = 1; i <= ringSegs; ++i)
+		{
+			const double ang = (double)i / (double)ringSegs * 6.28318530717958647692;
+			const DVector3 p = ringCenter + (right * std::cos(ang) + up * std::sin(ang)) * ringR;
+			tubes[n++] = { prev, p };
+			prev = p;
+		}
+	}
+	XR_FlushTubes(state, tubes, n, tubeR, cr, cg, cb, alpha);   // 20 tubes -> ONE draw
+}
+
+// [XR] Wireframe "gizmo" sphere: three orthogonal great-circle rings (XY, XZ, YZ) built
+// from the batched tube path so it renders in VR stereo where particles do not.
+// 3 rings x 10 segs = 30 tubes -> ONE draw (was 30 draws).
+static void DrawDebugWireSphere(FRenderState& state, const DVector3& c, double radius,
+	float cr, float cg, float cb, float alpha)
+{
+	if (radius < 0.5) return;
+	const float tubeR = 0.35f;
+	const int segs = 10;
+	XRDebugTube tubes[48];
+	int n = 0;
+	for (int axis = 0; axis < 3; ++axis)
+	{
+		DVector3 prev(0, 0, 0);
+		for (int i = 0; i <= segs; ++i)
+		{
+			const double ang = (double)i / (double)segs * 6.28318530717958647692;
+			const double u = std::cos(ang) * radius;
+			const double v = std::sin(ang) * radius;
+			DVector3 p;
+			if (axis == 0)      p = c + DVector3(u, v, 0);   // XY ring
+			else if (axis == 1) p = c + DVector3(u, 0, v);   // XZ ring
+			else                p = c + DVector3(0, u, v);   // YZ ring
+			if (i > 0) tubes[n++] = { prev, p };
+			prev = p;
+		}
+	}
+	XR_FlushTubes(state, tubes, n, tubeR, cr, cg, cb, alpha);   // 30 tubes -> ONE draw
+}
+
+// [XR] SOLID sphere: a UV-sphere built as latitude-band triangle strips, rendered as
+// an additive translucent volume so it glows as a filled orb in VR stereo (which
+// particles cannot). One Map/AllocVertices/Draw per latitude band -- mirrors the
+// per-quad/per-tube pattern the laser + DrawDebugTube already use. World-space points
+// (X,Y,Z); the .Set() call applies the render Y<->Z swap. stacks*slices = deliberately
+// heavy; the user wants an unmistakable debug volume, cost accepted.
+static void DrawDebugSolidSphere(FRenderState& state, const DVector3& c, double radius,
+	float cr, float cg, float cb, float alpha)
+{
+	if (radius < 0.5) return;
+	const double PI = 3.14159265358979323846;
+	const int stacks = 10;   // latitude bands (pole to pole)
+	const int slices = 16;   // longitude divisions
+	state.SetColor(cr, cg, cb, alpha);
+	for (int i = 0; i < stacks; ++i)
+	{
+		const double phi0 = PI * ((double)i       / (double)stacks) - PI * 0.5; // ring at top of band
+		const double phi1 = PI * ((double)(i + 1) / (double)stacks) - PI * 0.5; // ring at bottom of band
+		const double cp0 = std::cos(phi0), sp0 = std::sin(phi0);
+		const double cp1 = std::cos(phi1), sp1 = std::sin(phi1);
+		const int vc = (slices + 1) * 2;
+		screen->mVertexData->Map();
+		auto verts = screen->mVertexData->AllocVertices(vc);
+		auto vp = verts.first;
+		for (int j = 0; j <= slices; ++j)
+		{
+			const double th = 2.0 * PI * ((double)j / (double)slices);
+			const double ct = std::cos(th), st = std::sin(th);
+			const DVector3 p0 = c + DVector3(radius * cp0 * ct, radius * cp0 * st, radius * sp0);
+			const DVector3 p1 = c + DVector3(radius * cp1 * ct, radius * cp1 * st, radius * sp1);
+			vp[j * 2 + 0].Set((float)p0.X, (float)p0.Z, (float)p0.Y, 0.0f, 0.0f);
+			vp[j * 2 + 1].Set((float)p1.X, (float)p1.Z, (float)p1.Y, 0.0f, 1.0f);
+		}
+		screen->mVertexData->Unmap();
+		state.Draw(DT_TriangleStrip, verts.second, vc, true);
+	}
+}
+
+// [XR] SOLID cone: filled additive volume matching DrawDebugWireCone's shape (apex +
+// dir + length + halfAngle). Two triangle-strips -- the lateral surface (apex collapsed
+// to a point, exactly the sphere's pole-band construct) and a base cap -- each one
+// Map/AllocVertices/Draw. Additive + no cull means winding is irrelevant; the collapsed
+// apex/center rings make harmless zero-area triangles, same as the verified solid sphere.
+static void DrawDebugSolidCone(FRenderState& state, const DVector3& apex, DVector3 dir,
+	double length, double halfAngleDeg, float cr, float cg, float cb, float alpha)
+{
+	if (dir.LengthSquared() < 1e-8 || length < 1.0) return;
+	dir.MakeUnit();
+	DVector3 right, up;
+	dir.GetRightUp(right, up);
+	const double PI = 3.14159265358979323846;
+	const double rimR = length * std::tan(halfAngleDeg * PI / 180.0);
+	const DVector3 baseCenter = apex + dir * length;
+	const int slices = 20;
+	state.SetColor(cr, cg, cb, alpha);
+	// Two strips: [0]=lateral (tip->rim), [1]=base cap (center->rim).
+	for (int pass = 0; pass < 2; ++pass)
+	{
+		const DVector3 hub = (pass == 0) ? apex : baseCenter;
+		const int vc = (slices + 1) * 2;
+		screen->mVertexData->Map();
+		auto verts = screen->mVertexData->AllocVertices(vc);
+		auto vp = verts.first;
+		for (int j = 0; j <= slices; ++j)
+		{
+			const double th = 2.0 * PI * ((double)j / (double)slices);
+			const DVector3 rim = baseCenter + (right * std::cos(th) + up * std::sin(th)) * rimR;
+			vp[j * 2 + 0].Set((float)hub.X, (float)hub.Z, (float)hub.Y, 0.0f, 0.0f);
+			vp[j * 2 + 1].Set((float)rim.X, (float)rim.Z, (float)rim.Y, 0.0f, 1.0f);
+		}
+		screen->mVertexData->Unmap();
+		state.Draw(DT_TriangleStrip, verts.second, vc, true);
+	}
+}
+
+static void DrawXRDebugCones(FRenderState& state)
+{
+	if (menuactive != MENU_Off) return;
+	player_t* player = &players[consoleplayer];
+	if (player == nullptr || player->mo == nullptr || !player->mo->OverrideAttackPosDir) return;
+
+	const bool grabOn = vr_grab_debug;
+	FBaseCVar* gpcv = FindCVar("xr_gp_debug", NULL);
+	const bool gpOn = (gpcv != nullptr) && gpcv->GetGenericRep(CVAR_Bool).Bool;
+	if (!grabOn && !gpOn) return;
+
+	// Flat colored geometry render state (mirrors DrawLaserBeamGeometry's setup).
+	state.EnableModelMatrix(false);
+	state.SetLightIndex(-1);
+	state.AlphaFunc(Alpha_Greater, 0.0f);
+	state.ResetColor();
+	state.SetObjectColor(0xffffffff);
+	state.SetAddColor(0);
+	state.SetDynLight(0, 0, 0);
+	state.SetNoSoftLightLevel();
+	state.SetLightParms(1.f, 0.f);
+	state.EnableFog(false);
+	state.SetFog(0, 0);
+	state.ResetFadeColor();
+	state.EnableTextureMatrix(false);
+	state.EnableBrightmap(false);
+	state.EnableTexture(false);
+	state.EnableDepthTest(true);
+	state.SetDepthMask(false);
+	state.SetRenderStyle(STYLE_Add);
+
+	AActor* mo = player->mo;
+	if (grabOn)
+	{
+		// Cones: the DIRECTIONAL grab reach volume (dir + max_dist + cone_angle),
+		// drawn from each controller position -- mirrors VR_UpdateGravityGloves' test.
+		if (vr_grab_debug_cone)
+		{
+			const double half = (double)vr_grab_cone_angle * 0.5;
+			const double dist = (double)vr_grab_max_dist;
+			DrawDebugWireCone(state, mo->AttackPos,  GetLaserBeamControllerDirection(false), dist, half, 0.f, 1.f, 1.f, 0.85f); // cyan, main hand
+			DrawDebugWireCone(state, mo->OffhandPos, GetLaserBeamControllerDirection(true),  dist, half, 0.f, 1.f, 1.f, 0.85f); // cyan, off hand
+			// Filled additive cone on top of the wireframe. VERY low alpha -- the grab
+			// reach cone is long (vr_grab_max_dist ~500u) so its volume fills a lot of
+			// view; keep it a faint cyan haze that reads as "this is my grab funnel."
+			if (vr_grab_debug_cone_solid)
+			{
+				DrawDebugSolidCone(state, mo->AttackPos,  GetLaserBeamControllerDirection(false), dist, half, 0.f, 1.f, 1.f, 0.07f);
+				DrawDebugSolidCone(state, mo->OffhandPos, GetLaserBeamControllerDirection(true),  dist, half, 0.f, 1.f, 1.f, 0.07f);
+			}
+		}
+		// Spheres: the PROXIMITY interaction volumes (real distSq <= radius^2 checks in
+		// p_user.cpp) made visible -- catch/snatch (green) + climb (blue) per hand, and
+		// two-hand stabilize (yellow) at the main hand. This is the "radius around my
+		// hand" the particle version (P_SpawnParticle) could never show in VR stereo.
+		if (vr_grab_debug_sphere)
+		{
+			const double catchR   = (double)vr_catch_radius;
+			const double climbR   = (double)vr_climb_radius;
+			const double twohandR = (double)vr_twohand_radius;
+			DrawDebugWireSphere(state, mo->AttackPos,  catchR,   0.2f, 1.f,  0.2f, 0.80f); // green  (catch/snatch)
+			DrawDebugWireSphere(state, mo->OffhandPos, catchR,   0.2f, 1.f,  0.2f, 0.80f);
+			DrawDebugWireSphere(state, mo->AttackPos,  climbR,   0.3f, 0.5f, 1.f,  0.70f); // blue   (climb)
+			DrawDebugWireSphere(state, mo->OffhandPos, climbR,   0.3f, 0.5f, 1.f,  0.70f);
+			DrawDebugWireSphere(state, mo->AttackPos,  twohandR, 1.f,  0.9f, 0.1f, 0.90f); // yellow (two-hand)
+			// Filled additive-glow volumes on top of the rings. Low per-fragment alpha so
+			// overlapping shells (catch/climb/two-hand share a hand) don't blow out to
+			// white and the colors stay distinguishable. Toggle off for wireframe-only.
+			if (vr_grab_debug_sphere_solid)
+			{
+				DrawDebugSolidSphere(state, mo->AttackPos,  catchR,   0.2f, 1.f,  0.2f, 0.16f); // green
+				DrawDebugSolidSphere(state, mo->OffhandPos, catchR,   0.2f, 1.f,  0.2f, 0.16f);
+				DrawDebugSolidSphere(state, mo->AttackPos,  climbR,   0.3f, 0.5f, 1.f,  0.13f); // blue
+				DrawDebugSolidSphere(state, mo->OffhandPos, climbR,   0.3f, 0.5f, 1.f,  0.13f);
+				DrawDebugSolidSphere(state, mo->AttackPos,  twohandR, 1.f,  0.9f, 0.1f, 0.22f); // yellow
+			}
+		}
+	}
+	if (gpOn)
+	{
+		FBaseCVar* dcv = FindCVar("xr_gp_cast_dist", NULL);
+		const double gpDist = (dcv != nullptr) ? (double)dcv->GetGenericRep(CVAR_Float).Float : 512.0;
+		DrawDebugWireCone(state, mo->OffhandPos, GetLaserBeamControllerDirection(true), gpDist, 6.0, 1.f, 0.55f, 0.f, 0.9f); // orange, narrow (gravity reach)
+		// Filled additive orange cone (narrow 6deg, so a slightly stronger haze reads clean).
+		if (vr_grab_debug_cone_solid)
+			DrawDebugSolidCone(state, mo->OffhandPos, GetLaserBeamControllerDirection(true), gpDist, 6.0, 1.f, 0.55f, 0.f, 0.12f);
+	}
+}
+
 void DrawLaserSightWorld(FRenderState& state)
 {
+	DrawXRDebugCones(state);   // [XR] runs regardless of laser settings
+
 	if (!vr_laser_sight && !vr_laser_beam)
 	{
 		return;
@@ -921,6 +1223,24 @@ void HWDrawInfo::DrawPlayerSprites(bool hudModelStep, FRenderState &state)
 		lightmode = oldlightmode;
 	}
 
+	// [XR] TEMP hand diagnostic (throttled per process run): logs whether the VR-hands block is
+	// entered and what each hand holds. A hand renders today ONLY when a fist-keyword weapon is
+	// held (the RenderHUDModel fist-swap) -- if fist=0 on both, "no hands with a gun" is expected,
+	// not a bug. Remove once hands are confirmed.
+	{
+		static int s_vrHandDbg = 0;
+		if (s_vrHandDbg < 12)
+		{
+			s_vrHandDbg++;
+			AActor* rw = players[consoleplayer].ReadyWeapon;
+			AActor* ow = players[consoleplayer].OffhandWeapon;
+			Printf("[VRHANDS] isVR=%d show_hands=%d ready=%s(fist=%d) offhand=%s(fist=%d)\n",
+				(int)vrmode->IsVR(), (int)vr_show_hands,
+				rw ? rw->GetClass()->TypeName.GetChars() : "none", rw ? (int)(rw->Keywords.IndexOf("fist") != -1) : 0,
+				ow ? ow->GetClass()->TypeName.GetChars() : "none", ow ? (int)(ow->Keywords.IndexOf("fist") != -1) : 0);
+		}
+	}
+
 	// [New Logic] Draw VR Hands
 	if (vrmode->IsVR() && vr_show_hands)
 	{
@@ -941,52 +1261,19 @@ void HWDrawInfo::DrawPlayerSprites(bool hudModelStep, FRenderState &state)
 			
 			if (!hasFist)
 			{
-				int stateIdx = players[consoleplayer].vr_hand_state[hand];
-				const char* stateSprites[] = { "VHANA0", "VHANB0", "VHANC0", "VHAND0" };
-				const char* spriteName = (stateIdx >= 0 && stateIdx < 4) ? stateSprites[stateIdx] : "VHANA0";
-				
-				FTextureID texid = TexMan.CheckForTexture(spriteName, ETextureType::Sprite);
-				if (!texid.isValid()) continue;
-				
-				FGameTexture* gtex = TexMan.GetGameTexture(texid, false);
-				FMaterial* mat = FMaterial::ValidateTexture(gtex, true, false);
-				if (!mat) continue;
-
-				HUDSprite handSprite;
-				handSprite.texture = gtex;
-				handSprite.owner = players[consoleplayer].camera;
-				handSprite.alpha = 1.0f;
-				handSprite.RenderStyle = STYLE_Normal;
-				handSprite.lightlevel = handSprite.owner->Sector ? handSprite.owner->Sector->lightlevel : 128;
-				handSprite.cm.Clear();
-				handSprite.mframe = nullptr;
-				PClassActor* handClass = PClass::FindActor("VRHandModel");
-				if (handClass)
-				{
-					FName stateName = NAME_Spawn;
-					if (stateIdx == 1) stateName = "Grip";
-					else if (stateIdx == 2) stateName = "Climb";
-					else if (stateIdx == 3) stateName = "Point";
-					
-					FState* targetState = handClass->FindState(stateName);
-					if (targetState)
-					{
-						handSprite.mframe = FindModelFrame(handClass, targetState->sprite, targetState->GetFrame(), true);
-					}
-				}
-				handSprite.weapon = nullptr;
-				handSprite.translation = FVector3(0, 0, 0);
-				handSprite.rotation = FVector3(0, 0, 0);
-				handSprite.pivot = FVector3(0, 0, 0);
-				handSprite.dynrgb[0] = handSprite.dynrgb[1] = handSprite.dynrgb[2] = 0;
-				
-				// Position at the hand center
-				handSprite.mx = 160; 
-				handSprite.my = 150; 
-				
-				vrmode->AdjustPlayerSprites(state, hand);
-				DrawPSprite(&handSprite, state);
-				vrmode->UnAdjustPlayerSprites(state);
+				// Standalone VR hand for a NON-fist weapon (e.g. a hand wrapped around the pistol).
+				// This cannot be drawn from here yet: the model path (RenderHUDModel ->
+				// RenderFrameModels -> CalcModelFrame) is keyed on a valid psprite's Caller actor --
+				// CalcModelFrame:391 resolves the DECOUPLEDANIMATIONS base frame via
+				// BaseSpriteModelFrames[actor->GetClass()], and RenderFrameModels derefs actor->Level
+				// unconditionally. A bare hand has no such actor, so feeding null here would crash,
+				// not render. The old code hid this behind a gate on a nonexistent VHAN* sprite lump
+				// (always invalid -> 'continue'), which silently skipped the hand anyway.
+				//
+				// Hands DO render via the fist-swap path in RenderHUDModel (a fist-keyword weapon's
+				// psprite is hot-swapped to VRHandModel). Drawing a hand ON a non-fist gun needs a
+				// persistent VRHandModel actor to supply that Caller -- deferred model-pipeline work.
+				(void)weapon;
 			}
 		}
 	}

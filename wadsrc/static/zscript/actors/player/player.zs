@@ -2095,7 +2095,44 @@ class PlayerPawn : Actor
 			player.SetPsprite(hand ? PSP_OFFHANDWEAPON : PSP_WEAPON, weap.GetDownState());
 		}
 	}
-	
+
+	// Native-called: tear down the holstered hand's PSprite and detach its weapon
+	// reference. Runs through the VM because PSprite mutation is not exposed to native
+	// code. Dispatched by the native VR_UpdateHardpoints STOW path AND the VR_HolsterHand
+	// thunk. MUST be `virtual` -- the native side reaches it via IFVIRTUALPTRNAME
+	// (GetVirtualIndex), which null-derefs on a non-virtual symbol. Also lets a modder
+	// override holster visuals. slotIndex is informational (weapon already recorded native).
+	virtual void VR_DoHolster(int hand, int slotIndex)
+	{
+		if (player == null) return;
+
+		let psp = player.GetPSprite(hand ? PSP_OFFHANDWEAPON : PSP_WEAPON);
+		if (psp != null)
+		{
+			psp.SetState(null);   // clear the on-screen weapon sprite for this hand
+		}
+
+		// Detach the live weapon from the hand so it renders "holstered" (the native
+		// side already captured it into the slot's stowedWeapon TObjPtr).
+		if (hand)
+		{
+			player.OffhandWeapon = null;
+		}
+		else
+		{
+			player.ReadyWeapon = null;
+		}
+	}
+
+	// Modder extension point for HP_ACT_ABILITY hardpoint slots: fired (via
+	// IFVIRTUALPTRNAME from VR_UpdateHardpoints) when a hand grips an ABILITY-type
+	// hardpoint. Base implementation is a no-op -- a mod overrides this to launch a
+	// whip / grenade / gravity-platform / etc. MUST exist and be `virtual` or the
+	// native dispatch null-derefs GetVirtualIndex the moment an ability slot fires.
+	virtual void VR_HardpointAbility(int hand, int slotIndex)
+	{
+	}
+
 	//===========================================================================
 	//
 	// PlayerPawn :: PickNewWeapon

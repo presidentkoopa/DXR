@@ -172,6 +172,7 @@ struct VRMode
 	virtual bool GetHandVelocity(int hand, DVector3& outLinear) const { return false; }
 	virtual bool GetHandAngularVelocity(int hand, DVector3& outAngular) const { return false; }
 	virtual bool IsGripPressed(int hand) const { return false; }
+	virtual float GetGripValue(int hand) const { return 0.0f; } // analog squeeze 0..1; 0 on click-only controllers
 	virtual bool GetWeaponTransform(VSMatrix* out, int hand = 0) const;
 	virtual bool RenderPlayerSpritesInScene() const;
 	virtual bool GetTeleportLocation(DVector3 &out) const { return false; }

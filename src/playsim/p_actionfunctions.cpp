@@ -5772,6 +5772,38 @@ DEFINE_ACTION_FUNCTION(AActor, GetHandVelocity)
 	ACTION_RETURN_VEC3(outVel);
 }
 
+// Lets ZScript hand an actor into a hand's native VR-held-item slot (player_t::vr_held_items),
+// which has no ZScript exposure otherwise. Built for the whip's grapple-yank "catch": once a
+// yanked prop arrives close enough, the whip hands it off here instead of just ending the
+// grapple with the object loose on the ground -- from then on it's a normal held item, so the
+// existing release-throw logic in p_user.cpp (mass-scaled velocity, IsThrowable check, etc.)
+// picks it up for free. Refuses if the hand is already holding something or mid-climb/pull (same
+// guard VR_UpdateGravityGloves itself checks before scanning for a new grab candidate).
+DEFINE_ACTION_FUNCTION(AActor, VR_TrySetHeldItem)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_INT(hand);
+	PARAM_OBJECT(item, AActor);
+
+	bool ok = false;
+	if (self->player != nullptr && (hand == 0 || hand == 1) && item != nullptr)
+	{
+		player_t* player = self->player;
+		if (!player->vr_held_items[hand] && !player->vr_grab_is_locked[hand] && !player->vr_grab_is_pulling[hand])
+		{
+			player->vr_held_items[hand] = item;
+			// Same convention as every other native grab/snatch site in p_user.cpp (e.g. the
+			// bullet-snatch/projectile-snatch catches): whoever's now holding this is responsible
+			// for what it does next, so A_Explode's RadiusAttack (which reads self.target)
+			// correctly credits the player if it later detonates.
+			item->target = self;
+			item->bForceShowVoxel = true;
+			ok = true;
+		}
+	}
+	ACTION_RETURN_BOOL(ok);
+}
+
 // Exposes the local VR HEAD (HMD) world position in MAP space to ZScript.
 // r_viewpoint.CenterEyePos is the center-eye point (same space as r_viewpoint.Pos),
 // with the Pos fallback the VR weapon wheel uses (hw_vrwheel.cpp:259-263). Client-local:
@@ -5783,4 +5815,15 @@ DEFINE_ACTION_FUNCTION(AActor, GetHeadPos)
 	DVector3 head = r_viewpoint.CenterEyePos;
 	if (head.LengthSquared() <= 1e-8) head = r_viewpoint.Pos;
 	ACTION_RETURN_VEC3(head);
+}
+
+// VR head (HMD) world ORIENTATION, mirrors GetHeadPos exactly. HWAngles is the
+// "actual rotation angles for the hardware renderer" (r_utility.h) -- the real
+// per-frame HMD orientation, distinct from Angles (gameplay/body-facing angle).
+// Local render viewpoint only (client presentation), not a networked field.
+DEFINE_ACTION_FUNCTION(AActor, GetHeadAngles)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	DVector3 ang(r_viewpoint.HWAngles.Yaw.Degrees(), r_viewpoint.HWAngles.Pitch.Degrees(), r_viewpoint.HWAngles.Roll.Degrees());
+	ACTION_RETURN_VEC3(ang);
 }

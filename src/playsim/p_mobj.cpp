@@ -2722,33 +2722,14 @@ static void P_ZMovement (AActor *mo, double oldfloorz)
 //
 // clip movement
 //
-	if (!mo->GravityDir.isZero())
-	{
-		// [XR] Virtual gravity-aligned rest plane. Replaces the native floor/ceiling
-		// clip for actors walking a painted gravity path, where the "ground" is an
-		// arbitrary plane (GravityAnchor, normal = -GravityDir) instead of the real
-		// sector's floorz/ceilingz. Pure vertical flips (GravityDir == +-Z aligned with
-		// the real sector plane) already rest correctly via the native clamps below and
-		// don't need this -- this path only matters when the virtual surface and the
-		// real sector geometry disagree (walls, floating/off-axis paths).
-		DVector3 n = -mo->GravityDir;	// outward surface normal (unit, since GravityDir is unit)
-		DVector3 rel = mo->Pos() - mo->GravityAnchor;
-		double dist = rel.X * n.X + rel.Y * n.Y + rel.Z * n.Z;	// signed distance along n
-		double restDist = mo->radius;	// hover this far off the surface (keeps the cylinder from clipping in)
-		if (dist < restDist)
-		{
-			DVector3 corrected = mo->GravityAnchor + n * restDist;
-			mo->SetOrigin(corrected, true);
-			double velAlongN = mo->Vel.X * n.X + mo->Vel.Y * n.Y + mo->Vel.Z * n.Z;
-			if (velAlongN < 0)
-			{
-				mo->Vel.X -= n.X * velAlongN;
-				mo->Vel.Y -= n.Y * velAlongN;
-				mo->Vel.Z -= n.Z * velAlongN;
-			}
-		}
-	}
-	else if (mo->Z() <= mo->floorz + 2)
+	// [XR] The earlier "virtual rest plane" clamp for GravityDir actors was removed:
+	// it reset position to the tile anchor every tic (gluing the player to the tile
+	// center, unable to walk) and floated them a radius off floors. The NATIVE floor
+	// and ceiling clamps below correctly rest a player under floor-down OR ceiling-up
+	// gravity once the gravity is actually being APPLIED (the real fix, in FallAndSink
+	// + the P_ZMovement gate). True standing on a VERTICAL wall still needs a
+	// plane-native collision pass -- until then a wall tile gives a sideways pull only.
+	if (mo->Z() <= mo->floorz + 2)
 	{	// Hit the floor
 		if ((!mo->player || !(mo->player->cheats & CF_PREDICTING)) &&
 			mo->Sector->SecActTarget != NULL &&
@@ -2866,8 +2847,8 @@ static void P_ZMovement (AActor *mo, double oldfloorz)
 		mo->AdjustFloorClip ();
 	}
 
-	if (mo->GravityDir.isZero() && mo->Top() > mo->ceilingz)
-	{ // hit the ceiling
+	if (mo->Top() > mo->ceilingz)
+	{ // hit the ceiling  ([XR] native clamp restored: catches a ceiling-up gravity walker at the real ceiling)
 		if ((!mo->player || !(mo->player->cheats & CF_PREDICTING)) &&
 			mo->Sector->SecActTarget != NULL &&
 			mo->Sector->ceilingplane.ZatPoint(mo) == mo->ceilingz)
@@ -3037,6 +3018,18 @@ static void PlayerLandedOnThing (AActor *mo, AActor *onmobj)
 
 void AActor::FallAndSink(double grav, double oldfloorz)
 {
+	// [XR] Per-actor DIRECTIONAL gravity. Unlike the native -Z fall below (which only
+	// engages when the actor is more than 2 units above the floor), this applies even
+	// while grounded/at-rest -- so a gravity-path tile pulls a standing player onto its
+	// surface the instant they step on it (previously GravityDir was set but never read
+	// for a grounded player, the core "nothing happens" bug). It fully replaces the
+	// native -Z fall while GravityDir is set; the -Z-only water-sink logic is skipped.
+	if (!GravityDir.isZero() && !(flags & MF_NOGRAVITY))
+	{
+		Vel += GravityDir * grav;
+		return;
+	}
+
 	if (Z() > floorz + 2 && !(flags & MF_NOGRAVITY))
 	{
 		double startvelz = Vel.Z;
@@ -3047,14 +3040,7 @@ void AActor::FallAndSink(double grav, double oldfloorz)
 			// [RH] Double gravity only if running off a ledge. Coming down from
 			// an upward thrust (e.g. a jump) should not double it.
 			double gmag = (Vel.Z == 0 && oldfloorz > floorz && Z() == oldfloorz) ? grav + grav : grav;
-			if (GravityDir.isZero())
-			{
-				Vel.Z -= gmag;
-			}
-			else
-			{
-				Vel += GravityDir * gmag;	// [XR] per-actor gravity direction (unit "down")
-			}
+			Vel.Z -= gmag;
 		}
 		if (player == NULL)
 		{
@@ -4448,8 +4434,10 @@ void AActor::Tick ()
 			}
 
 		}
-		if (Vel.Z != 0 || BlockingMobj || Z() != floorz)
-		{	// Handle Z velocity and gravity
+		if (Vel.Z != 0 || BlockingMobj || Z() != floorz || !GravityDir.isZero())
+		{	// Handle Z velocity and gravity   ([XR] !GravityDir.isZero() forces this
+			// block to run for a grounded gravity-path actor, so FallAndSink can apply
+			// the directional pull that kickstarts reorientation off a flat floor.)
 			if (((flags2 & MF2_PASSMOBJ) || (flags & MF_SPECIAL)) && !(Level->i_compatflags & COMPATF_NO_PASSMOBJ))
 			{
 				if (!(onmo = P_CheckOnmobj (this)))
@@ -5239,6 +5227,14 @@ void AActor::PostBeginPlay ()
 	int kw_mass = 0;
 	if (KeywordDispatcher::ResolveKeywordMass(Keywords, kw_mass)) {
 		Mass = kw_mass;
+	}
+
+	// Mirrors the mass resolve above -- lets any actor (vanilla, mod, or a shared projectile
+	// class fired by multiple monsters) declare its own knockback strength via a "kickback:"
+	// Keywords token instead of every individual class hardcoding ProjectileKickback by hand.
+	int kw_kickback = 0;
+	if (KeywordDispatcher::ResolveKeywordKickback(Keywords, kw_kickback)) {
+		projectileKickback = kw_kickback;
 	}
 }
 

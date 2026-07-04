@@ -24,12 +24,20 @@ HardwareShader PostProcess screen
 {
 	Name "rom_load"
 	Shader "shaders/pp/rom_load.fp" 330
+	// scanline_pos is set from ZScript (vr_rom_load.zs SetUniform1f). It MUST be declared here so
+	// the engine registers it in the shader's Uniforms map and auto-emits `uniform float
+	// scanline_pos;` into the compiled prolog -- without this line the .fp references an undeclared
+	// identifier and the GLSL compile HARD-CRASHES the game on new-game load.
+	uniform float scanline_pos
 }
 
 HardwareShader PostProcess screen
 {
 	Name "fatal_exception"
 	Shader "shaders/pp/fatal_exception.fp" 330
+	// Same reason: u_FatalStrength is set from ZScript (vr_death_effects.zs) -- declare it here or
+	// the shader crashes the same way when the player dies.
+	uniform float u_FatalStrength
 }
 
 // Neon Monster Outlines
@@ -57,3 +65,14 @@ HardwareShader Sprite VILE { Shader "shaders/glsl/monster_neon.fp" }
 #include "brightmaps/sprites/doom2.bm"
 
 #include "vox_gldefs.txt"
+
+// IceHook PBR material -- attaches normal/metallic/roughness/ao maps to the model's
+// albedo skin BY TEXTURE NAME (modeldef Skin 0 "icehook_skin.png"), so it applies
+// automatically wherever that skin renders. Maps live in models/icehook/.
+material "icehook_skin.png"
+{
+	normal      "models/icehook/icehook_normal.png"
+	metallic    "models/icehook/icehook_metallic.png"
+	roughness   "models/icehook/icehook_roughness.png"
+	ao          "models/icehook/icehook_ao.png"
+}

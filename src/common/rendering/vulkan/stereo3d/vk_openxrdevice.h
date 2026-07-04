@@ -86,6 +86,7 @@ public:
 	virtual bool GetTeleportLocation(DVector3 &out) const override;
 	virtual void Vibrate(float duration, int channel, float intensity) const override;
 	virtual bool GetBenchmarkInfo(VRBenchmarkInfo& out) const override;
+	virtual float GetGripValue(int hand) const override;   // NEW: analog squeeze 0..1 bridge to playsim
 
     // Vulkan specific multiview setup
     void InitializeMultiview() const;
@@ -148,6 +149,8 @@ protected:
 	mutable XrAction xrMenuAction = XR_NULL_HANDLE;
 	mutable XrAction xrLeftGripAction = XR_NULL_HANDLE;
 	mutable XrAction xrRightGripAction = XR_NULL_HANDLE;
+	mutable XrAction xrLeftGripValueAction  = XR_NULL_HANDLE;   // NEW: FLOAT_INPUT analog left squeeze
+	mutable XrAction xrRightGripValueAction = XR_NULL_HANDLE;   // NEW: FLOAT_INPUT analog right squeeze
 	mutable XrAction xrThumbClickAction = XR_NULL_HANDLE;
 	mutable XrAction xrThumbstickAction = XR_NULL_HANDLE;
 	mutable XrAction xrTrackpadAction = XR_NULL_HANDLE;
@@ -170,6 +173,7 @@ protected:
 	mutable bool xrLastSelectState[2] = { false, false };
 	mutable bool xrLastMenuState[2] = { false, false };
 	mutable bool xrLastGripState[2] = { false, false };
+	mutable float xrGripValue[2] = { 0.0f, 0.0f };             // NEW: last-polled analog squeeze per hand
 	mutable bool xrLastThumbClickState[2] = { false, false };
 	mutable bool xrLastTrackpadClickState[2] = { false, false };
 	mutable bool xrLastAState[2] = { false, false };

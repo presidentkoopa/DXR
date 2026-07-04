@@ -24,7 +24,7 @@ class BaronOfHell : Actor
 		Obituary "$OB_BARON";
 		HitObituary "$OB_BARONHIT";
 		Tag "$FN_BARON";
-		Keywords "mass:1000", "grab";
+		Keywords "mass:1000", "grab", "kickback:720";
 	}
 	States
 	{
@@ -76,7 +76,7 @@ class HellKnight : BaronOfHell
 		HitObituary "$OB_KNIGHTHIT";
 		Obituary "$OB_KNIGHT";
 		Tag "$FN_HELL";
-		Keywords "mass:500", "grab";
+		Keywords "mass:500", "grab", "kickback:640";
 	}
 	States
 	{
@@ -132,6 +132,10 @@ class BaronBall : Actor
 		SeeSound "baron/attack";
 		DeathSound "baron/shotx";
 		Decal "BaronScorch";
+		// Shared by BOTH BaronOfHell and HellKnight (same literal class) -- a keyword-tagged
+		// projectile can only carry ONE kickback value, so their fireballs must match. The two
+		// monsters still differentiate via their own (distinct) melee kickback above.
+		Keywords "kickback:heavy";
 	}
 	States
 	{

@@ -96,6 +96,9 @@
 #include "s_music.h"
 #include "d_main.h"
 #include "hw_vrmodes.h"
+#include "model.h"          // FModel, extern TDeletingArray<FModel*> Models -- VR_UpdateArmIK reads joint data
+#include "vr_hardpoint.h"   // EHardpointAnchor/Action, FHardpointSlot, VR_MAX_HARDPOINTS, VRHardpointRuntime
+#include "vr_config.h"      // FVRConfig::Hardpoints (seeded in vr_config.cpp LoadConfig)
 #include "p_maputl.h"
 #include "textures.h"
 #include "texturemanager.h"
@@ -112,6 +115,7 @@ EXTERN_CVAR(Float, vr_climb_radius)
 EXTERN_CVAR(Float, vr_climb_speed_mult)
 EXTERN_CVAR(Bool, vr_grab_debug)
 EXTERN_CVAR(Float, vr_throw_force)
+EXTERN_CVAR(Bool, vr_easy_grab_props)
 EXTERN_CVAR(Float, vr_scale_meters_to_units)
 EXTERN_CVAR(Bool, vr_allow_bullet_snatching)
 EXTERN_CVAR(Float, vr_catch_radius)
@@ -416,6 +420,16 @@ size_t player_t::PropagateMark()
 	if (PendingWeapon != WP_NOCHANGE)
 	{
 		GC::Mark(PendingWeapon);
+	}
+	// VR hardpoint slots may hold a stowed weapon that has been detached from the
+	// live inventory chain (ReadyWeapon/OffhandWeapon nulled on holster). Without a
+	// mark here that weapon becomes GC-collectible and silently vanishes from its slot.
+	for (int i = 0; i < vr_hardpoint_count; ++i)
+	{
+		if (vr_hardpoints[i].occupied)
+		{
+			GC::Mark(vr_hardpoints[i].stowedWeapon);
+		}
 	}
 	return sizeof(*this);
 }
@@ -1343,6 +1357,8 @@ bool VR_IsGripPressed(player_t* player, int hand)
 
 void VR_UpdateClimbing(player_t* player);
 void VR_UpdateGravityGloves(player_t* player);
+void VR_UpdateHardpoints(player_t* player);   // proximity+grip draw/holster, native hardpoint mounts
+void VR_UpdateArmIK(player_t* player);        // two-bone IK -> player->vr_ik_pose
 
 void P_PlayerThink (player_t *player)
 {
@@ -1431,10 +1447,12 @@ void P_PlayerThink (player_t *player)
 
     previous_health = player->health;
 
-    // Grip Priority: Climb > Gravity Gloves > Two-Handing
+    // Grip Priority: Climb > Gravity Gloves > Two-Handing > Hardpoints ; IK is pose-only, last
     VR_UpdateClimbing(player);
     VR_UpdateGravityGloves(player);
     VR_CalculateTwoHanding(player);
+    VR_UpdateHardpoints(player);
+    VR_UpdateArmIK(player);
 
     for (int hand = 0; hand < 2; hand++)
     {
@@ -1507,6 +1525,10 @@ void VR_UpdateGravityGloves(player_t* player)
 				{
 					// Throw Logic (Using Smoothed Velocity)
 					double itemMass = heldItem->Mass > 0 ? heldItem->Mass : 100.0;
+					// "Easier Grabbing" gameplay toggle: halves EFFECTIVE mass (throw force only,
+					// not the actor's real Mass/collision physics) for flags:grabprop props.
+					if (vr_easy_grab_props && heldItem->Keywords.IndexOf("flags:grabprop") != -1)
+						itemMass *= 0.5;
 					double massScale = 100.0 / itemMass;
 					double throwForce = vr_throw_force * massScale;
 					
@@ -1570,7 +1592,16 @@ void VR_UpdateGravityGloves(player_t* player)
 				while ((mo = it.Next()))
 				{
 					if (mo == player->mo) continue;
-					if (!(mo->flags & MF_SPECIAL) && !(mo->flags & MF_MISSILE)) continue;
+					// "flags:grabprop" is a dedicated, narrowly-scoped opt-in for actors that are
+					// neither a pickup (MF_SPECIAL) nor a projectile (MF_MISSILE) but should still be
+					// VR-grabbable -- e.g. ExplosiveBarrel (+SOLID +SHOOTABLE, no pickup semantics).
+					// Deliberately NOT the bare "grab" token: that one is tagged on nearly every
+					// actor in the game (every monster included, always paired with "mass:N") as a
+					// general mass-namespace marker, not a "this is VR-grabbable" flag -- reusing it
+					// here would have made every monster in the game grabbable/throwable. Same
+					// Keywords.IndexOf idiom already used for "fist" (models.cpp).
+					bool keywordGrabbable = mo->Keywords.IndexOf("flags:grabprop") != -1;
+					if (!(mo->flags & MF_SPECIAL) && !(mo->flags & MF_MISSILE) && !keywordGrabbable) continue;
 					if (mo->Distance3D(player->mo) > vr_grab_max_dist) continue;
 
 					DVector3 toItem = mo->Pos() - handPos;
@@ -1598,73 +1629,14 @@ void VR_UpdateGravityGloves(player_t* player)
 				}
 				player->vr_grab_candidate[hand] = bestItem;
 
-				if (vr_grab_debug)
-				{
-					// Draw holographic grab cone
-					if (vr_grab_debug_cone)
-					{
-						// Longitudinal Beams
-						for (int b = 0; b < 4; b++)
-						{
-							double ang = b * M_PI / 2.0;
-							DVector3 right = handForward.Z != 0 || handForward.X != 0 ? DVector3(-handForward.Z, 0, handForward.X) : DVector3(0, 1, 0);
-							right.MakeUnit();
-							DVector3 up = handForward ^ right;
-							DVector3 beamDir = (handForward + (right * cos(ang) + up * sin(ang)) * tan(vr_grab_cone_angle * M_PI / 360.0));
-							beamDir.MakeUnit();
-							
-							for (int d = 1; d <= 10; d++)
-							{
-								DVector3 beamPos = handPos + beamDir * (vr_grab_max_dist * d / 10.0);
-								P_SpawnParticle(player->mo->Level, beamPos, DVector3(0,0,0), DVector3(0,0,0), PalEntry(150, 0, 255, 255), 0.6, 1, 1.5, 1.0, 0.0, 0);
-							}
-						}
-
-						// Concentric Rings
-						for (int d = 1; d <= 8; ++d)
-						{
-							double dist = (vr_grab_max_dist / 8.0) * d;
-							double radius = dist * tan(vr_grab_cone_angle * M_PI / 360.0);
-							PalEntry color = bestItem ? PalEntry(200, 0, 255, 255) : PalEntry(100, 0, 180, 255);
-							
-							for (int i = 0; i < 12; ++i)
-							{
-								double ang = i * M_PI / 6.0;
-								DVector3 right = handForward.Z != 0 || handForward.X != 0 ? DVector3(-handForward.Z, 0, handForward.X) : DVector3(0, 1, 0);
-								right.MakeUnit();
-								DVector3 up = handForward ^ right;
-								DVector3 ringPos = handPos + (handForward * dist) + (right * cos(ang) + up * sin(ang)) * radius;
-								
-								P_SpawnParticle(player->mo->Level, ringPos, DVector3(0,0,0), DVector3(0,0,0), color, 0.5, 1, 2.0, 1.0, 0.0, 0);
-							}
-						}
-					}
-
-					// Grab Sphere Visual
-					if (vr_grab_debug_sphere)
-					{
-						for (int i = 0; i < 24; i++)
-						{
-							double phi = acos(1.0 - 2.0 * (i + 0.5) / 24.0);
-							double theta = M_PI * (1.0 + pow(5.0, 0.5)) * (i + 0.5);
-							DVector3 spherePos = handPos + DVector3(cos(theta) * sin(phi), sin(theta) * sin(phi), cos(phi)) * 32.0;
-							P_SpawnParticle(player->mo->Level, spherePos, DVector3(0,0,0), DVector3(0,0,0), PalEntry(150, 0, 255, 0), 0.8, 1, 1.8, 1.0, 0.0, 0);
-						}
-					}
-
-					if (bestItem)
-					{
-						// Target Pulse Visual Cue
-						double time = player->mo->Level->time / 5.0;
-						double pulseRadius = bestItem->radius + 4.0 + sin(time) * 4.0;
-						for (int i = 0; i < 8; i++)
-						{
-							double ang = i * M_PI / 4.0;
-							DVector3 pulsePos = bestItem->Pos() + DVector3(cos(ang) * pulseRadius, sin(ang) * pulseRadius, bestItem->Height / 2.0);
-							P_SpawnParticle(player->mo->Level, pulsePos, DVector3(0,0,0), DVector3(0,0,0), PalEntry(255, 255, 255, 255), 1.0, 1, 4.0, 1.0, 0.0, 0);
-						}
-					}
-				}
+				// [XR] The grab-cone / grab-sphere / target-pulse debug visualisation used to be
+				// drawn here with P_SpawnParticle -- which does NOT reach the VR stereo render, so
+				// it was invisible in-headset. It is fully superseded by the ONE working system:
+				// the render-thread wireframe+solid geometry in hw_weapon.cpp (DrawXRDebugCones,
+				// gated by the same vr_grab_debug / vr_grab_debug_cone / vr_grab_debug_sphere cvars),
+				// which renders real tube/quad geometry visible in VR. The redundant particle version
+				// was removed so there is a single debug path. (The throw-trajectory ARC below is a
+				// separate feature and is intentionally kept.)
 			}
 			continue;
 		}
@@ -1693,6 +1665,10 @@ void VR_UpdateGravityGloves(player_t* player)
 			if (vr_grab_debug || isThrowable)
 			{
 				double itemMass = heldItem->Mass > 0 ? heldItem->Mass : 100.0;
+				// Match the real throw's "Easier Grabbing" mass halving so this preview arc lines
+				// up with where the item will actually go.
+				if (vr_easy_grab_props && heldItem->Keywords.IndexOf("flags:grabprop") != -1)
+					itemMass *= 0.5;
 				double massScale = 100.0 / itemMass;
 				double velocityScale = (vr_scale_meters_to_units / 35.0) * vr_throw_force * massScale;
 				DVector3 tVel = handVelocity * velocityScale;
@@ -1753,6 +1729,10 @@ void VR_UpdateGravityGloves(player_t* player)
 					if (target->Distance3D(player->mo) < 64.0) // catch radius
 					{
 						player->vr_held_items[hand] = target;
+						// Whoever's now holding this is responsible for what it does next (kill
+						// credit if it later explodes/detonates) -- same convention already used
+						// for the bullet-snatch case below (cand->target = player->mo).
+						target->target = player->mo;
 						player->vr_grab_is_locked[hand] = false;
 						player->vr_grab_is_pulling[hand] = false;
 						player->vr_grab_is_waiting_catch[hand] = false;
@@ -1858,6 +1838,825 @@ void VR_UpdateGravityGloves(player_t* player)
 			*/
 			player->vr_prev_hand_pos[hand] = handPos;
 		}
+	}
+}
+
+EXTERN_CVAR(Float, vr_hardpoint_radius)
+EXTERN_CVAR(Bool,  vr_hardpoint_enable)
+
+//----------------------------------------------------------------------------
+//
+// VR_InitHardpoints
+//
+// Copies the FVRConfig default hardpoint table into this player's runtime slots.
+// Called once at pawn spawn. Idempotent.
+// FHardpointSlot (config) -> VRHardpointRuntime (per-player) copy.
+//
+//----------------------------------------------------------------------------
+
+void VR_InitHardpoints(player_t* player)
+{
+	if (!player) return;
+
+	player->vr_hardpoint_count = 0;
+	for (int i = 0; i < VR_MAX_HARDPOINTS; i++)
+	{
+		player->vr_hardpoints[i] = player_t::VRHardpointRuntime(); // reset (occupied=false, enabled=false, stowedWeapon=null)
+	}
+
+	// Seed from the config default table (FVRConfig::Hardpoints, a static
+	// TArray<FHardpointSlot> populated by vr_config.cpp LoadConfig).
+	const TArray<FHardpointSlot>& defs = FVRConfig::Hardpoints;
+	unsigned n = defs.Size();
+	if (n > (unsigned)VR_MAX_HARDPOINTS) n = (unsigned)VR_MAX_HARDPOINTS;
+
+	for (unsigned i = 0; i < n; i++)
+	{
+		const FHardpointSlot& d = defs[i];
+		if (!d.enabled) continue;
+
+		player_t::VRHardpointRuntime& r = player->vr_hardpoints[player->vr_hardpoint_count];
+		r.anchor       = d.anchor;
+		r.action       = d.action;
+		r.hand         = d.hand;
+		r.ox           = d.ox;
+		r.oy           = d.oy;
+		r.oz           = d.oz;
+		r.radius       = d.radius;
+		r.occupied     = false;
+		r.enabled      = true;
+		r.stowedWeapon = nullptr;
+		player->vr_hardpoint_count++;
+	}
+}
+
+//----------------------------------------------------------------------------
+//
+// VR_UpdateHardpoints
+//
+// Per-tic proximity + grip-edge draw/holster for the N configured slots.
+// STRUCTURAL TEMPLATE: VR_UpdateGravityGloves (above). Differences:
+//  - Slots are ANCHOR-relative (body: AttackPos + yaw-rotated offset; wrist:
+//    OTHER hand's GetWeaponTransform * local offset) -> NO blockmap iterator,
+//    just a distance-squared test against each slot's world pos.
+//  - OWN grip latch (player->vr_hardpoint_was_grip[hand]) so it never fights the
+//    gloves' player->vr_was_grip_pressed[hand].
+//  - LOCAL-PLAYER-ONLY GATE: (player - players) != consoleplayer bails immediately
+//    (same pointer-arithmetic idiom already used at this file's line ~1358).
+//    GetWeaponTransform reads the single local OpenXR device with no player param,
+//    while PendingWeapon/ReadyWeapon/OffhandWeapon are serialized playsim state --
+//    driving a networked weapon switch from local-only headset pose on every
+//    remote copy of P_PlayerThink would desync multiplayer. Gating to the console
+//    player only means P_BringUpWeapon runs exactly once, same as any other local
+//    player-triggered weapon change.
+//
+//----------------------------------------------------------------------------
+
+void VR_UpdateHardpoints(player_t* player)
+{
+	if (!player || !player->mo || (player - players) != consoleplayer) return;
+
+	// Lazy one-shot seed of the config default slots (FVRConfig::Hardpoints). No engine
+	// spawn-path hook needed: the first tic this console player's VR hardpoint system runs,
+	// mirror the config table into the runtime slots. Survives respawn (player_t persists);
+	// re-seeds only on a fresh player_t (flag defaults false). WITHOUT this, vr_hardpoint_count
+	// stays 0, the count guard below bails every tic, and the entire native hardpoint/holster
+	// subsystem is dead out-of-the-box. Runs before the enable/radius guards so toggling
+	// vr_hardpoint_enable on at runtime works immediately against already-seeded slots.
+	if (!player->vr_hardpoints_initialized)
+	{
+		VR_InitHardpoints(player);
+		player->vr_hardpoints_initialized = true;
+	}
+
+	if (!VRMode::GetVRModeCached(false)) return;
+	if (!vr_hardpoint_enable) return;
+	if (vr_hardpoint_radius <= 0) return;
+	if (player->vr_hardpoint_count <= 0) return;
+
+	// Body anchor reference: playsim head/eye world pos (AttackPos is the per-frame
+	// VR head pos). NOT r_viewpoint (render-thread only).
+	const DVector3 headPos = player->mo->AttackPos;
+	const DAngle   yaw     = player->mo->Angles.Yaw;
+	const double   cosY    = yaw.Cos();
+	const double   sinY    = yaw.Sin();
+
+	// Cache both hand transforms once (wrist-anchored slots need the OTHER hand).
+	VSMatrix handXf[2];
+	bool     handOk[2] = { false, false };
+	DVector3 handPos[2];
+	for (int h = 0; h < 2; h++)
+	{
+		handOk[h] = VRMode::GetVRModeCached(false)->GetWeaponTransform(&handXf[h], h);
+		if (handOk[h])
+		{
+			const float* m = handXf[h].get();
+			handPos[h] = DVector3(m[12], m[14], m[13]); // column-major; m14=world Z, m13=world Y
+		}
+	}
+
+	for (int hand = 0; hand < 2; hand++)
+	{
+		if (!handOk[hand]) continue;
+
+		// Grip edge detection against our OWN latch.
+		bool isGripPressed  = VR_IsGripPressed(player, hand);
+		bool wasGripPressed = player->vr_hardpoint_was_grip[hand];
+		player->vr_hardpoint_was_grip[hand] = isGripPressed;
+
+		// Only the RISING edge triggers a draw/holster toggle.
+		bool risingEdge = isGripPressed && !wasGripPressed;
+		if (!risingEdge) continue;
+
+		// Don't steal grip from a hand mid-climb or holding a grabbed item.
+		if (player->vr_is_climbing[hand]) continue;
+		if (player->vr_held_items[hand]) continue;
+
+		// Find the nearest reachable slot for this hand.
+		int    bestSlot   = -1;
+		double bestDistSq = 0.0;
+
+		for (int s = 0; s < player->vr_hardpoint_count; s++)
+		{
+			player_t::VRHardpointRuntime& slot = player->vr_hardpoints[s];
+			if (!slot.enabled) continue;
+			if (slot.hand != -1 && slot.hand != hand) continue; // hand-restricted slot
+
+			// Compute this slot's world position by anchor type.
+			DVector3 slotWorldPos;
+			if (slot.anchor == HP_ANCHOR_WRIST)
+			{
+				// Hand-relative: mount on the OTHER hand's transform.
+				int other = hand ^ 1;
+				if (!handOk[other]) continue;
+				const float* om = handXf[other].get();
+				DVector3 otherPos(om[12], om[14], om[13]);
+				// Local offset rotated by the other hand's basis (column-major, world-remapped Y/Z).
+				DVector3 axX(om[0], om[2], om[1]);
+				DVector3 axY(om[8], om[10], om[9]);
+				DVector3 axZ(om[4], om[6], om[5]);
+				slotWorldPos = otherPos + axX * slot.ox + axY * slot.oy + axZ * slot.oz;
+			}
+			else // HP_ANCHOR_BODY
+			{
+				// Body-relative: head/chest world pos + yaw-rotated local offset.
+				// ox = right, oy = forward, oz = up (map units).
+				double wx = slot.ox * cosY - slot.oy * sinY;
+				double wy = slot.ox * sinY + slot.oy * cosY;
+				slotWorldPos = DVector3(headPos.X + wx, headPos.Y + wy, headPos.Z + slot.oz);
+			}
+
+			double reach   = (slot.radius > 0.f) ? (double)slot.radius : (double)vr_hardpoint_radius;
+			double reachSq = reach * reach;
+
+			double distSq = (handPos[hand] - slotWorldPos).LengthSquared();
+			if (distSq > reachSq) continue;
+
+			if (bestSlot < 0 || distSq < bestDistSq)
+			{
+				bestSlot   = s;
+				bestDistSq = distSq;
+			}
+		}
+
+		if (bestSlot < 0) continue; // no slot in reach for this hand
+
+		player_t::VRHardpointRuntime& slot = player->vr_hardpoints[bestSlot];
+
+		if (slot.action == HP_ACT_ABILITY)
+		{
+			// Ability slot: hand off to a ZScript hook. Native side just latches
+			// the edge and pulses haptics; ZScript owns the ability dispatch.
+			IFVIRTUALPTRNAME(player->mo, NAME_PlayerPawn, VR_HardpointAbility)
+			{
+				VMValue params[3] = { player->mo, hand, bestSlot };
+				VMCall(func, params, 3, nullptr, 0);
+			}
+			VR_HapticEvent("hardpoint", hand, 60, 0, 0);
+			continue;
+		}
+
+		// HP_ACT_HOLSTER -- toggle draw/stow.
+		if (slot.occupied)
+		{
+			// DRAW: bring the stowed weapon back up. Fully native path.
+			AActor* stowed = slot.stowedWeapon;
+			if (stowed)
+			{
+				player->PendingWeapon = stowed;
+				P_BringUpWeapon(player);
+			}
+			slot.stowedWeapon = nullptr;
+			slot.occupied     = false;
+			VR_HapticEvent("hardpoint", hand, 80, 0, 0);
+		}
+		else
+		{
+			// STOW: the PSprite clear + ReadyWeapon detach MUST run through the VM
+			// (PSprite mutation is ZScript-side). Dispatch the VIRTUAL PlayerPawn helper
+			// VR_DoHolster -- NOT the native VR_HolsterHand thunk, which is not a virtual
+			// ZScript method and would null-deref GetVirtualIndex on the first holster.
+			AActor* toStow = (hand == VR_OFFHAND) ? player->OffhandWeapon : player->ReadyWeapon;
+			if (toStow)
+			{
+				IFVIRTUALPTRNAME(player->mo, NAME_PlayerPawn, VR_DoHolster)
+				{
+					VMValue params[3] = { player->mo, hand, bestSlot };
+					VMCall(func, params, 3, nullptr, 0);
+				}
+				slot.stowedWeapon = toStow;
+				slot.occupied     = true;
+				VR_HapticEvent("hardpoint", hand, 80, 0, 0);
+			}
+		}
+	}
+}
+
+//----------------------------------------------------------------------------
+//
+// VR_UpdateArmIK -- native two-bone shoulder/elbow IK helpers
+//
+// VSMatrix (common/utility/matrix.h) exposes no translation/rotation accessors -- only
+// get() returning the raw column-major float[16] (VSMatrix::translate() writes indices
+// 12/13/14, matrix.cpp:142-144; index = col*4+row throughout, confirmed against
+// VSMatrix::multQuaternion's own forward construction at matrix.cpp:101-114). The two
+// helpers below pull the translation column and reconstruct the rotation quaternion
+// straight out of that same layout -- there is nothing else in this codebase to call.
+//
+//----------------------------------------------------------------------------
+
+static FVector3 IK_MatTranslation(const VSMatrix& m)
+{
+	const float* d = m.get();
+	return FVector3(d[12], d[13], d[14]);
+}
+
+// Standard trace-based (Shepperd) matrix->quaternion extraction. This is the exact closed-
+// form inverse of VSMatrix::multQuaternion's own forward construction (matrix.cpp:101-114):
+// that code writes element(row,col) = mMatrix[col*4+row] as the textbook active-rotation
+// matrix for quaternion (X,Y,Z,W); what follows is the standard inverse of that matrix, not
+// a guessed convention. CALIBRATE: assumes every ancestor joint's bind Scale is ~(1,1,1) --
+// baseframe[] bakes each ancestor's scale into the 3x3 submatrix multiplicatively as it
+// accumulates (models_iqm.cpp:166-167), so a non-uniform ancestor scale would skew this
+// extraction. The column-normalize below is a cheap defensive guard against that, not a
+// real fix -- a real fix would need Gram-Schmidt re-orthonormalization, not worth it unless
+// a render test shows skewed elbows on a rig that actually uses non-uniform bone scale.
+static FQuaternion IK_MatRotation(const VSMatrix& m)
+{
+	const float* d = m.get();
+
+	FVector3 c0(d[0], d[1], d[2]);
+	FVector3 c1(d[4], d[5], d[6]);
+	FVector3 c2(d[8], d[9], d[10]);
+	if (c0.LengthSquared() > 1.e-12f) c0.MakeUnit();
+	if (c1.LengthSquared() > 1.e-12f) c1.MakeUnit();
+	if (c2.LengthSquared() > 1.e-12f) c2.MakeUnit();
+
+	float m00 = c0.X, m10 = c0.Y, m20 = c0.Z;
+	float m01 = c1.X, m11 = c1.Y, m21 = c1.Z;
+	float m02 = c2.X, m12 = c2.Y, m22 = c2.Z;
+
+	float trace = m00 + m11 + m22;
+	FQuaternion q(0.f, 0.f, 0.f, 1.f);
+	if (trace > 0.f)
+	{
+		float s = sqrtf(trace + 1.f) * 2.f;
+		q.W = 0.25f * s;
+		q.X = (m21 - m12) / s;
+		q.Y = (m02 - m20) / s;
+		q.Z = (m10 - m01) / s;
+	}
+	else if (m00 > m11 && m00 > m22)
+	{
+		float s = sqrtf(1.f + m00 - m11 - m22) * 2.f;
+		q.W = (m21 - m12) / s;
+		q.X = 0.25f * s;
+		q.Y = (m01 + m10) / s;
+		q.Z = (m02 + m20) / s;
+	}
+	else if (m11 > m22)
+	{
+		float s = sqrtf(1.f + m11 - m00 - m22) * 2.f;
+		q.W = (m02 - m20) / s;
+		q.X = (m01 + m10) / s;
+		q.Y = 0.25f * s;
+		q.Z = (m12 + m21) / s;
+	}
+	else
+	{
+		float s = sqrtf(1.f + m22 - m00 - m11) * 2.f;
+		q.W = (m10 - m01) / s;
+		q.X = (m02 + m20) / s;
+		q.Y = (m12 + m21) / s;
+		q.Z = 0.25f * s;
+	}
+	q.MakeUnit();
+	return q;
+}
+
+// Shortest-arc quaternion rotating unit vector a onto unit vector b. Same construction as
+// the proven ZScript prototype (QuatFromTo, wadsrc/static/zscript/actors/doom/vr_whip.zs:
+// 361-373), ported to FQuaternion/FVector3.
+static FQuaternion IK_QuatFromTo(FVector3 a, FVector3 b)
+{
+	FVector3 axis = a ^ b;
+	float al = (float)axis.Length();
+	float d = (float)(a | b);
+	if (al < 0.0001f)
+	{
+		if (d >= 0.f) return FQuaternion(0.f, 0.f, 0.f, 1.f); // identical -> identity
+		// Opposite -> a 180 degree flip. Axis just needs to be perpendicular to a.
+		FVector3 fallback = (fabsf(a.X) < fabsf(a.Y)) ? FVector3(1.f, 0.f, 0.f) : FVector3(0.f, 1.f, 0.f);
+		FVector3 perp = a ^ fallback;
+		if (perp.LengthSquared() < 1.e-8f) perp = a ^ FVector3(0.f, 0.f, 1.f);
+		perp.MakeUnit();
+		return FQuaternion::AxisAngle(perp, FAngle::fromDeg(180.0));
+	}
+	axis /= al;
+	return FQuaternion::AxisAngle(axis, FAngle::fromRad(atan2f(al, d)));
+}
+
+// world -> model-local (baseframe/raw-joint) space -- see the COORDINATE FRAME note on
+// VR_UpdateArmIK below. Two steps: (1) undo the actor's yaw in the Doom-world XY plane
+// (Z passes through as "world up" for now), then (2) remap that Z-up actor-relative
+// frame onto the model's raw joint-local axes, which this rig's IQM export uses Y as
+// "up" for (see CalculateBonesIQM's own unconditional swapYZ sandwich, models_iqm.cpp
+// ~line 700-761 -- it exists specifically because baseframe/inversebaseframe are NOT
+// already in the same up-convention as the final Z-up render space). That swap is a
+// literal (x,y,z)->(x,z,y) relabel, so step 2 here is the same relabel: local Y takes
+// the world-up component, local Z takes the lateral (yaw-corrected off.Y) component.
+// Local X (forward, from cosInvYaw/sinInvYaw) is untouched -- the swap never touches X.
+static FVector3 IK_WorldToModelLocal(const DVector3& worldPos, const DVector3& actorPos, double cosInvYaw, double sinInvYaw)
+{
+	DVector3 off = worldPos - actorPos;
+	double lx = off.X * cosInvYaw - off.Y * sinInvYaw; // forward
+	double ly = off.X * sinInvYaw + off.Y * cosInvYaw; // lateral (Doom-world sense)
+	// Y<->Z relabel into raw joint-local (Y-up) space: local Y = world up, local Z = lateral.
+	return FVector3((float)lx, (float)off.Z, (float)ly);
+}
+
+// Two-bone (shoulder/elbow) IK solve for one arm, entirely in the model's own local/rest
+// space. Returns the FULL desired model-space rotation for the upper-arm and lower-arm
+// joints (i.e. the rotation component baseframe[joint] would have had, had the model been
+// authored in this new pose) -- VR_UpdateArmIK still converts these into the LOCAL
+// parent-relative rotation the engine actually wants.
+struct FArmIKSolve
+{
+	FQuaternion upperWorldRot;
+	FQuaternion lowerWorldRot;
+};
+
+static bool IK_SolveTwoBoneArm(
+	const FVector3& shoulderPos, const FVector3& elbowBindPos, const FVector3& handBindPos,
+	const FVector3& targetPos, const FVector3& poleDir,
+	const FQuaternion& bindUpperWorldRot, const FQuaternion& bindLowerWorldRot,
+	float upperLen, float forearmLen,
+	FArmIKSolve& out)
+{
+	if (upperLen < 0.01f || forearmLen < 0.01f) return false;
+
+	FVector3 bindUpperDir = elbowBindPos - shoulderPos;
+	FVector3 bindLowerDir = handBindPos - elbowBindPos;
+	if (bindUpperDir.LengthSquared() < 1.e-8f || bindLowerDir.LengthSquared() < 1.e-8f) return false;
+	bindUpperDir.MakeUnit();
+	bindLowerDir.MakeUnit();
+
+	FVector3 toTarget = targetPos - shoulderPos;
+	float rawReach = (float)toTarget.Length();
+	if (rawReach < 0.0001f) return false; // target sits on the shoulder -- no aim direction
+	FVector3 aimDir = toTarget / rawReach;
+
+	// Reach-clamp: solve as if the target were at the nearest point still reachable by this
+	// bone pair, along the SAME direction, instead of feeding law-of-cosines an out-of-domain
+	// acos() argument when the real hand distance exceeds (or undershoots) what the arm can
+	// physically span.
+	float maxReach = (upperLen + forearmLen) * 0.999f;
+	float minReach = fabsf(upperLen - forearmLen) * 1.001f + 0.01f;
+	float reach = clamp(rawReach, minReach, maxReach);
+
+	// Law of cosines: angle at the shoulder between aimDir (shoulder->target) and the
+	// solved upper-arm direction.
+	float cosShoulder = (upperLen * upperLen + reach * reach - forearmLen * forearmLen) / (2.f * upperLen * reach);
+	cosShoulder = clamp(cosShoulder, -1.f, 1.f);
+	float shoulderAngle = acosf(cosShoulder); // radians
+
+	// Pole vector: the plane the elbow bends in. Project out the aimDir component so what's
+	// left is purely perpendicular to the shoulder->target line ("which way the elbow points").
+	FVector3 poleProj = poleDir - aimDir * (float)(poleDir | aimDir);
+	float poleLen = (float)poleProj.Length();
+	if (poleLen < 0.0001f)
+	{
+		poleProj = aimDir ^ FVector3(0.f, 0.f, 1.f);
+		poleLen = (float)poleProj.Length();
+		if (poleLen < 0.0001f)
+		{
+			poleProj = FVector3(1.f, 0.f, 0.f);
+			poleLen = 1.f;
+		}
+	}
+	poleProj /= poleLen;
+
+	FVector3 rotAxis = aimDir ^ poleProj;
+	float axisLen = (float)rotAxis.Length();
+	if (axisLen < 0.0001f) return false; // aimDir parallel to the pole plane normal -- shouldn't happen post-projection
+	rotAxis /= axisLen;
+
+	FQuaternion shoulderSwing = FQuaternion::AxisAngle(rotAxis, FAngle::fromRad(shoulderAngle));
+	FVector3 upperDirSolved = shoulderSwing * aimDir;
+	upperDirSolved.MakeUnit();
+
+	FVector3 elbowPos = shoulderPos + upperDirSolved * upperLen;
+	FVector3 lowerDirSolved = targetPos - elbowPos;
+	float lowerLen = (float)lowerDirSolved.Length();
+	if (lowerLen > 0.0001f) lowerDirSolved /= lowerLen;
+	else lowerDirSolved = bindLowerDir; // degenerate -- keep the bind direction rather than NaN
+
+	FQuaternion deltaUpper = IK_QuatFromTo(bindUpperDir, upperDirSolved);
+	FQuaternion deltaLower = IK_QuatFromTo(bindLowerDir, lowerDirSolved);
+
+	out.upperWorldRot = deltaUpper * bindUpperWorldRot;
+	out.lowerWorldRot = deltaLower * bindLowerWorldRot;
+	out.upperWorldRot.MakeUnit();
+	out.lowerWorldRot.MakeUnit();
+	return true;
+}
+
+EXTERN_CVAR(Bool,  vr_ik_enable)
+EXTERN_CVAR(Float, vr_ik_upperarm_len)
+EXTERN_CVAR(Float, vr_ik_forearm_len)
+
+//----------------------------------------------------------------------------
+//
+// VR_UpdateArmIK
+//
+// Native two-bone shoulder/elbow IK for the avatar's IQM arm joints. Writes ONLY
+// player->vr_ik_pose (one parent-local TRS per skeleton joint: bind values for every
+// joint except the 4 solved arm joints, which get a new ROTATION only -- translate/
+// scale are never touched, bones don't stretch). A separate glue point (not this
+// function, per the design brief) copies vr_ik_pose into player->mo->modelData->
+// proceduralPose and flips useProceduralPose for the render path (see
+// AActor::SetModelBonePose/SetModelUseProceduralPose, scripting/vmthunks_actors.cpp:
+// 2328-2360).
+//
+// STRUCTURAL TEMPLATE: VR_UpdateGravityGloves (this file, ~line 1483) for the guard
+// block shape, and VR_UpdateHardpoints (this file, immediately above) for the local-
+// player-only gate rationale -- GetWeaponTransform reads the single LOCAL OpenXR
+// device with no player parameter, so driving ANY playsim-visible state off it for a
+// non-console player_t on this machine is meaningless local-headset data misattributed
+// to someone else. vr_ik_pose itself is also explicitly excluded from FSerializer/net
+// (see d_player.h:515-518's TRANSIENT/CLIENT-PRESENTATION-ONLY note).
+//
+// COORDINATE FRAME: FModel::GetBasePose() (model.h, overridden model_iqm.h) hands back
+// baseframe -- a plain top-down accumulation of each joint's own RAW local bind TRS
+// (models_iqm.cpp, the joint-read loop just above CalculateBonesIQM), i.e. MODEL-local/
+// rest space with the actor's transform NOT applied and NO swapYZ baked in. The
+// world-space hand targets from GetWeaponTransform must be converted into that SAME
+// space in two steps: (1) subtract the actor's world position and undo the actor's yaw
+// with a plain 2D rotation in the Doom-world XY plane, then (2) relabel the result onto
+// the model's own raw joint-local axes via a Y<->Z swap (IK_WorldToModelLocal does both).
+// That second step is required, NOT optional: CalculateBonesIQM (models_iqm.cpp
+// ~line 700-761) sandwiches baseframe/inversebaseframe between an UNCONDITIONAL swapYZ
+// on every joint (root and child alike) specifically because raw joint-local space is
+// NOT already in the same up-convention as the final Z-up render/world space -- this
+// project's own prior verified finding is that this IQM rig's bone TRS is Y-up, matching
+// the swapYZ evidence exactly. So: local Y (not local Z) carries "world up", and local Z
+// carries the lateral component; local X (forward) is untouched by the relabel, since
+// swapYZ never touches the X row/column. The pole-vector down/back constants below are
+// expressed in this SAME post-swap local frame. CALIBRATE (the one thing that still
+// needs an in-headset render test, not provable from source alone): this Y<->Z relabel
+// direction -- if elbows splay sideways/forward instead of down-and-back on a real
+// render, the fix is swapping which of (off.Z, ly) lands on local Y vs Z in
+// IK_WorldToModelLocal, and mirroring that in downLocal/backLocal below. The SIGN of the
+// yaw un-rotation itself is lower-risk and well-grounded: Angles.Yaw.ToVector() = (Cos,
+// Sin) (vectors.h), the same forward convention already used for real gameplay traces
+// (p_map.cpp UseRange trace, p_switch.cpp dlu.dx/dlu.dy), and algebraic substitution
+// confirms invYaw=-Yaw maps world-forward onto local +X here -- still worth eyeballing
+// in the same render test, but not the primary suspect if arms look wrong.
+//
+//----------------------------------------------------------------------------
+
+void VR_UpdateArmIK(player_t* player)
+{
+	if (!player || !player->mo) return;
+
+	// LOCAL PLAYER ONLY -- see the rationale block above.
+	if (player != player->mo->Level->GetConsolePlayer())
+	{
+		player->vr_ik_active = false;
+		return;
+	}
+
+	if (!VRMode::GetVRModeCached(false))
+	{
+		player->vr_ik_active = false;
+		return;
+	}
+
+	// Two independent gates, per the design brief: the global feature cvar, and the
+	// per-player runtime flag toggled by AActor::SetArmIKEnabled (vmthunks_actors.cpp).
+	if (!vr_ik_enable || !player->vr_ik_enabled)
+	{
+		player->vr_ik_active = false;
+		return;
+	}
+
+	// ---- locate the avatar's loaded IQM model ----
+	// Scan every entry in modelData->models rather than assuming index 0 is the body --
+	// GetJointCount() > 0 is itself the "this is a loaded IQM with a skeleton" signal, so
+	// there is no need to RTTI/dynamic_cast to IQMModel at all (see model.h's GetJointCount
+	// base-class comment).
+	DActorModelData* modelData = player->mo->modelData;
+	if (modelData == nullptr || modelData->models.Size() == 0)
+	{
+		player->vr_ik_active = false;
+		return;
+	}
+
+	FModel* model = nullptr;
+	for (unsigned i = 0; i < modelData->models.Size(); i++)
+	{
+		int modelID = modelData->models[i].modelID;
+		if (modelID < 0 || (unsigned)modelID >= Models.Size()) continue;
+		FModel* candidate = Models[modelID];
+		if (candidate == nullptr) continue;
+		if (candidate->GetLoadState() != FModel::READY) continue; // not finished loading yet -- bail clean, don't crash
+		if (candidate->GetJointCount() <= 0) continue; // not an IQM (or an IQM with no joints)
+		model = candidate;
+		break;
+	}
+	if (model == nullptr)
+	{
+		player->vr_ik_active = false;
+		return;
+	}
+
+	const TArray<VSMatrix>* baseframePtr = model->GetBasePose();
+	if (baseframePtr == nullptr || baseframePtr->Size() == 0)
+	{
+		player->vr_ik_active = false;
+		return;
+	}
+	const TArray<VSMatrix>& baseframe = *baseframePtr;
+
+	int jointCount = model->GetJointCount();
+	if (jointCount <= 0 || (unsigned)jointCount > baseframe.Size())
+	{
+		player->vr_ik_active = false;
+		return;
+	}
+
+	// ---- (re)size + fill the bind pose. Resize only on a genuine count mismatch (first
+	// solve / model swap) to avoid per-tic heap churn; the fill loop itself runs every tic
+	// regardless, since the 2 solved joints per side get overwritten below and everything
+	// else must be re-seeded to bind in case a PREVIOUS tic's solve touched them. ----
+	if (player->vr_ik_pose.Size() != (unsigned)jointCount)
+	{
+		player->vr_ik_pose.Resize(jointCount);
+	}
+	for (int i = 0; i < jointCount; i++)
+	{
+		model->GetJointBindTRS(i, player->vr_ik_pose[i]);
+	}
+
+	// ---- resolve the arm-chain joint indices: name lookup first, numeric fallback ----
+	// Resolved ONCE per loaded model and cached, not redone every tic -- FindJointByName is
+	// an O(Joints.Size()) linear scan and FName(const char*) is a global name-table
+	// insert-or-find on first use, neither of which needs to run 2*4 times per tic forever
+	// for data that cannot change between tics for a given loaded model (mirrors the
+	// one-time-cost discipline already used for warnedNameFallback/vr_ik_pose.Resize just
+	// above). Re-resolved only when the avatar model itself changes.
+	struct ArmChain { int collar, upperArm, lowerArm, hand; };
+	static FModel* cachedModel = nullptr;
+	static ArmChain cachedChains[2];
+	static bool cachedValid = false;
+
+	if (model != cachedModel)
+	{
+		static const char* const names[2][4] =
+		{
+			{ "bip_collar_R", "bip_upperArm_R", "bip_lowerArm_R", "bip_hand_R" },
+			{ "bip_collar_L", "bip_upperArm_L", "bip_lowerArm_L", "bip_hand_L" }
+		};
+		static const int fallbackIdx[2][4] =
+		{
+			{ 22, 25, 29, 37 }, // right: collar, upperArm, lowerArm, hand
+			{ 24, 27, 33, 42 }  // left:  collar, upperArm, lowerArm, hand
+		};
+
+		ArmChain resolved[2];
+		bool usedFallback = false;
+		for (int side = 0; side < 2; side++)
+		{
+			// All-or-nothing PER SIDE: never mix a name-resolved index with a hardcoded
+			// fallback index on the same chain. A partially-matching rig (e.g. has
+			// "bip_collar_R" but not "bip_upperArm_R") would otherwise silently splice in
+			// the marine's hardcoded index for an unrelated joint on an unrelated model --
+			// it would pass the later bounds check clean (still just an in-range index on
+			// THIS model) and run the solve on the wrong bone with no diagnostic.
+			int found[4];
+			bool sideNameOk = true;
+			for (int j = 0; j < 4; j++)
+			{
+				found[j] = model->FindJointByName(FName(names[side][j]));
+				if (found[j] < 0) sideNameOk = false;
+			}
+			int* dst = &resolved[side].collar;
+			for (int j = 0; j < 4; j++)
+			{
+				dst[j] = sideNameOk ? found[j] : fallbackIdx[side][j];
+			}
+			if (!sideNameOk) usedFallback = true;
+		}
+
+		static bool warnedNameFallback = false;
+		if (usedFallback && !warnedNameFallback)
+		{
+			Printf("VR_UpdateArmIK: joint name lookup failed for one or more arm bones -- "
+				"falling back to hardcoded marine joint indices (specific to that rig).\n");
+			warnedNameFallback = true;
+		}
+
+		// Bounds-validate every resolved index against THIS model's joint count -- the
+		// hardcoded fallback indices are specific to the marine's rig and would be garbage
+		// on a different avatar model that still happens to pass the IQM/joint-count gate
+		// above. (Meaningful only for the fallback case: a genuine FindJointByName hit can
+		// never be out of range on the same model it was just looked up on.)
+		bool boundsOk = true;
+		for (int side = 0; side < 2 && boundsOk; side++)
+		{
+			int idxs[4] = { resolved[side].collar, resolved[side].upperArm, resolved[side].lowerArm, resolved[side].hand };
+			for (int j = 0; j < 4; j++)
+			{
+				if (idxs[j] < 0 || idxs[j] >= jointCount) { boundsOk = false; break; }
+			}
+		}
+
+		cachedChains[0] = resolved[0];
+		cachedChains[1] = resolved[1];
+		cachedValid = boundsOk;
+		cachedModel = model;
+	}
+
+	if (!cachedValid)
+	{
+		player->vr_ik_active = false;
+		return;
+	}
+	ArmChain (&chains)[2] = cachedChains; // reference to the cached (or freshly re-resolved) chain array
+
+	// ---- world -> model-local space setup for the hand targets (see COORDINATE FRAME above) ----
+	const DVector3 actorPos = player->mo->Pos();
+	const DAngle   invYaw   = -player->mo->Angles.Yaw; // undo the actor's own facing
+	const double   cosInvYaw = invYaw.Cos();
+	const double   sinInvYaw = invYaw.Sin();
+
+	// Real per-hand tracked targets. NOTE: player->mo->AttackPos is deliberately NOT used
+	// here for either hand, even though the design notes floated it for the main hand --
+	// AttackPos is set from PosAtZ(shootz) (common/rendering/hwrenderer/data/hw_vrmodes.cpp,
+	// VRMode::SetUp), i.e. its X/Y are pinned to the actor's OWN center and only Z tracks
+	// the headset height; it's a hitscan ray origin, not a 3D hand position, and would
+	// leave the arms unable to reach sideways at all. GetWeaponTransform(hand) is the real
+	// per-hand tracked transform -- the same source VR_UpdateGravityGloves and
+	// VR_UpdateHardpoints (both this file) already use for both hands -- so it's used for
+	// BOTH main and off hand here too.
+	const VRMode* vrmode = VRMode::GetVRModeCached(false);
+	bool rightHanded = vr_control_scheme < 10; // same remap GetWeaponTransform itself applies internally
+	int rightHandEnum = rightHanded ? VR_MAINHAND : VR_OFFHAND;
+	int leftHandEnum  = rightHanded ? VR_OFFHAND  : VR_MAINHAND;
+
+	VSMatrix rightXf, leftXf;
+	bool haveTarget[2];
+	haveTarget[0] = vrmode->GetWeaponTransform(&rightXf, rightHandEnum);
+	haveTarget[1] = vrmode->GetWeaponTransform(&leftXf,  leftHandEnum);
+	if (!haveTarget[0] && !haveTarget[1])
+	{
+		player->vr_ik_active = false;
+		return;
+	}
+
+	FVector3 targetLocal[2]; // [0]=right,[1]=left
+	if (haveTarget[0])
+	{
+		const float* m = rightXf.get();
+		// column-major GetWeaponTransform output -> Doom world (X, GL.Z->Doom.Y, GL.Y->Doom.Z),
+		// same remap already used by VR_UpdateGravityGloves/VR_UpdateHardpoints in this file.
+		targetLocal[0] = IK_WorldToModelLocal(DVector3(m[12], m[14], m[13]), actorPos, cosInvYaw, sinInvYaw);
+	}
+	if (haveTarget[1])
+	{
+		const float* m = leftXf.get();
+		targetLocal[1] = IK_WorldToModelLocal(DVector3(m[12], m[14], m[13]), actorPos, cosInvYaw, sinInvYaw);
+	}
+
+	// ---- per-side bind-pose geometry, read straight from the model's own baseframe
+	// (model-local space, no swapYZ / inversebaseframe -- see COORDINATE FRAME above) ----
+	FVector3 shoulderPos[2], elbowBindPos[2], handBindPos[2];
+	FQuaternion collarBindRot[2], upperBindRot[2], lowerBindRot[2];
+	float upperLen[2], forearmLen[2];
+
+	for (int side = 0; side < 2; side++)
+	{
+		shoulderPos[side]  = IK_MatTranslation(baseframe[chains[side].upperArm]);
+		elbowBindPos[side] = IK_MatTranslation(baseframe[chains[side].lowerArm]);
+		handBindPos[side]  = IK_MatTranslation(baseframe[chains[side].hand]);
+
+		collarBindRot[side] = IK_MatRotation(baseframe[chains[side].collar]);
+		upperBindRot[side]  = IK_MatRotation(baseframe[chains[side].upperArm]);
+		lowerBindRot[side]  = IK_MatRotation(baseframe[chains[side].lowerArm]);
+
+		float derivedUpper = (float)(elbowBindPos[side] - shoulderPos[side]).Length();
+		float derivedFore  = (float)(handBindPos[side] - elbowBindPos[side]).Length();
+
+		// Fall back to the cvars (default 0 => "prefer the model", per hw_vrmodes.cpp's own
+		// vr_ik_upperarm_len/vr_ik_forearm_len comments) ONLY if the derived length is
+		// degenerate; if the cvar is also unset, fall back to the bind-length constants
+		// this session measured directly off this same rig (~11.05 / ~9.44 map units).
+		upperLen[side]   = (derivedUpper > 0.1f) ? derivedUpper : ((float)vr_ik_upperarm_len > 0.1f ? (float)vr_ik_upperarm_len : 11.05f);
+		forearmLen[side] = (derivedFore  > 0.1f) ? derivedFore  : ((float)vr_ik_forearm_len  > 0.1f ? (float)vr_ik_forearm_len  : 9.44f);
+	}
+
+	// Pole vector per side: outward + down + back, so elbows splay naturally instead of
+	// clipping through the torso.
+	//  - "outward" is derived from the two shoulders' own bind positions (points away from
+	//    the body centerline regardless of which raw model axis happens to be left/right),
+	//    not a hardcoded axis letter.
+	//  - "back" is the actor's own facing undone by the SAME yaw rotation used above, which
+	//    is mathematically always local (+1,0,0) after that conversion: Doom's yaw=0 forward
+	//    is (cos,sin,0); undoing yaw always maps the actor's own forward onto local (1,0,0)
+	//    (see IK_WorldToModelLocal above) -- so "back" = local (-1,0,0), a derived constant,
+	//    not a modeling guess. The Y<->Z relabel never touches X, so this is unaffected by it.
+	//  - "down" is local (0,-1,0) -- NOT (0,0,-1) -- per the Y<->Z relabel documented in the
+	//    COORDINATE FRAME note above: local Y carries "world up" in this raw joint-local
+	//    (Y-up) space, so "down" points along -Y here, not -Z.
+	// The 1.0/0.6/0.35 weights are a reasoned starting shape (mostly outward, some sag,
+	// slight back), not a balance decision -- these are the first thing to retune from a
+	// render test if the elbows splay the wrong way (see the CALIBRATE note above).
+	FVector3 lateralRtoL = shoulderPos[1] - shoulderPos[0];
+	if (lateralRtoL.LengthSquared() < 1.e-6f) lateralRtoL = FVector3(0.f, 0.f, 1.f); // shoulders coincide -- arbitrary fallback (lateral now lives on local Z)
+	lateralRtoL.MakeUnit();
+	const FVector3 downLocal(0.f, -1.f, 0.f);
+	const FVector3 backLocal(-1.f, 0.f, 0.f);
+	FVector3 poleDir[2];
+	poleDir[0] = lateralRtoL * -1.0f + downLocal * 0.6f + backLocal * 0.35f; // right: outward = -lateralRtoL
+	poleDir[1] = lateralRtoL *  1.0f + downLocal * 0.6f + backLocal * 0.35f; // left:  outward = +lateralRtoL
+	poleDir[0].MakeUnit();
+	poleDir[1].MakeUnit();
+
+	// ---- solve + write both arms ----
+	bool anySolved = false;
+	for (int side = 0; side < 2; side++)
+	{
+		if (!haveTarget[side]) continue;
+
+		FArmIKSolve solve;
+		bool ok = IK_SolveTwoBoneArm(
+			shoulderPos[side], elbowBindPos[side], handBindPos[side],
+			targetLocal[side], poleDir[side],
+			upperBindRot[side], lowerBindRot[side],
+			upperLen[side], forearmLen[side],
+			solve);
+		if (!ok) continue;
+
+		// Chain per point 4 of the design brief: upperArm's parent reference is the
+		// COLLAR's bind rotation (its real parent in the render composition --
+		// baseframe[Parent] inside CalculateBonesIQM); lowerArm's parent reference is the
+		// UPPER ARM's OWN JUST-SOLVED world rotation, NOT its bind rotation, because the
+		// upper arm no longer sits at its bind orientation once solved (matches the whip's
+		// own parentWorldRot=worldRot chaining, vr_whip.zs:397-417 DriveModelBones).
+		FQuaternion localUpper = collarBindRot[side].Inverse() * solve.upperWorldRot;
+		FQuaternion localLower = solve.upperWorldRot.Inverse() * solve.lowerWorldRot;
+		localUpper.MakeUnit();
+		localLower.MakeUnit();
+
+		// Rotation only -- translate/scale were already seeded from GetJointBindTRS above
+		// and must stay untouched (bones don't stretch).
+		TRS& upperPose = player->vr_ik_pose[chains[side].upperArm];
+		upperPose.rotation = FVector4(localUpper.X, localUpper.Y, localUpper.Z, localUpper.W);
+
+		TRS& lowerPose = player->vr_ik_pose[chains[side].lowerArm];
+		lowerPose.rotation = FVector4(localLower.X, localLower.Y, localLower.Z, localLower.W);
+
+		anySolved = true;
+	}
+
+	player->vr_ik_active = anySolved;
+
+	// ---- push the solved pose to the render path (the missing native glue) ----
+	// vr_ik_pose is a private playsim buffer; the renderer ONLY reads
+	// modelData->proceduralPose (r_data/models.cpp:577). Copy it across and flip
+	// useProceduralPose so ProcessModelFrame consumes the solved bones this frame. On a
+	// tic with no valid solve, clear the flag so the avatar reverts to its bind pose.
+	// modelData is guaranteed non-null here (early-return gate at ~2415). NOTE: the avatar
+	// MODELDEF block must also carry the `modelsareattachments` keyword for these bones to
+	// upload to the GPU (models.cpp:635) -- +DECOUPLEDANIMATIONS alone fails on a 0-anim IQM.
+	if (anySolved)
+	{
+		modelData->proceduralPose = player->vr_ik_pose;   // TArray<TRS> copy; identical element type
+		modelData->useProceduralPose = true;
+	}
+	else
+	{
+		modelData->useProceduralPose = false;
 	}
 }
 

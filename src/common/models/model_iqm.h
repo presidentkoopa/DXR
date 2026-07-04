@@ -159,6 +159,12 @@ private:
 	TArray<TRS> TRSData;
 public:
 	virtual const TArray<VSMatrix>* GetBasePose() { return &baseframe; }
+
+	// ---- VR arm-IK joint introspection overrides (real bodies in models_iqm.cpp) ----
+	int GetJointCount() const override;
+	bool GetJointBindTRS(int jointIndex, TRS& out) const override;
+	int GetJointParent(int jointIndex) const override;
+	int FindJointByName(FName name) const override;
 };
 
 struct IQMReadErrorException { };

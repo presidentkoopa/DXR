@@ -25,7 +25,7 @@ class Revenant : Actor
 		HitObituary "$OB_UNDEADHIT";
 		Obituary "$OB_UNDEAD";
 		Tag "$FN_REVEN";
-		Keywords "mass:300", "grab", "class:revenant", "species:revenant", "role:skirmisher", "trait:homing", "anatomy:bone", "weight:heavy", "vulnerability:core_stun";
+		Keywords "mass:300", "grab", "class:revenant", "species:revenant", "role:skirmisher", "trait:homing", "anatomy:bone", "weight:heavy", "vulnerability:core_stun", "kickback:1000";
 	}
 	States
 	{
@@ -86,6 +86,7 @@ class RevenantTracer : Actor
 		SeeSound "skeleton/attack";
 		DeathSound "skeleton/tracex";
 		RenderStyle "Add";
+		Keywords "kickback:600";
 	}
 	States
 	{

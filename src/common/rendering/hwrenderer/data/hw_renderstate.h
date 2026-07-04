@@ -298,6 +298,46 @@ struct FNeonOutlineState
 };
 extern FNeonOutlineState GNeonOutlineState;
 
+// Same idiom as FNeonOutlineState above: cheap once-per-frame cache for the visual-regime and
+// GITD fog tuning cvars, populated by HWDrawInfo::StartScene() via FindCVar(). FRenderState::Reset()
+// just copies from this. The four *Pulse/KillStreak/PlayerSpeed-style reactive fields are NOT
+// cvars -- PlayerSpeed is computed live from the viewpoint each frame; LastHitTime/LastFireTime/
+// KillStreak/LastImpact have no producer yet (no combat-event tracker wired to them), so they
+// stay at their harmless defaults (0) until that tracker exists -- regimes read them for reactive
+// polish only, never to gate the base effect.
+struct FVisualRegimeState
+{
+	float RegimeSelect = 0.0f;
+	float FogMode = 0.0f;
+	float FogDensity = 0.5f;
+	float FogHeight = 0.0f;
+	float FogQuantize = 32.0f;
+	float FogRimPower = 2.0f;
+	float FogSpeed = 1.0f;
+	float FogLightLink = 0.0f;
+	float RegimeParam1 = 1.0f;
+	float RegimeParam2 = 1.0f;
+	float RegimeSpeed = 1.0f;
+	float RegimeReact = 0.0f;
+	float RegimeCenterMask = 0.0f;
+	float RegimeBubbleSize = 1.0f;
+	float RegimeJitter = 0.0f;
+	float RegimeSpeedLink = 0.0f;
+	float RegimePingInten = 1.0f;
+	FVector4 RegimeBlueprintCol = { 0.25f, 0.75f, 1.0f, 1.0f };
+	float RegimeThermalInten = 1.0f;
+	float RegimeNoirSat = 0.15f;
+	float RegimeRipplesEnabled = 0.0f;
+	float RegimeRippleScale = 1.0f;
+	float PlayerSpeed = 0.0f;
+	float LastHitTime = 0.0f;
+	float LastFireTime = 0.0f;
+	float LastImpactTime = 0.0f;
+	FVector4 LastImpactPos = { 0.0f, 0.0f, 0.0f, 0.0f };
+	float KillStreak = 0.0f;
+};
+extern FVisualRegimeState GVisualRegimeState;
+
 class FRenderState
 {
 protected:
@@ -418,37 +458,39 @@ public:
 		mStreamData.padding4 = mStreamData.padding5 = mStreamData.padding6 = 0;
 		mStreamData.u_MSDFColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-		// GITD fog/regime default to OFF (mode 0 / regime 0 gate the effects). B2 feeds live values.
-		mStreamData.u_gitd_fog_mode = 0;
-		mStreamData.u_gitd_fog_density = 0.0f;
-		mStreamData.u_gitd_fog_height = 0.0f;
-		mStreamData.u_gitd_fog_quantize = 0.0f;
-		mStreamData.u_gitd_fog_rim_power = 0.0f;
-		mStreamData.u_gitd_fog_speed = 0.0f;
-		mStreamData.u_gitd_fog_lightlink = 0;
-		mStreamData.u_vr_visual_regime = 0;
-		mStreamData.u_vr_regime_param1 = 0.0f;
-		mStreamData.u_vr_regime_param2 = 0.0f;
-		mStreamData.u_vr_regime_speed = 0.0f;
-		mStreamData.u_vr_regime_react = 0;
-		mStreamData.u_vr_regime_center_mask = 0;
-		mStreamData.u_vr_regime_bubble_size = 0.0f;
-		mStreamData.u_vr_regime_jitter = 0.0f;
-		mStreamData.u_vr_regime_speed_link = 0;
-		mStreamData.u_vr_regime_ping_inten = 0.0f;
-		mStreamData.u_gitd_last_hit_time = 0.0f;
-		mStreamData.u_gitd_last_fire_time = 0.0f;
-		mStreamData.u_gitd_player_speed = 0.0f;
-		mStreamData.u_gitd_kill_streak = 0.0f;
-		mStreamData.u_vr_thermal_inten = 0.0f;
-		mStreamData.u_vr_noir_sat = 0.0f;
-		mStreamData.u_vr_ripples_enabled = 0;
-		mStreamData.u_vr_ripple_scale = 0.0f;
-		mStreamData.u_gitd_last_impact_time = 0.0f;
+		// GITD fog/regime: cheap copy from the once-per-frame cache (see FVisualRegimeState /
+		// GVisualRegimeState above), same idiom as the neon-outline copy just below. Reset() must
+		// never do the FindCVar lookup itself -- that's StartScene()'s job, once per scene/eye.
+		mStreamData.u_gitd_fog_mode = (int)GVisualRegimeState.FogMode;
+		mStreamData.u_gitd_fog_density = GVisualRegimeState.FogDensity;
+		mStreamData.u_gitd_fog_height = GVisualRegimeState.FogHeight;
+		mStreamData.u_gitd_fog_quantize = GVisualRegimeState.FogQuantize;
+		mStreamData.u_gitd_fog_rim_power = GVisualRegimeState.FogRimPower;
+		mStreamData.u_gitd_fog_speed = GVisualRegimeState.FogSpeed;
+		mStreamData.u_gitd_fog_lightlink = (int)GVisualRegimeState.FogLightLink;
+		mStreamData.u_vr_visual_regime = (int)GVisualRegimeState.RegimeSelect;
+		mStreamData.u_vr_regime_param1 = GVisualRegimeState.RegimeParam1;
+		mStreamData.u_vr_regime_param2 = GVisualRegimeState.RegimeParam2;
+		mStreamData.u_vr_regime_speed = GVisualRegimeState.RegimeSpeed;
+		mStreamData.u_vr_regime_react = (int)GVisualRegimeState.RegimeReact;
+		mStreamData.u_vr_regime_center_mask = (int)GVisualRegimeState.RegimeCenterMask;
+		mStreamData.u_vr_regime_bubble_size = GVisualRegimeState.RegimeBubbleSize;
+		mStreamData.u_vr_regime_jitter = GVisualRegimeState.RegimeJitter;
+		mStreamData.u_vr_regime_speed_link = (int)GVisualRegimeState.RegimeSpeedLink;
+		mStreamData.u_vr_regime_ping_inten = GVisualRegimeState.RegimePingInten;
+		mStreamData.u_gitd_last_hit_time = GVisualRegimeState.LastHitTime;
+		mStreamData.u_gitd_last_fire_time = GVisualRegimeState.LastFireTime;
+		mStreamData.u_gitd_player_speed = GVisualRegimeState.PlayerSpeed;
+		mStreamData.u_gitd_kill_streak = GVisualRegimeState.KillStreak;
+		mStreamData.u_vr_thermal_inten = GVisualRegimeState.RegimeThermalInten;
+		mStreamData.u_vr_noir_sat = GVisualRegimeState.RegimeNoirSat;
+		mStreamData.u_vr_ripples_enabled = (int)GVisualRegimeState.RegimeRipplesEnabled;
+		mStreamData.u_vr_ripple_scale = GVisualRegimeState.RegimeRippleScale;
+		mStreamData.u_gitd_last_impact_time = GVisualRegimeState.LastImpactTime;
 		mStreamData.u_gitd_pad0 = 0;
 		mStreamData.u_gitd_pad1 = 0;
-		mStreamData.u_vr_blueprint_col = { 0.0f, 0.0f, 0.0f, 0.0f };
-		mStreamData.u_gitd_last_impact_pos = { 0.0f, 0.0f, 0.0f, 0.0f };
+		mStreamData.u_vr_blueprint_col = GVisualRegimeState.RegimeBlueprintCol;
+		mStreamData.u_gitd_last_impact_pos = GVisualRegimeState.LastImpactPos;
 
 		// Cheap copy from the once-per-frame cache (see FNeonOutlineState / GNeonOutlineState
 		// above) -- populated by HWDrawInfo::StartScene() via FindCVar(), never looked up here.

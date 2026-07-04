@@ -210,6 +210,26 @@ void RenderHUDModel(FModelRenderer *renderer, DPSprite *psp, FVector3 translatio
 	auto vrmode = VRMode::GetVRModeCached(true);
 	AActor * playermo = players[consoleplayer].camera;
 
+	// [XR] TEMP hand-swap diagnostic (throttled per process run): does the fist-swap fire, and does
+	// the VRHandModel model actually resolve a frame? handFrame=0 => the hand model isn't loading
+	// (hands would never render even when punching); fistKW=0 => the held weapon just isn't a fist.
+	// Remove once hands are confirmed.
+	{
+		static int s_hudHandDbg = 0;
+		if (s_hudHandDbg < 16)
+		{
+			s_hudHandDbg++;
+			bool isFist = psp && psp->Caller && psp->Caller->Keywords.IndexOf("fist") != -1;
+			PClassActor* hc = PClass::FindActor("VRHandModel");
+			int handFrame = 0;
+			if (hc) { FState* st = hc->FindState(NAME_Spawn); if (st) handFrame = (FindModelFrame(hc, st->sprite, st->GetFrame(), true) != nullptr); }
+			Printf("[VRHUDHAND] isVR=%d caller=%s fistKW=%d handClass=%d handFrame=%d\n",
+				(int)vrmode->IsVR(),
+				(psp && psp->Caller ? psp->Caller->GetClass()->TypeName.GetChars() : "none"),
+				(int)isFist, (int)(hc != nullptr), handFrame);
+		}
+	}
+
 	// Intercept fist rendering for VR Hand Hot-Swapping
 	if (vrmode->IsVR() && psp->Caller && psp->Caller->Keywords.IndexOf("fist") != -1)
 	{

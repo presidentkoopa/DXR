@@ -58,7 +58,16 @@ class VRLocationalArbiter : StaticEventHandler
             if (e.Thing.Health <= 0 || (e.Thing.Health - e.NewDamage <= 0))
             {
                 // Sigil spawning is now handled by SDFComboArbiter on death to prevent duplicates
-                e.Thing.A_StartSound("vr/critical_hit", CHAN_AUTO, CHANF_OVERLAP);
+                // Crit sound is user-selectable (vr_crit_sound: 0=Off, 1-4 = sound choice).
+                int critSnd = CVar.GetCVar("vr_crit_sound").GetInt();
+                if (critSnd > 0)
+                {
+                    string critSndName = "vr/critical_hit";
+                    if (critSnd == 2) critSndName = "vr/critical_hit2";
+                    else if (critSnd == 3) critSndName = "vr/critical_hit3";
+                    else if (critSnd == 4) critSndName = "vr/critical_hit4";
+                    e.Thing.A_StartSound(critSndName, CHAN_AUTO, CHANF_OVERLAP);
+                }
             }
         }
         else if (zRatio < legThreshold)

@@ -765,3 +765,55 @@ const TArray<VSMatrix>* IQMModel::CalculateBonesIQM(int frame1, int frame2, floa
 	}
 	return nullptr;
 }
+
+//==========================================================================
+//
+// VR arm-IK joint introspection (read-only bind-pose access). These expose
+// the private Joints[] array -- populated at Load() time, see the joint-read
+// loop above this file, ~line 112-127 -- to native playsim code (VR_UpdateArmIK,
+// playsim/p_user.cpp) without handing out a mutable reference to Joints itself.
+// GetJointBindTRS/GetJointParent intentionally mirror the RAW per-joint local
+// TRS fields exactly as read off disk (same convention IQMJoint.Translate/
+// Quaternion/Scale already use, and the same convention baseframe[] was built
+// from just above) -- callers compose these themselves; nothing here is
+// skinning-space (no swapYZ, no inversebaseframe).
+//
+//==========================================================================
+
+int IQMModel::GetJointCount() const
+{
+	return Joints.SSize();
+}
+
+bool IQMModel::GetJointBindTRS(int jointIndex, TRS& out) const
+{
+	if (jointIndex < 0 || (unsigned)jointIndex >= Joints.Size())
+		return false;
+
+	const IQMJoint& j = Joints[jointIndex];
+	out.translation = j.Translate;
+	out.rotation = j.Quaternion;
+	out.scaling = j.Scale;
+	return true;
+}
+
+int IQMModel::GetJointParent(int jointIndex) const
+{
+	if (jointIndex < 0 || (unsigned)jointIndex >= Joints.Size())
+		return -1;
+
+	return Joints[jointIndex].Parent;
+}
+
+int IQMModel::FindJointByName(FName name) const
+{
+	const char* target = name.GetChars();
+	for (unsigned i = 0; i < Joints.Size(); i++)
+	{
+		// Case-sensitive exact match against the joint name as authored/exported --
+		// matches FString::Compare(const char*)'s strcmp semantics (zstring.h).
+		if (Joints[i].Name.Compare(target) == 0)
+			return (int)i;
+	}
+	return -1;
+}

@@ -22,7 +22,7 @@ class DoomImp : Actor
 		HitObituary "$OB_IMPHIT";
 		Obituary "$OB_IMP";
 		Tag "$FN_IMP";
-		Keywords "mass:100", "grab", "class:doomimp", "species:imp", "role:skirmisher", "trait:projectile", "anatomy:flesh", "weight:medium", "vulnerability:melee";
+		Keywords "mass:100", "grab", "class:doomimp", "species:imp", "role:skirmisher", "trait:projectile", "anatomy:flesh", "weight:medium", "vulnerability:melee", "kickback:moderate";
 	}
 	States
 	{
@@ -84,6 +84,7 @@ class DoomImpBall : Actor
 		Alpha 1;
 		SeeSound "imp/attack";
 		DeathSound "imp/shotx";
+		Keywords "kickback:533";
 	}
 	States
 	{

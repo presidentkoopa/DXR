@@ -1183,6 +1183,21 @@ static XrVector2f GetActionVector2f(XrSession session, XrAction action, XrPath s
 	return state.currentState;
 }
 
+static float GetActionFloat(XrSession session, XrAction action, XrPath subactionPath)
+{
+	if (session == XR_NULL_HANDLE || action == XR_NULL_HANDLE)
+		return 0.0f;
+
+	XrActionStateGetInfo getInfo{ XR_TYPE_ACTION_STATE_GET_INFO };
+	getInfo.action = action;
+	getInfo.subactionPath = subactionPath;
+
+	XrActionStateFloat state{ XR_TYPE_ACTION_STATE_FLOAT };
+	if (XR_FAILED(xrGetActionStateFloat(session, &getInfo, &state)))
+		return 0.0f;
+	return state.isActive ? state.currentState : 0.0f;
+}
+
 static FString PathToString(XrInstance instance, XrPath path)
 {
 	if (instance == XR_NULL_HANDLE || path == XR_NULL_PATH)
@@ -2001,6 +2016,8 @@ bool VKOpenXRDeviceMode::InitializeOpenXR() const
 	createAction("menu", "Menu", XR_ACTION_TYPE_BOOLEAN_INPUT, xrMenuAction);
 	createAction("left_grip", "Left Grip", XR_ACTION_TYPE_BOOLEAN_INPUT, xrLeftGripAction);
 	createAction("right_grip", "Right Grip", XR_ACTION_TYPE_BOOLEAN_INPUT, xrRightGripAction);
+	createAction("left_grip_value",  "Left Grip Value",  XR_ACTION_TYPE_FLOAT_INPUT, xrLeftGripValueAction);
+	createAction("right_grip_value", "Right Grip Value", XR_ACTION_TYPE_FLOAT_INPUT, xrRightGripValueAction);
 	createAction("thumb_click", "Thumb Click", XR_ACTION_TYPE_BOOLEAN_INPUT, xrThumbClickAction);
 	createAction("thumbstick", "Thumbstick", XR_ACTION_TYPE_VECTOR2F_INPUT, xrThumbstickAction);
 	createAction("trackpad", "Trackpad", XR_ACTION_TYPE_VECTOR2F_INPUT, xrTrackpadAction);
@@ -2126,6 +2143,8 @@ bool VKOpenXRDeviceMode::InitializeOpenXR() const
 	AddBinding(touchBindings, xrSelectAction, rightTriggerValuePath);
 	AddBinding(touchBindings, xrLeftGripAction, leftSqueezeValuePath);
 	AddBinding(touchBindings, xrRightGripAction, rightSqueezeValuePath);
+	AddBinding(touchBindings, xrLeftGripValueAction,  leftSqueezeValuePath);
+	AddBinding(touchBindings, xrRightGripValueAction, rightSqueezeValuePath);
 	AddBinding(touchBindings, xrThumbClickAction, leftThumbClickPath);
 	AddBinding(touchBindings, xrThumbClickAction, rightThumbClickPath);
 	AddBinding(touchBindings, xrThumbstickAction, leftThumbstickPath);
@@ -2146,6 +2165,8 @@ bool VKOpenXRDeviceMode::InitializeOpenXR() const
 	AddBinding(indexBindings, xrSelectAction, rightTriggerValuePath);
 	AddBinding(indexBindings, xrLeftGripAction, leftSqueezeValuePath);
 	AddBinding(indexBindings, xrRightGripAction, rightSqueezeValuePath);
+	AddBinding(indexBindings, xrLeftGripValueAction,  leftSqueezeValuePath);
+	AddBinding(indexBindings, xrRightGripValueAction, rightSqueezeValuePath);
 	AddBinding(indexBindings, xrThumbClickAction, leftThumbClickPath);
 	AddBinding(indexBindings, xrThumbClickAction, rightThumbClickPath);
 	AddBinding(indexBindings, xrThumbstickAction, leftThumbstickPath);
@@ -2731,6 +2752,9 @@ void VKOpenXRDeviceMode::DestroyOpenXR() const
 	xrLastSelectState[0] = xrLastSelectState[1] = false;
 	xrLastMenuState[0] = xrLastMenuState[1] = false;
 	xrLastGripState[0] = xrLastGripState[1] = false;
+	xrLeftGripValueAction = XR_NULL_HANDLE;
+	xrRightGripValueAction = XR_NULL_HANDLE;
+	xrGripValue[0] = xrGripValue[1] = 0.0f;
 	xrLastThumbClickState[0] = xrLastThumbClickState[1] = false;
 	xrLastTrackpadClickState[0] = xrLastTrackpadClickState[1] = false;
 	xrLastAState[0] = xrLastAState[1] = false;
@@ -3089,6 +3113,10 @@ void VKOpenXRDeviceMode::UpdateControllerState() const
 		input.y = GetActionBoolean(xrSession, xrYAction, handPath);
 		input.trackpad = GetActionVector2f(xrSession, xrTrackpadAction, handPath);
 		input.thumbstick = GetActionVector2f(xrSession, xrThumbstickAction, handPath);
+
+		// NEW: analog squeeze strength (0..1). Stored straight into the durable member; level-not-edge
+		// so it needs none of the sub-frame boolean latching below.
+		xrGripValue[hand] = GetActionFloat(xrSession, hand == 0 ? xrLeftGripValueAction : xrRightGripValueAction, handPath);
 
 		// --- INPUT LATCHING (Sub-Frame Sync) ---
 		// Ensure buttons held for less than a 35Hz tick (~28ms) are latched 
@@ -4350,6 +4378,12 @@ bool VKOpenXRDeviceMode::IsGripPressed(int hand) const
 {
 	if (hand < 0 || hand > 1) return false;
 	return xrLastGripState[hand];
+}
+
+float VKOpenXRDeviceMode::GetGripValue(int hand) const
+{
+	if (hand < 0 || hand > 1) return 0.0f;
+	return xrGripValue[hand];
 }
 
 bool VKOpenXRDeviceMode::GetHandVelocity(int hand, DVector3& outLinear) const

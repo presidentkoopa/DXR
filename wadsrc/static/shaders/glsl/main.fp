@@ -8,6 +8,8 @@ layout(location = 4) in vec3 gradientdist;
 layout(location = 5) in vec4 vWorldNormal;
 layout(location = 6) in vec4 vEyeNormal;
 layout(location = 9) in vec3 vLightmap;
+// PS1 affine-warp companion to vTexCoord -- see the matching declaration in main.vp.
+layout(location = 10) noperspective in vec4 vTexCoordAffine;
 
 #ifdef NO_CLIPDISTANCE_SUPPORT
 layout(location = 7) in vec4 ClipDistanceA;
@@ -663,6 +665,20 @@ vec3 ApplyNormalMap(vec2 texcoord)
 	return normalize(vWorldNormal.xyz);
 }
 #endif
+
+//===========================================================================
+//
+// PS1 affine texture warp: when enabled, the primary diffuse sample uses the
+// noperspective-interpolated coordinate instead of the perspective-correct one. uAffineWarp
+// lives in the shared viewpoint uniform block (already used by main.vp), so it needs no
+// additional C++ plumbing to read here.
+//
+//===========================================================================
+
+vec2 GetAffineTexCoord(vec2 perspCoord)
+{
+	return (uAffineWarp != 0) ? vTexCoordAffine.st : perspCoord;
+}
 
 //===========================================================================
 //

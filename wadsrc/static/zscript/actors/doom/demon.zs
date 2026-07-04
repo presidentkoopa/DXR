@@ -22,7 +22,7 @@ class Demon : Actor
 		ActiveSound "demon/active";
 		Obituary "$OB_DEMONHIT";
 		Tag "$FN_DEMON";
-		Keywords "mass:400", "grab", "class:demon", "species:pinky", "role:charger", "trait:melee", "anatomy:flesh", "weight:heavy", "behavior:aggressive";
+		Keywords "mass:400", "grab", "class:demon", "species:pinky", "role:charger", "trait:melee", "anatomy:flesh", "weight:heavy", "behavior:aggressive", "kickback:1000";
 	}
 	States
 	{
@@ -74,7 +74,7 @@ class Spectre : Demon
 		ActiveSound "spectre/active";
 		Obituary "$OB_SPECTREHIT";
 		Tag "$FN_SPECTRE";
-		Keywords "mass:400", "grab";
+		Keywords "mass:400", "grab", "kickback:1000";
 	}
 }
 

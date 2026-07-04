@@ -460,6 +460,12 @@ void FVRMSDFDamageCounter::RecordDamage(AActor* target, int damage)
         counter->TextThinker->Behavior = behavior;
     }
 
+    // SpawnText can return null (e.g. the MSDF font atlas failed to load / no 'Arcade' font in
+    // vr_assets/msdf/). Without this guard the unconditional counter->TextThinker->MSDFColor write
+    // below dereferences null and hard-crashes on the FIRST damage event (Access Violation writing
+    // [null+0x168]). Bail cleanly so a missing font just means "no floating number", not a crash.
+    if (!counter->TextThinker) return;
+
     // Apply Color Mode
     FVector3 finalColor;
     if (vr_damage_number_color_mode == 0)

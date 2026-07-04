@@ -492,11 +492,28 @@ CVAR(Bool, vr_show_hands, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Float, vr_throw_force, 1.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_throw_sensory_hooks, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Float, vr_grab_cone_angle, 30.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
-CVAR(Float, vr_grab_max_dist, 500.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+// Gravity gloves are deliberately SHORT range (close-quarters grab) -- the whip (vr_whip.zs
+// ActiveWhip.Reach, currently 300) is the long-range retrieval tool. Was 500 (longer than the
+// whip itself), which was backwards; corrected to keep the two tools clearly differentiated.
+CVAR(Float, vr_grab_max_dist, 150.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Float, vr_grab_magnet_speed, 10.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+// "Easier Grabbing" gameplay toggle (VR Grab Options menu): halves EFFECTIVE mass -- throw/pull
+// force only, not the actor's real Mass/collision physics -- for flags:grabprop props (currently
+// just ExplosiveBarrel). Read directly in p_user.cpp's per-tic grab/throw code, so this is a
+// native cvar (fast EXTERN_CVAR access), not a CVARINFO one (which would need a FindCVar lookup
+// every tic).
+CVAR(Bool, vr_easy_grab_props, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_autoequip, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Float, vr_climb_radius, 32.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Float, vr_climb_speed_mult, 1.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+
+// --- Native hardpoint-mount + arm-IK subsystem cvars (read via EXTERN_CVAR in p_user.cpp) ---
+CVAR(Float, vr_hardpoint_radius,   12.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)  // default reach when slot.radius<=0
+CVAR(Bool,  vr_hardpoint_enable,   true,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)  // gates VR_UpdateHardpoints
+CVAR(Bool,  vr_ik_enable,          true,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)  // gates VR_UpdateArmIK
+CVAR(Float, vr_ik_shoulder_width,  7.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)  // half body width, collar offset from head
+CVAR(Float, vr_ik_upperarm_len,    0.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)  // 0 => read from model bind pose
+CVAR(Float, vr_ik_forearm_len,     0.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)  // 0 => read from model bind pose
 
 CVAR(Bool, vr_momentum, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // Only used in player.zs
 CVAR(Float, vr_momentum_threshold, 1.f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)

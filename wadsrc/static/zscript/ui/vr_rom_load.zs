@@ -48,7 +48,9 @@ class VRRomLoadHandler : StaticEventHandler
 
         if (f >= 1.0)
         {
-            active = false;
+            // NOTE: cannot write the play-scoped 'active' field from ui-scoped UiTick (scope error).
+            // Just disable the shader here (idempotent -- re-running after completion is harmless);
+            // the flag is managed play-side in WorldLoaded.
             PPShader.SetEnabled("rom_load", false);
         }
     }

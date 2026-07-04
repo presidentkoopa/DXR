@@ -460,6 +460,14 @@ struct DataHazeUniforms
 	float Timer;
 	float Density;
 	FVector2 Padding0;
+	// Real depth linearization (same formula/values as LinearDepthUniforms in the SSAO pass just
+	// above) -- turns the raw non-linear hardware depth into an actual map-unit distance, instead
+	// of the old pow(rawDepth, 8.0) heuristic that collapsed to ~0 for anything but very distant
+	// geometry and made the haze invisible in ordinary close-quarters corridors.
+	float LinearizeDepthA;
+	float LinearizeDepthB;
+	float InverseDepthRangeA;
+	float InverseDepthRangeB;
 
 	static std::vector<UniformFieldDesc> Desc()
 	{
@@ -467,7 +475,11 @@ struct DataHazeUniforms
 		{
 			{ "Timer", UniformType::Float, offsetof(DataHazeUniforms, Timer) },
 			{ "Density", UniformType::Float, offsetof(DataHazeUniforms, Density) },
-			{ "Padding0", UniformType::Vec2, offsetof(DataHazeUniforms, Padding0) }
+			{ "Padding0", UniformType::Vec2, offsetof(DataHazeUniforms, Padding0) },
+			{ "LinearizeDepthA", UniformType::Float, offsetof(DataHazeUniforms, LinearizeDepthA) },
+			{ "LinearizeDepthB", UniformType::Float, offsetof(DataHazeUniforms, LinearizeDepthB) },
+			{ "InverseDepthRangeA", UniformType::Float, offsetof(DataHazeUniforms, InverseDepthRangeA) },
+			{ "InverseDepthRangeB", UniformType::Float, offsetof(DataHazeUniforms, InverseDepthRangeB) }
 		};
 	}
 };

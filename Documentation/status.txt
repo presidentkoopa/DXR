@@ -1,0 +1,146 @@
+driven entirely by SDFs, divorced from sprite based weapons and enemies
+
+a robust keyword system divorces doom from its traditonal gameplay
+
+vector render of enemies, items, menus, weapons - infitinely scalable, cusomizable, aactor-readu
+
+30+ types of hit and combat patters drawn diagetically in-game
+
+12+ different render modes for the game workd (TRONish, Wireframe, Cyberspace / Sytem Shock)
+
+shader-intensive arcade-themed fog and world effects
+
+a robust, keyword and location damage based combat system tied to a dynamic, real time, keyworded SDF Score Tracker
+
+^ tracks "Imp, headshot, revovler, close range, last bullet in clip, offhand shot" and plays pre-programmed SDF score reactions in real-time
+
+engine coded iqm vr hands with programmed poses and reactions
+
+vr hands naturally adapt to cluimbing, gravity-glovvin', two handin' yer scattergun, and more
+
+Throwable barrels, corpses, weapons,
+
+Enhanced FX and explosions with master toggle for pre-set effects (light, med, heavy)
+
+per-weapon keyword adjustable foregrip location and positoning, removing hardcoded 'two hand yer gun' range
+
+reaaaaaaally can't highlight how cool the keyword system is
+
+a universal model set for default weapons intended to give unviversal vr compatabnility with loaded pk3s and mods, support for revolver, rifle, smg, flamethrower added
+
+universal throwable grenade with physics based explosion
+
+dual-weild support and proper weapon assignment in-game
+
+expanded and refined per-shot recoil and stabilization, with keyword based bullet drop
+
+velocty tracked throwing with trajectory arc
+
+high-fidelity gravity gloves w visible debug cone, voxel toggle when in cone, mass and reactive physics
+
+Climbing on keyworded textures, with modder friendly keywording
+
+sdf sidecar engine, msdf conversion kid engine inclusion, json modder forward customization, endless randomziation options, support for fonts, customizable offsets, sequencing, reaction to game events and player behavior
+
+a robust keyword system for divorcing game from gameplay in a modder forward way, modder editable keyword db included
+
+extensive modder-forward tools for altering engine-level considerations via numerous externan jsons and htmls
+
+included tools for automated gif-breakdown and SDF generation
+
+baked in voxels for vanilla pickups, weapons, and decorations with options real-time culling in a radius around player
+
+bullet and projecile grabbing,
+
+mass / weight engine assignment for monsters and their inheirots
+
+advanced recoil mechanics including cumulative kickback and bullet drop
+
+locational damage system supporting headshots, legshots, torso shots using dynamic bounding and mathematical cylinder height, affording damage multipliers and audio cues
+
+doom dynamic music mod built in
+
+unlocked dual cursor menus
+
+sdf cumulkative damage counters drawn as polayer facing billboards
+
+unlocked grlip bindings and context based useage of grip for climbing, catching, and throwing
+
+stabilization mechanic to two-hand a weapon to offset recoil
+
+two-handing weapons adjusted on a keyword basis to allow for true front-grip positioning with a reactive VR hand pose
+
+infintily drawable, customizable, scalable, personalizable in-world vector graphics with infiinite resolution and color, interactive
+
+BETA - Self navigating actors (SDFs, engine drawn glows) which auto-naviagte universally towards player selected goals (keys, doors) and respond to player alteration of course, and then resume on their course
+
+MSDF-as-Actor System
+
+The Overview
+We have successfully transitioned from a legacy "Shader-Trick" MSDF implementation to a robust, engine-integrated MSDF-as-Actor architecture.
+
+This move solves the strict Vulkan requirement for structured uniform blocks while opening up a new frontier for diegetic (in-world) VR interfaces. [EDIT - Not true, still trying to get these fkers in their right blocks - Project crashes on launch right now due to shader block location breakdown].
+
+!!!!! --- This technically frees us from sprite-based enemies or, well, anything. Allowing monsters, weapons, etc to be drawn as vector based SDFs with endless design control. In theory, Every item drop (Armor, Health, Weapon Mods) isn't a sprite. It's a spinning, glowing SDF Hologram. Because it's an actor, it can "magnetize" to your wrist-HUD. Instead of standard Doom monsters, we use our SDF Sentinel logic to create math based monsters out of desconstructed gifs via included toolsets. --- !!!!!
+
+More research needs to be done for proper gameplay implementation via GITD.
+
+https://github.com/chlumsky/msdfgen https://github.com/Chlumsky/msdf-atlas-gen https://github.com/Chlumsky/EasyGifReader giflib, too, need that shit
+
+Technical Foundation
+By integrating MSDF properties directly into the AActor class and the Vulkan StreamData UBO, we have achieved:
+
+Vulkan Compliance: Removed "loose" uniforms that caused renderer crashes. Data now flows through the high-speed StreamData highway.
+Per-Actor Granularity: Every single entity in the game world can now possess unique MSDF properties (msdf_enabled, msdf_glitch, msdf_color).
+VR-Grade Interpolation: MSDF UI elements now benefit from the engine's movement interpolation, ensuring they remain "locked" in space at 90Hz+ without jitter.
+Diegetic Potential: UI is no longer a post-process overlay; it is a physical entity that respects world space, lighting, and collisions.
+The Processing Layer: Keyword-Driven Resolution
+Decoupled from source code to allow for modding via JSON.
+
+The Triple-Tag Intersection
+Actor Tags: (imp, cyberdemon, boss)
+Action Tags: (headshot, kill, damage)
+Style Tags: (tier_0 to tier_3, aggressive)
+The Resolution Logic
+The engine searches for the Most Specific Match in metadata. [imp + headshot + tier_3] triggers a high-tier, monster-specific reaction.
+
+**The Asset Layer: msdfgen & The Vector Pipeline
+Multi-channel Signed Distance Fields (MSDF) solve the "VR Pixelation" problem.
+
+https://github.com/chlumsky/msdfgen https://github.com/Chlumsky/msdf-atlas-gen https://github.com/Chlumsky/EasyGifReader https://github.com/Chlumsky/json-cpp-gen
+
+How msdfgen Helps Us
+Infinite Resolution: Assets stay razor-sharp in VR even when viewed inches away.
+Edge Sharpness: Silhouettes remain clean and crisp regardless of scale.
+Memory Efficiency: Small MSDF textures look better than giant 4K bitmaps when scaled.
+Workflow: Users drop .ttf or .otf files into the assets/fonts/ folder.
+Processing: The engine uses the msdfgen bridge to generate a specialized MSDF character atlas.
+Usage: Custom fonts can be used for dynamic text popups (e.g., specific names for custom monsters).
+Animated Assets (GIFs)
+To maintain high-definition clarity for animated sequences:
+
+Extraction: The engine breaks the GIF into individual frames.
+MSDF Conversion: Each frame is processed via msdfgen to create a vector-quality silhouette.
+Scaling: Each frame is scaled independently using the SDF algorithm to ensure no blur.
+Reassembly: The engine plays back the frames as an animated world-space object.
+The Modder Workflow
+Naming Convention: 000_Keyword_Event_00
+[SetID]_[PrimaryKeyword]_[EventKeyword]_[VariantIndex].sdf Example: 017_imp_headshot_01.sdf
+
+The "Wrist-HUD" and Diegetic UI
+With this system, "Screen Space" UI is obsolete. We can now implement:
+
+Wrist-Mounted Displays: Attach MSDF actors to the player's hand/arm bones. These displays can render health, ammo, or combo data using the vr_damage_sdf.fp logic.
+Dynamic Combo Popups: Score elements like "SYSTEM CRASH" or "POINT BLANK" can now pin themselves to enemies or float in the player's periphery, reacting to game keywords in real-time.
+Interactive Voxel/SDF Hybrids: Using MSDF borders and glitch effects on voxel-based actors to create a "digital/physical" hybrid aesthetic.
+SDF Monsters & Procedural Horrors
+The most radical outcome of this architecture is the ability to create Resolution-Independent Entities.
+
+Sprite-less Monsters: By spawning an actor with a "blank" canvas sprite, we can render the entire entity via Fragment Shader math (SDFs).
+Infinite Resolution: In VR, players can lean in and inspect these entities with zero pixelation. The edges are mathematically perfect.
+Procedural Animation: "Walking" animations are replaced by mathematical transforms (sin/cos/noise), allowing for organic, shifting forms that would be impossible with traditional frame-based sprites.
+Reactive Anatomy: Using the msdf_glitch and msdf_color fields to represent biological or digital states (e.g., a "Glitch Ghost" that dissolves when damaged).
+Implementation Details
+Engine Bridge: src/playsim/actor.h (Native properties)
+Shader Pipeline: vk_shader.cpp (UBO mapping) & vr_damage_sdf.fp (SDF logic)
+Logic Layer: vr_damage_counters.zs (ZScript controller)

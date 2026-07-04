@@ -3078,6 +3078,8 @@ OptionMenu VRWeaponOptions protected
 	TFLV_Tooltip "\c[Gold]Gameplay & Spawn Options\c-  -  submenu for \c[White]visual fidelity\c-, weapon-replacement chances, ballistic bullet drop, starting gear, throwables and the grenade trajectory arc."
 	Submenu "XR Whip Options", "VRWhipOptions"
 	TFLV_Tooltip "\c[Cyan]XR Whip Options\c-  -  crack physics, contextual grapple/reel, entangle-yank force, pinball safeguards, and the leather/ember/tesla profile."
+	Submenu "Ice Hook Options", "IceHookOptions"
+	TFLV_Tooltip "\c[Cyan]Ice Hook Options\c-  -  melee/throw damage, stuck-hook lifetime, and the zip-to-hook auto-pull."
 	Option "Enable Tracked VR Hands",		"vr_weapon_hands", "OnOff"
 	TFLV_Tooltip "\c[Red]Tracked VR Hands\c-  -  intended to draw \c[White]controller-tracked hands\c- alongside the weapon, but this toggle is currently inert in this build (declared but no code reads it)."
 	Option "Dynamic Time Scaling (DTS)",	"vr_weapon_dts", "OnOff"
@@ -3138,6 +3140,11 @@ OptionMenu VRWhipOptions protected
 	TFLV_TooltipAppearance "", "", "GITDTTBG"
 
 	StaticText ""
+	StaticText "Visual", gold
+	Option "Rigged 3D Model", "vr_whip_model", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Rigged 3D Model\c-  -  \c[White]On\c- (default) shows the real braided-leather whip model, bones driven live by the physics sim. \c[White]Off\c- falls back to the glow-panel rope if the model ever looks wrong."
+
+	StaticText ""
 	StaticText "Profile & Crack Physics", gold
 	Option "Whip Type", "vr_whip_profile", "WhipProfiles"
 	TFLV_Tooltip "\c[Cyan]Whip Type\c-  -  \c[White]Leather\c- is the classic bullwhip, \c[White]Ember\c- ignites on a crack, \c[White]Tesla\c- arcs lightning to nearby enemies."
@@ -3165,6 +3172,10 @@ OptionMenu VRWhipOptions protected
 	TFLV_Tooltip "\c[Gold]Entangle Duration\c-  -  how many tics an entangled enemy stays in the guaranteed-vulnerable window for a melee follow-up. Default \c[White]12\c-."
 	Slider "Tumble/Roll Rate", "vr_whip_roll_speed_scale", 0.0, 3.0, 0.1, 1
 	TFLV_Tooltip "\c[Gold]Tumble/Roll Rate\c-  -  how fast an entangled enemy visually tumbles while being pulled in. \c[White]0\c- disables the roll entirely."
+	Slider "Yank Pull Cap", "vr_whip_yank_pull_cap", 10.0, 100.0, 5.0, 0
+	TFLV_Tooltip "\c[Gold]Yank Pull Cap\c-  -  hard limit on how much speed a single tic of yanking adds to an enemy. Safety clamp against VR tracking spikes; raise for a punchier fling."
+	Slider "Yank Speed Ceiling", "vr_whip_yank_vel_ceiling", 20.0, 150.0, 5.0, 0
+	TFLV_Tooltip "\c[Gold]Yank Speed Ceiling\c-  -  the absolute max speed a yanked enemy can ever reach, no matter how long you hold it. Keeps a wedged monster from accumulating runaway velocity."
 
 	StaticText ""
 	StaticText "Pinball Safeguards (VR Comfort)", gold
@@ -3174,10 +3185,45 @@ OptionMenu VRWhipOptions protected
 	TFLV_Tooltip "\c[Gold]Per-Hit Impulse Cap\c-  -  the most a single hit (fireball, splash, etc.) can change your speed by in one tic while attached. Prevents any one hit from launching you."
 	Slider "Damage Taper Strength", "vr_whip_grapple_hit_scale", 0.0, 1.0, 0.05, 2
 	TFLV_Tooltip "\c[Gold]Damage Taper\c-  -  the more damage you've taken recently, the more this pulls the Velocity Ceiling down. \c[White]0\c- disables the taper; higher = getting hurt clamps you down harder."
+	Slider "Crack Knockback Cap", "vr_whip_crack_knock_ceiling", 5.0, 64.0, 1.0, 0
+	TFLV_Tooltip "\c[Gold]Crack Knockback Cap\c-  -  hard limit on how hard a single whip crack shoves an enemy (mirrors the engine's own 32 attack-knockback cap). Heavier enemies are shoved less regardless."
 
 	StaticText " "
-	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_whip_profile vr_whip_crack_threshold vr_whip_two_hand_boost vr_whip_contextual_yank vr_whip_reel_speed vr_whip_swing_pump vr_whip_yank_force_scale vr_whip_entangle_minspeed vr_whip_entangle_duration vr_whip_roll_speed_scale vr_whip_grapple_vel_ceiling vr_whip_grapple_hit_cap vr_whip_grapple_hit_scale"
+	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_whip_model vr_whip_profile vr_whip_crack_threshold vr_whip_two_hand_boost vr_whip_contextual_yank vr_whip_reel_speed vr_whip_swing_pump vr_whip_yank_force_scale vr_whip_entangle_minspeed vr_whip_entangle_duration vr_whip_roll_speed_scale vr_whip_yank_pull_cap vr_whip_yank_vel_ceiling vr_whip_grapple_vel_ceiling vr_whip_grapple_hit_cap vr_whip_grapple_hit_scale vr_whip_crack_knock_ceiling"
 	TFLV_Tooltip "\c[Red]Reset to defaults\c-  -  restores all whip settings above to their factory values."
+}
+
+// Ice Hook -- baked in from the standalone IceHook_mod, part of the default class (see
+// doomplayer.zs Player.StartItem). No enable/auto-give toggles here on purpose: it's given
+// unconditionally now, same as Pistol/Fist, so a "disable" option would be a dead promise.
+OptionMenu "IceHookOptions" protected
+{
+	class TFLV_TooltipOptionMenu
+	Title "ICE HOOK"
+	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+	TFLV_TooltipAppearance "", "", "GITDTTBG"
+
+	StaticText ""
+	StaticText "Combat", gold
+	Slider "Melee Damage", "vr_icehook_melee_damage", 5, 200, 5, 0
+	TFLV_Tooltip "\c[Gold]Melee Damage\c-  -  damage per pick swing (main trigger). Default \c[White]40\c-."
+	Slider "Throw Speed", "vr_icehook_throw_speed", 10, 80, 5, 0
+	TFLV_Tooltip "\c[Gold]Throw Speed\c-  -  launch speed of a thrown hook. Default \c[White]40\c-."
+
+	StaticText ""
+	StaticText "Stuck Hook & Climbing", gold
+	Slider "Stuck Hook Life (sec, 0=forever)", "vr_icehook_stick_life", 0, 120, 5, 0
+	TFLV_Tooltip "\c[Gold]Stuck Hook Life\c-  -  how long an embedded hook persists before vanishing. \c[White]0\c- = forever. Default \c[White]30\c-."
+	Option "Pick Into Liquids", "vr_icehook_pick_liquids", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Pick Into Liquids\c-  -  \c[White]Off\c- (default) means a hook thrown into water/lava/etc. clatters off instead of sticking. Everything else is pickable."
+	Option "Auto-Pull (Zip To Hook)", "vr_icehook_autopull", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Auto-Pull\c-  -  \c[White]On\c- (default) reels you toward a stuck hook the instant it lands. Off leaves the hook purely as a melee/throw weapon."
+	Slider "Pull Speed", "vr_icehook_pull_speed", 5, 80, 5, 0
+	TFLV_Tooltip "\c[Gold]Pull Speed\c-  -  how fast Auto-Pull reels you toward the hook. Default \c[White]30\c-."
+
+	StaticText " "
+	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_icehook_melee_damage vr_icehook_throw_speed vr_icehook_stick_life vr_icehook_pick_liquids vr_icehook_autopull vr_icehook_pull_speed vr_icehook_pull_range"
+	TFLV_Tooltip "\c[Red]Reset to defaults\c-  -  restores all Ice Hook settings above to their factory values."
 }
 
 OptionValue "LaserBeamLength"
@@ -3540,7 +3586,22 @@ OptionMenu "VRGrabOptions" protected
     TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
     TFLV_TooltipAppearance "", "", "GITDTTBG"
     Option "Grab Debug", "vr_grab_debug", "OnOff"
-    TFLV_Tooltip "\c[Gold]Grab Debug\c-  -  draws the aim cone, grab sphere and throw-trajectory arc as particles so you can see what the grab system targets; turn \c[White]On\c- only when tuning."
+    TFLV_Tooltip "\c[Gold]Grab Debug\c-  -  master switch for the grab visualisers. The aim cones and interaction spheres draw as real glowing geometry you can see in VR; the throw-trajectory arc still draws as desktop-only particles. Turn \c[White]On\c- to tune, \c[White]Off\c- for play."
+    Option "   Aim Cones", "vr_grab_debug_cone", "OnOff"
+    TFLV_Tooltip "\c[Cyan]Aim Cones\c-  -  the cyan directional funnel from each hand showing your grab reach, its angle set by Cone Angle and its length by Max Distance. This is the volume that decides which far item you point at."
+    Option "   Interaction Spheres", "vr_grab_debug_sphere", "OnOff"
+    TFLV_Tooltip "\c[Cyan]Interaction Spheres\c-  -  the proximity bubbles around your hands. \c[Green]Green\c- is catch and bullet-snatch, \c[Blue]blue\c- is climb, \c[Yellow]yellow\c- is two-hand stabilise. Each sphere is drawn exactly where the game runs that interaction's distance test."
+    Option "   Solid Fill Cones", "vr_grab_debug_cone_solid", "OnOff"
+    TFLV_Tooltip "\c[Gold]Solid Fill Cones\c-  -  \c[White]On\c- fills the aim cones with a faint additive haze on top of the wireframe. \c[White]Off\c- leaves them as wireframe outlines only."
+    Option "   Solid Fill Spheres", "vr_grab_debug_sphere_solid", "OnOff"
+    TFLV_Tooltip "\c[Gold]Solid Fill Spheres\c-  -  \c[White]On\c- fills the interaction spheres as glowing orbs on top of the wireframe rings. \c[White]Off\c- leaves them as wireframe rings only."
+    StaticText " "
+    StaticText "Interaction Radii", gold
+    Slider "Climb Reach", "vr_climb_radius", 8.0, 64.0, 4.0, 1
+    TFLV_Tooltip "\c[Cyan]Climb Reach\c-  -  how close your hand must be to a climbable surface to grip it, and the size of the \c[Blue]blue\c- debug sphere. Larger is more forgiving."
+    Slider "Two-Hand Reach", "vr_twohand_radius", 2.0, 24.0, 1.0, 1
+    TFLV_Tooltip "\c[Cyan]Two-Hand Reach\c-  -  how close your off-hand must come to the weapon to engage two-hand stabilise, and the size of the \c[Yellow]yellow\c- debug sphere."
+    StaticText " "
     Slider "Grab Cone Angle", "vr_grab_cone_angle", 10, 90, 1
     TFLV_Tooltip "\c[Cyan]Cone Angle\c-  -  full apex angle of the cone used to pick which item your hand points at; wider is more forgiving of off-axis aim."
     Slider "Grab Max Distance", "vr_grab_max_dist", 64, 2048, 32
@@ -3625,6 +3686,15 @@ OptionMenu "XRGravityPathOptions" protected
     TFLV_Tooltip "\c[Cyan]Palm High\c-  -  upper |roll| angle of the palm-out band."
 }
 
+OptionValue "VR_CritSound"
+{
+	0, "Off"
+	1, "Railgun Ping"
+	2, "Plasma Zap"
+	3, "Metal Tink"
+	4, "Energy Crack"
+}
+
 OptionMenu "VRCombatOptions" protected
 {
     class TFLV_TooltipOptionMenu
@@ -3684,6 +3754,8 @@ OptionMenu "VRCombatOptions" protected
     TFLV_Tooltip "\c[Orange]Critical Hit Chance\c-  -  per-hit probability of rolling a critical. Default \c[White]0\c- (off); \c[White]1.0\c- = every hit crits."
     Slider "Critical Hit Mult", "vr_crit_mult", 1.0, 10.0, 0.5, 1
     TFLV_Tooltip "\c[Orange]Critical Hit Mult\c-  -  damage multiplier applied when a critical rolls. Default \c[White]2.5\c-x."
+    Option "Critical-Hit Sound", "vr_crit_sound", "VR_CritSound"
+    TFLV_Tooltip "\c[Orange]Critical-Hit Sound\c-  -  the cue played on a headshot kill. Pick a flavor or set \c[White]Off\c- for silence."
 }
 
 OptionMenu "VRDamageCounterOptions"
@@ -4715,7 +4787,20 @@ OptionMenu VRDoomXRGameplayOptions
 	StaticText "Grenade Options", gold
 	Option "Show Throw Trajectory Arc", "vr_grenade_trajectory", "OnOff"
 	TFLV_Tooltip "\c[Gold]Show Throw Trajectory Arc\c-  -  intended to draw a predicted throw-arc while aiming a grenade. \c[Red]Currently inert\c- -- the toggle exists but nothing reads it, so no arc is drawn."
-	
+
+	StaticText ""
+	StaticText "Debug: Give", red
+	Command "Give All Weapons", "give weapons"
+	TFLV_Tooltip "\c[Red]Give All Weapons\c-  -  debug cheat. Grants every weapon in the game immediately."
+	Command "Give All Armor", "give armor"
+	TFLV_Tooltip "\c[Red]Give All Armor\c-  -  debug cheat. Grants full armor immediately."
+	Command "Give All Ammo", "give ammo"
+	TFLV_Tooltip "\c[Red]Give All Ammo\c-  -  debug cheat. Tops off every ammo type to its maximum immediately."
+	Command "Give All Items", "give keys; give artifacts"
+	TFLV_Tooltip "\c[Red]Give All Items\c-  -  debug cheat. Grants every key and artifact/powerup immediately."
+	Command "Give Everything", "give everything"
+	TFLV_Tooltip "\c[Red]Give Everything\c-  -  debug cheat. Grants weapons, armor, ammo, keys and artifacts all at once (the full idkfa-style cheat)."
+
 	StaticText ""
 	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_visual_fidelity vr_barrel_vanilla_explosion vr_chainsaw_flame_chance vr_chaingun_rifle_chance vr_chaingun_smg_chance vr_weapon_revolver_chance vr_weapon_m79_chance vr_incinerator_ignite vr_start_with_rifle vr_start_with_whip vr_start_with_shieldsaw vr_grenade_trajectory vr_weapon_throwable vr_spawn_models"
 	TFLV_Tooltip "\c[Red]Reset to defaults\c-  -  restores every gameplay and spawn setting on this page to its factory value. Use it if a tweak caused problems."

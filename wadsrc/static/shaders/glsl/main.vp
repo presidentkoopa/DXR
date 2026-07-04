@@ -6,6 +6,12 @@ layout(location = 2) in vec4 aColor;
 layout(location = 0) out vec4 vTexCoord;
 layout(location = 1) out vec4 vColor;
 layout(location = 9) out vec3 vLightmap;
+// PS1 affine-warp companion to vTexCoord: same value, but interpolated linearly across the
+// triangle in screen space (noperspective) instead of perspective-correctly. That mismatch IS
+// the classic affine texture wobble on angled/large polygons -- real PS1 hardware had no per-pixel
+// divide, so it interpolated UVs the same "wrong" way. main.fp picks between this and vTexCoord
+// based on uAffineWarp; only the primary diffuse sample uses it (see func_normal/pbr/spec.fp).
+layout(location = 10) noperspective out vec4 vTexCoordAffine;
 
 #ifndef SIMPLE	// we do not need these for simple shaders
 layout(location = 3) in vec4 aVertex2;
@@ -111,6 +117,10 @@ void main()
 	#else
 		vTexCoord = TextureMatrix * vec4(parmTexCoord, 0.0, 1.0);
 	#endif
+
+	// Same value as vTexCoord; the noperspective qualifier on its declaration is what makes the
+	// interpolation itself differ (see the declaration comment above).
+	vTexCoordAffine = vTexCoord;
 
 	gl_Position = ProjectionMatrix * eyeCoordPos;
 

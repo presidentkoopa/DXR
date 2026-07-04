@@ -45,6 +45,8 @@
 // In addition, the player is just a special
 // case of the generic moving object/actor.
 #include "actor.h"
+#include "vr_hardpoint.h"   // EHardpointAnchor / EHardpointAction / FHardpointSlot / VR_MAX_HARDPOINTS
+#include "TRS.h"            // TRS (per-bone procedural pose element) for vr_ik_pose
 
 //Added by MC:
 #include "b_bot.h"
@@ -487,6 +489,38 @@ public:
 
 	int vr_hand_state[2] = { 0, 0 }; // 0: Idle, 1: Grip, 2: Climb, 3: Point
 	bool vr_two_hand_stabilized = false;
+
+	// ---- VR HARDPOINT MOUNTS (native, per-tic; see VR_UpdateHardpoints in p_user.cpp) ----
+	// Per-player runtime hardpoint state. Fixed array (parity with vr_climbing_lines[2][10] above);
+	// TObjPtr<AActor*> for the stowed weapon mirrors the vr_held_items GC pattern (line 473).
+	struct VRHardpointRuntime
+	{
+		int   anchor  = HP_ANCHOR_BODY;   // EHardpointAnchor: body- vs wrist-relative world anchor
+		int   action  = HP_ACT_HOLSTER;   // EHardpointAction: holster/draw vs fire an ability hook
+		int   hand    = -1;               // -1 = either hand may reach; 0/1 = restrict to one hand
+		float ox = 0.f, oy = 0.f, oz = 0.f; // local offset (map units) from the anchor
+		float radius  = 0.f;              // per-slot reach; <=0 => use cvar vr_hardpoint_radius
+		bool  occupied = false;           // a weapon is currently stowed at this slot
+		bool  enabled  = false;           // slot is active
+		TObjPtr<AActor*> stowedWeapon = MakeObjPtr<AActor*>(nullptr); // holstered weapon actor (GC-safe)
+	};
+	VRHardpointRuntime vr_hardpoints[VR_MAX_HARDPOINTS];
+	int  vr_hardpoint_count = 0;
+	bool vr_hardpoint_was_grip[2] = { false, false }; // OWN grip latch; does not fight vr_was_grip_pressed above
+	bool vr_hardpoints_initialized = false;           // lazy one-shot seed from FVRConfig::Hardpoints on first VR_UpdateHardpoints tic
+
+	// ---- ARM IK SOLVED POSE (native; written by VR_UpdateArmIK in p_user.cpp, read by the model-render path) ----
+	// One parent-local TRS per whole skeleton so the render path can point proceduralPose straight at it
+	// (same TArray<TRS> element type as DActorModelData::proceduralPose). Sized to the avatar model's
+	// joint count on first solve; empty => IK inactive this tic.
+	// TRANSIENT / CLIENT-PRESENTATION-ONLY: vr_ik_pose is derived each tic from the local render-side hand
+	// transform (GetWeaponTransform), NOT authoritative playsim state -- it must be EXCLUDED from the
+	// player_t FSerializer << list (do not add these 4 fields there), or transient render state gets
+	// persisted into savegames/net, reintroducing the VR-aim-leak antipattern.
+	TArray<TRS> vr_ik_pose;                       // bind TRS for non-arm joints, solved TRS for the arm chain
+	bool        vr_ik_active = false;             // true when VR_UpdateArmIK wrote a valid pose this tic
+	bool        vr_ik_enabled = true;             // per-player gate toggled by the SetArmIKEnabled thunk
+	float       vr_grip_value[2] = { 0.f, 0.f };  // ANALOG squeeze 0..1, mirrored from VRMode::GetGripValue each tic
 
 	double GetDeltaViewHeight() const
 	{

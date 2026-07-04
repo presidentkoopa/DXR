@@ -121,6 +121,22 @@ void KeywordDispatcher::Init() {
             }
         }
 
+        // Parse kickback namespace -- exact mirror of the mass namespace block above.
+        if (ns.HasMember("kickback") && ns["kickback"].IsObject()) {
+            const auto& kickbackObj = ns["kickback"];
+            for (auto it = kickbackObj.MemberBegin(); it != kickbackObj.MemberEnd(); ++it) {
+                std::string name = "kickback:" + std::string(it->name.GetString());
+                const auto& val = it->value;
+                if (val.IsObject()) {
+                    KeywordProfile prof;
+                    if (val.HasMember("kickback") && val["kickback"].IsNumber()) {
+                        prof.kickback = val["kickback"].GetInt();
+                    }
+                    profiles[name] = prof;
+                }
+            }
+        }
+
         // Parse role namespace. Keys are the role values themselves (e.g. "fodder", "boss")
         // with no extra fields in KEYWORDS.json; token "role:<name>" carries it via prof.role.
         if (ns.HasMember("role") && ns["role"].IsObject()) {
@@ -333,10 +349,37 @@ bool KeywordDispatcher::ResolveKeywordMass(const FString& keywords, int& out_mas
                 // Ignore parse errors
             }
         }
-        
+
         auto it = profiles.find(token);
         if (it != profiles.end() && it->second.mass > 0) {
             out_mass = it->second.mass;
+            return true;
+        }
+    }
+    return false;
+}
+
+// Exact mirror of ResolveKeywordMass -- supports both a named-tier lookup ("kickback:heavy",
+// resolved against the profiles map populated from KEYWORDS.json's "kickback" namespace) and a
+// raw inline override ("kickback:800", parsed directly as an integer).
+bool KeywordDispatcher::ResolveKeywordKickback(const FString& keywords, int& out_kickback) {
+    if (keywords.IsEmpty()) return false;
+
+    std::stringstream ss(keywords.GetChars());
+    std::string token;
+    while (ss >> token) {
+        if (token.rfind("kickback:", 0) == 0) {
+            try {
+                out_kickback = std::stoi(token.substr(9));
+                return true;
+            } catch (...) {
+                // Ignore parse errors -- falls through to the named-profile lookup below
+            }
+        }
+
+        auto it = profiles.find(token);
+        if (it != profiles.end() && it->second.kickback > 0) {
+            out_kickback = it->second.kickback;
             return true;
         }
     }

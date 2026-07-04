@@ -49,6 +49,9 @@ EXTERN_CVAR(Bool, vr_affine_warp)
 // Storage for the once-per-scene monster-neon-outline cache (declared extern in hw_renderstate.h).
 FNeonOutlineState GNeonOutlineState;
 
+// Storage for the once-per-scene visual-regime/GITD-fog cache (declared extern in hw_renderstate.h).
+FVisualRegimeState GVisualRegimeState;
+
 #include "flatvertices.h"
 #include "hw_lightbuffer.h"
 #include "hw_bonebuffer.h"
@@ -226,6 +229,39 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 			GNeonOutlineState.NeonPulseSpeed = getFloat("vr_neon_pulse_speed", 2.0f);
 			GNeonOutlineState.NeonColorA = getColor("vr_neon_color_a", FVector4(0.f, 1.f, 1.f, 1.f));
 			GNeonOutlineState.NeonColorB = getColor("vr_neon_color_b", FVector4(1.f, 0.f, 1.f, 1.f));
+
+			// [XR] Visual regimes & GITD fog: same once-per-scene cache idiom as the neon outlines
+			// just above. RegimeSelect is the one native C++ cvar in this group (already mirrored
+			// into VPUniforms.mVisualRegime above) -- read directly, no FindCVar needed. Everything
+			// else here is CVARINFO user-side tuning. PlayerSpeed is computed live from the
+			// viewpoint camera, not a cvar. LastHitTime/LastFireTime/KillStreak/LastImpact* have no
+			// event-tracker wired yet, so they stay at GVisualRegimeState's defaults (0) -- the
+			// regime shader code treats them as reactive polish, never as a gate on the base effect.
+			GVisualRegimeState.RegimeSelect = (float)vr_visual_regime;
+			GVisualRegimeState.FogMode = getFloat("gitd_fog_mode", 0.0f);
+			GVisualRegimeState.FogDensity = getFloat("gitd_fog_density", 0.5f);
+			GVisualRegimeState.FogHeight = getFloat("gitd_fog_height", 0.0f);
+			GVisualRegimeState.FogQuantize = getFloat("gitd_fog_quantize", 32.0f);
+			GVisualRegimeState.FogRimPower = getFloat("gitd_fog_rim_power", 2.0f);
+			GVisualRegimeState.FogSpeed = getFloat("gitd_fog_speed", 1.0f);
+			GVisualRegimeState.FogLightLink = getBool("gitd_fog_lightlink", false);
+			GVisualRegimeState.RegimeParam1 = getFloat("vr_regime_param1", 1.0f);
+			GVisualRegimeState.RegimeParam2 = getFloat("vr_regime_param2", 1.0f);
+			GVisualRegimeState.RegimeSpeed = getFloat("vr_regime_speed", 1.0f);
+			GVisualRegimeState.RegimeReact = getBool("vr_regime_react", false);
+			GVisualRegimeState.RegimeCenterMask = getBool("vr_regime_center_mask", false);
+			GVisualRegimeState.RegimeBubbleSize = getFloat("vr_regime_bubble_size", 1.0f);
+			GVisualRegimeState.RegimeJitter = getFloat("vr_regime_jitter", 0.0f);
+			GVisualRegimeState.RegimeSpeedLink = getBool("vr_regime_speed_link", false);
+			GVisualRegimeState.RegimePingInten = getFloat("vr_regime_ping_inten", 1.0f);
+			GVisualRegimeState.RegimeBlueprintCol = getColor("vr_regime_blueprint_col", FVector4(0.25f, 0.75f, 1.f, 1.f));
+			GVisualRegimeState.RegimeThermalInten = getFloat("vr_regime_thermal_inten", 1.0f);
+			GVisualRegimeState.RegimeNoirSat = getFloat("vr_regime_noir_sat", 0.15f);
+			GVisualRegimeState.RegimeRipplesEnabled = getBool("vr_regime_ripples", false);
+			GVisualRegimeState.RegimeRippleScale = getFloat("vr_regime_ripple_scale", 1.0f);
+			GVisualRegimeState.PlayerSpeed = (Viewpoint.camera && Viewpoint.camera->Vel.LengthSquared() > 0.0)
+				? (float)Viewpoint.camera->Vel.Length() / 32.0f  // normalize to a roughly 0-1ish range vs typical player speeds
+				: 0.0f;
 		}
 	}
 	mClipper->SetViewpoint(Viewpoint);

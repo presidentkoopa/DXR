@@ -26,7 +26,10 @@ class Archvile : Actor
 		MeleeSound "vile/stop";
 		Obituary "$OB_VILE";
 		Tag "$FN_ARCH";
-		Keywords "mass:500", "grab", "class:archvile", "species:archvile", "role:summoner", "trait:magic", "anatomy:vile", "weight:medium", "status:high_priority";
+		// kickback here covers the DIRECT-hit attack specifically -- A_VileAttack passes 'self'
+		// (the Archvile) as its own inflictor for that hit, confirmed at this file's A_VileAttack
+		// body (targ.DamageMobj(self, self, initialdmg, ...)). The blast is a separate actor, tagged below.
+		Keywords "mass:500", "grab", "class:archvile", "species:archvile", "role:summoner", "trait:magic", "anatomy:vile", "weight:medium", "status:high_priority", "kickback:680";
 	}
 	States
 	{
@@ -75,6 +78,10 @@ class ArchvileFire : Actor
 		+NOBLOCKMAP +NOGRAVITY +ZDOOMTRANS
 		RenderStyle "Add";
 		Alpha 1;
+		// A_Explode uses the exploding actor (this ArchvileFire instance, via 'fire' in
+		// A_VileAttack) as its own inflictor for radius damage -- confirmed at this file's
+		// A_VileAttack body. Separate from the direct-hit kickback tagged on Archvile itself.
+		Keywords "kickback:309";
 	}
 	States
 	{

@@ -112,6 +112,16 @@ public:
 
 	virtual const TArray<VSMatrix>* GetBasePose() {return nullptr;}
 
+	// ---- VR arm-IK joint introspection (native; read-only bind-pose access used by
+	// VR_UpdateArmIK in playsim/p_user.cpp). These are safe no-ops on the base class so
+	// the IK solver can call them on ANY FModel* (MD3/voxel/etc) without an RTTI/type
+	// check first -- GetJointCount()==0 on a non-IQM model is itself the "not an IQM"
+	// signal the caller bails on. Only IQMModel (model_iqm.h) overrides these for real.
+	virtual int GetJointCount() const { return 0; }
+	virtual bool GetJointBindTRS(int jointIndex, TRS& out) const { return false; }
+	virtual int GetJointParent(int jointIndex) const { return -1; }
+	virtual int FindJointByName(FName name) const { return -1; }
+
 	void SetVertexBuffer(int type, IModelVertexBuffer *buffer) { mVBuf[type] = buffer; }
 	IModelVertexBuffer *GetVertexBuffer(int type) const { return mVBuf[type]; }
 	void DestroyVertexBuffer();

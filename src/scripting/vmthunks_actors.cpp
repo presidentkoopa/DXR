@@ -43,6 +43,8 @@
 #include "a_specialspot.h"
 #include "actorptrselect.h"
 #include "a_weapons.h"
+#include "hw_vrmodes.h"        // VRMode::GetVRModeCached / GetGripValue / GetWeaponTransform
+#include "vr_hardpoint.h"      // EHardpointAnchor/Action, FHardpointSlot, VR_MAX_HARDPOINTS, VRHardpointRuntime
 #include "d_player.h"
 #include "p_setup.h"
 #include "i_music.h"
@@ -2358,5 +2360,279 @@ DEFINE_ACTION_FUNCTION(AActor, SetModelBonePose)
 	t.translation = FVector3((float)tx, (float)ty, (float)tz);
 	t.rotation    = FVector4((float)qx, (float)qy, (float)qz, (float)qw);
 	t.scaling     = FVector3(1.f, 1.f, 1.f);
+	return 0;
+}
+
+//==========================================================================
+//
+// Native VR hardpoint mounts + analog grip + arm-IK enable, exposed to
+// ZScript. A modder declares slots with ONE line (AssignHardpoint); all the
+// per-tic proximity/grip math lives in C++ (VR_UpdateHardpoints, p_user.cpp).
+// These thunks are the write/query seam into player_t.vr_hardpoints[].
+//
+//==========================================================================
+
+EXTERN_CVAR(Float, vr_hardpoint_radius)
+
+// Resolve the player_t that owns this actor's hardpoint slots. The VR runtime
+// lives on the pawn's player, so a slot can only be assigned to a player pawn.
+static player_t *XR_HardpointOwner(AActor *self)
+{
+	return (self != nullptr) ? self->player : nullptr;
+}
+
+DEFINE_ACTION_FUNCTION(AActor, AssignHardpoint)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_INT(anchor);          // EHardpointAnchor: 0=body, 1=wrist
+	PARAM_INT(action);          // EHardpointAction: 0=holster, 1=ability
+	PARAM_INT(hand);            // -1 either, 0=main, 1=off
+	PARAM_FLOAT(ox);
+	PARAM_FLOAT(oy);
+	PARAM_FLOAT(oz);
+	PARAM_FLOAT(radius);
+	PARAM_NAME(weaponClass);    // ability/preferred weapon class (config only)
+	PARAM_NAME(abilityName);    // ZScript event fired for HP_ACT_ABILITY
+
+	player_t *player = XR_HardpointOwner(self);
+	if (player == nullptr) { ACTION_RETURN_INT(-1); }
+
+	int idx = player->vr_hardpoint_count;
+	if (idx < 0 || idx >= VR_MAX_HARDPOINTS) { ACTION_RETURN_INT(-1); }
+
+	auto &slot = player->vr_hardpoints[idx];
+	slot.anchor   = (anchor == HP_ANCHOR_WRIST) ? HP_ANCHOR_WRIST : HP_ANCHOR_BODY;
+	slot.action   = (action == HP_ACT_ABILITY)  ? HP_ACT_ABILITY  : HP_ACT_HOLSTER;
+	slot.hand     = (hand == 0 || hand == 1) ? hand : -1;
+	slot.ox       = (float)ox;
+	slot.oy       = (float)oy;
+	slot.oz       = (float)oz;
+	slot.radius   = (float)radius;   // <=0 => VR_UpdateHardpoints falls back to cvar
+	slot.occupied = false;
+	slot.enabled  = true;
+	slot.stowedWeapon = nullptr;     // TObjPtr::operator=(nullptr_t); nothing stowed yet
+
+	// weaponClass / abilityName are config-only hints resolved in the per-tic C++
+	// subsystem; not stored in the fixed-size runtime struct (serialization parity
+	// with vr_climbing_lines[2][10]). The config table keeps them.
+	(void)weaponClass;
+	(void)abilityName;
+
+	player->vr_hardpoint_count = idx + 1;
+	ACTION_RETURN_INT(idx);
+}
+
+DEFINE_ACTION_FUNCTION(AActor, ClearHardpoint)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_INT(slotIndex);
+
+	player_t *player = XR_HardpointOwner(self);
+	if (player == nullptr) return 0;
+	if (slotIndex < 0 || slotIndex >= player->vr_hardpoint_count) return 0;
+
+	auto &slot = player->vr_hardpoints[slotIndex];
+	slot.enabled  = false;
+	slot.occupied = false;
+	slot.stowedWeapon = nullptr;   // drop the GC reference to any stowed weapon
+	return 0;
+}
+
+DEFINE_ACTION_FUNCTION(AActor, IsHardpointNear)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_INT(hand);               // 0=main, 1=off
+
+	player_t *player = XR_HardpointOwner(self);
+	if (player == nullptr || player->mo == nullptr) { ACTION_RETURN_INT(-1); }
+	const VRMode *vrmode = VRMode::GetVRModeCached(false);
+	if (vrmode == nullptr) { ACTION_RETURN_INT(-1); }
+	if (hand != 0) hand = 1;       // clamp to {0,1}
+
+	// Read this hand's world position from the render-side hand matrix.
+	// VSMatrix::get() (matrix.h:80) is const -> ok on a local. Column-major with the
+	// engine-wide Y/Z swap: m[12]=X, m[14]=Z(map-up), m[13]=Y.
+	VSMatrix handTransform;
+	if (!vrmode->GetWeaponTransform(&handTransform, hand)) { ACTION_RETURN_INT(-1); }
+	const float *m = handTransform.get();
+	DVector3 handPos(m[12], m[14], m[13]);
+
+	// Body anchor: playsim-safe head/eye pos (AttackPos), updated per-frame
+	// from the VR device; r_viewpoint is render-thread only and invalid here.
+	DVector3 bodyAnchor = player->mo->AttackPos;
+	const double yawRad = player->mo->Angles.Yaw.Radians();
+	const double cy = cos(yawRad), sy = sin(yawRad);
+
+	int best = -1;
+	double bestDistSq = 0.0;
+	for (int i = 0; i < player->vr_hardpoint_count; ++i)
+	{
+		const auto &slot = player->vr_hardpoints[i];
+		if (!slot.enabled) continue;
+		if (slot.hand != -1 && slot.hand != hand) continue;
+
+		DVector3 slotPos;
+		if (slot.anchor == HP_ANCHOR_WRIST)
+		{
+			// Wrist slot rides the OTHER hand's transform + local offset.
+			VSMatrix otherT;
+			if (!vrmode->GetWeaponTransform(&otherT, hand ^ 1)) continue;
+			const float *om = otherT.get();
+			DVector3 otherPos(om[12], om[14], om[13]);
+			slotPos = otherPos + DVector3(slot.ox, slot.oy, slot.oz);
+		}
+		else
+		{
+			// Body slot: anchor + yaw-rotated local offset (X/Y plane rotate; Z up).
+			double rx = slot.ox * cy - slot.oy * sy;
+			double ry = slot.ox * sy + slot.oy * cy;
+			slotPos = bodyAnchor + DVector3(rx, ry, slot.oz);
+		}
+
+		double reach = (slot.radius > 0.f) ? (double)slot.radius : (double)vr_hardpoint_radius;
+		double distSq = (handPos - slotPos).LengthSquared();
+		if (distSq < reach * reach && (best == -1 || distSq < bestDistSq))
+		{
+			best = i;
+			bestDistSq = distSq;
+		}
+	}
+	ACTION_RETURN_INT(best);
+}
+
+DEFINE_ACTION_FUNCTION(AActor, GetHardpointStowed)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_INT(slotIndex);
+
+	player_t *player = XR_HardpointOwner(self);
+	if (player == nullptr) { ACTION_RETURN_OBJECT(nullptr); }
+	if (slotIndex < 0 || slotIndex >= player->vr_hardpoint_count) { ACTION_RETURN_OBJECT(nullptr); }
+
+	AActor *w = player->vr_hardpoints[slotIndex].stowedWeapon;
+	ACTION_RETURN_OBJECT(w);
+}
+
+DEFINE_ACTION_FUNCTION(AActor, GetGripValue)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_INT(hand);
+
+	// Analog squeeze 0..1 straight off the VRMode bridge (default 0 when not in VR).
+	const VRMode *vrmode = VRMode::GetVRModeCached(false);
+	double v = (vrmode != nullptr) ? (double)vrmode->GetGripValue(hand) : 0.0;
+	ACTION_RETURN_FLOAT(v);
+}
+
+DEFINE_ACTION_FUNCTION(AActor, SetArmIKEnabled)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_BOOL(enable);
+
+	player_t *player = XR_HardpointOwner(self);
+	if (player == nullptr) return 0;
+
+	// Per-player ENABLE gate read by VR_UpdateArmIK (p_user.cpp:2347, alongside the
+	// vr_ik_enable cvar). Must write vr_ik_ENABLED (the input gate) -- NOT vr_ik_active,
+	// which is the solver's per-tic OUTPUT flag (overwritten to anySolved every tic), so
+	// writing it here would be a silent no-op. When turned off, drop the solved pose too.
+	player->vr_ik_enabled = enable;
+	if (!enable)
+	{
+		player->vr_ik_pose.Clear();   // TArray<TRS>::Clear() -> IK subsystem sees empty = inactive
+	}
+	return 0;
+}
+
+// Number of currently-configured hardpoint slots for this player (for a ZScript
+// marker-spawner to iterate 0..count-1). Read-only query, no side effects.
+DEFINE_ACTION_FUNCTION(AActor, GetHardpointCount)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	player_t *player = XR_HardpointOwner(self);
+	ACTION_RETURN_INT(player ? player->vr_hardpoint_count : 0);
+}
+
+// Anchor type of a slot (EHardpointAnchor: 0=body, 1=wrist), for a marker script
+// to pick a distinct color/icon per mount kind. -1 if the slot index is invalid.
+DEFINE_ACTION_FUNCTION(AActor, GetHardpointAnchorType)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_INT(slotIndex);
+	player_t *player = XR_HardpointOwner(self);
+	if (player == nullptr || slotIndex < 0 || slotIndex >= player->vr_hardpoint_count) { ACTION_RETURN_INT(-1); }
+	ACTION_RETURN_INT(player->vr_hardpoints[slotIndex].anchor);
+}
+
+// WORLD position of ANY slot, regardless of hand proximity -- for a visible-marker
+// spawner to draw every configured hardpoint every tic (not just the "nearest to a
+// gripping hand" query IsHardpointNear provides). Reuses the EXACT anchor math
+// VR_UpdateHardpoints (p_user.cpp) applies, so a drawn marker always sits exactly
+// where a real draw/stow grip would actually trigger -- no drift between the two.
+DEFINE_ACTION_FUNCTION(AActor, GetHardpointWorldPos)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_INT(slotIndex);
+	PARAM_INT(forHand);   // which hand's "other hand" to use for a WRIST slot; 0 or 1
+
+	player_t *player = XR_HardpointOwner(self);
+	if (player == nullptr || player->mo == nullptr) { ACTION_RETURN_VEC3(DVector3(0, 0, 0)); }
+	if (slotIndex < 0 || slotIndex >= player->vr_hardpoint_count) { ACTION_RETURN_VEC3(DVector3(0, 0, 0)); }
+
+	const auto &slot = player->vr_hardpoints[slotIndex];
+	if (forHand != 0) forHand = 1;
+
+	const VRMode *vrmode = VRMode::GetVRModeCached(false);
+	DVector3 result(0, 0, 0);
+
+	if (slot.anchor == HP_ANCHOR_WRIST && vrmode != nullptr)
+	{
+		int other = forHand ^ 1;
+		VSMatrix otherT;
+		if (vrmode->GetWeaponTransform(&otherT, other))
+		{
+			const float *om = otherT.get();
+			DVector3 otherPos(om[12], om[14], om[13]);
+			result = otherPos + DVector3(slot.ox, slot.oy, slot.oz);
+		}
+	}
+	else
+	{
+		DVector3 bodyAnchor = player->mo->AttackPos;
+		const double yawRad = player->mo->Angles.Yaw.Radians();
+		const double cy = cos(yawRad), sy = sin(yawRad);
+		double rx = slot.ox * cy - slot.oy * sy;
+		double ry = slot.ox * sy + slot.oy * cy;
+		result = bodyAnchor + DVector3(rx, ry, slot.oz);
+	}
+	ACTION_RETURN_VEC3(result);
+}
+
+DEFINE_ACTION_FUNCTION(AActor, VR_HolsterHand)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_INT(hand);          // 0=main, 1=off
+	PARAM_INT(slotIndex);
+
+	player_t *player = XR_HardpointOwner(self);
+	if (player == nullptr || player->mo == nullptr) return 0;
+	if (slotIndex < 0 || slotIndex >= player->vr_hardpoint_count) return 0;
+	if (hand != 0) hand = 1;
+
+	auto &slot = player->vr_hardpoints[slotIndex];
+
+	// Capture the weapon actor being stowed off the correct hand slot.
+	AActor *wpn = (hand == 0) ? player->ReadyWeapon : player->OffhandWeapon;
+	slot.stowedWeapon = wpn;
+	slot.occupied     = (wpn != nullptr);
+
+	// The PSprite tear-down MUST run through the VM (no native PSprite mutator is
+	// exposed). Call PlayerPawn.VR_DoHolster(hand, slotIndex) -- it clears the
+	// weapon PSprite state and detaches ReadyWeapon/OffhandWeapon.
+	IFVM(PlayerPawn, VR_DoHolster)
+	{
+		VMValue params[3] = { player->mo, hand, slotIndex };
+		VMCall(func, params, 3, nullptr, 0);
+	}
 	return 0;
 }
