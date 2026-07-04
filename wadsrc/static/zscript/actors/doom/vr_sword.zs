@@ -43,6 +43,7 @@ class VRSword : Weapon
 	Default
 	{
 		Weapon.SelectionOrder 4300;
+		Weapon.SlotNumber 9;   // [XR] VR grab-tool slot (with IceHook + XRWhip); mirrors DoomPlayer's Player.WeaponSlot 9
 		+WEAPON.NOAUTOAIM
 		+WEAPON.NOALERT
 		+WEAPON.MELEEWEAPON
@@ -282,6 +283,10 @@ class VRSword : Weapon
 	action void A_VRSwordThrow()
 	{
 		if (invoker.ActiveBlade == null) return;
+		CVar throwCV = CVar.FindCVar("vr_sword_throw");
+		if (throwCV && !throwCV.GetBool()) return;   // throwing disabled -> AltFire is a no-op
+		CVar retCV = CVar.FindCVar("vr_sword_throw_returns");
+		bool doReturn = !retCV || retCV.GetBool();
 
 		int hand = invoker.bOffhandWeapon ? 1 : 0;
 		vector3 origin; double ang, pit;
@@ -306,7 +311,7 @@ class VRSword : Weapon
 		vector3 bc = (gc.a > 0) ? (gc.r / 255.0, gc.g / 255.0, gc.b / 255.0) : (0.8, 0.86, 1.0);
 		int throwDmg = int(invoker.ActiveBlade.BaseDamage * invoker.ActiveBlade.SpeedDamageCeil);
 		tsw.Launch(self, hand, throwDmg, invoker.ActiveBlade.DamageType,
-		           (invoker.ActiveBlade.BehaviorFlags & BF_IGNOREARMOR) != 0, bc * 1.5, 55);
+		           (invoker.ActiveBlade.BehaviorFlags & BF_IGNOREARMOR) != 0, bc * 1.5, 55, doReturn);
 
 		if (invoker.ActiveBlade.SndSwing.Length() > 0)
 			A_StartSound(invoker.ActiveBlade.SndSwing, CHAN_WEAPON);
@@ -326,6 +331,7 @@ class ThrownVRSword : Actor
 	int     dmg;
 	Name    dmgType;
 	bool    ignoreArmor;
+	bool    doReturn;
 	bool    returning;
 	int     life, maxLife;
 	double  homeR;
@@ -341,11 +347,11 @@ class ThrownVRSword : Actor
 		Speed 30;
 	}
 
-	void Launch(Actor who, int inHand, int d, Name dt, bool noArmor, vector3 col, int lifeTics)
+	void Launch(Actor who, int inHand, int d, Name dt, bool noArmor, vector3 col, int lifeTics, bool returns)
 	{
 		thrower = who; master = who; target = who;
 		hand = inHand; dmg = d; dmgType = dt; ignoreArmor = noArmor;
-		bladeCol = col; maxLife = lifeTics; life = lifeTics; homeR = 54.0;
+		bladeCol = col; maxLife = lifeTics; life = lifeTics; homeR = 54.0; doReturn = returns;
 	}
 
 	// aim velocity straight at a world point (copied from ThrownChainsaw.Steer).
@@ -375,7 +381,11 @@ class ThrownVRSword : Actor
 		let tr = VRSwordBeamTrail(Actor.Spawn("VRSwordBeamTrail", pos));
 		if (tr) { tr.trailCol = bladeCol; tr.roll = roll; tr.scale = scale; }
 
-		if (life-- <= 0) returning = true;
+		if (life-- <= 0)
+		{
+			if (doReturn) returning = true;
+			else { Destroy(); return; }   // no-return mode: flies out, cuts, vanishes
+		}
 
 		if (!returning)
 		{

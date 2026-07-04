@@ -3,7 +3,7 @@
 // --- New Weapon Logic ---
 server bool vr_start_with_rifle = false;
 server bool vr_start_with_whip = true;   // XRWhip is a default weapon (Indiana Jones leather; set vr_whip_profile 1 for the SDF techno chain)
-server bool vr_start_with_shieldsaw = false;
+server bool vr_start_with_shieldsaw = true;   // [XR] ShieldSaw is a default spawn tool (off-hand block/saw/boomerang), selectable on slot 1
 server bool vr_grenade_trajectory = true;
 server bool vr_weapon_throwable = true;
 server bool vr_spawn_models = true;
@@ -202,6 +202,10 @@ user int   vr_sword_blade      = 0;     // 0=Steel, 1=Lightsaber, 2=DragonsTooth
 // ZELDA MODE: at FULL health, a swing/thrust fires a plasma sword beam (Master Sword style),
 // tinted to the blade colour. Opt-in -- a distinct feel, off by default. vr_sword.zs FireZeldaBeam.
 user bool  vr_sword_zelda_mode = false;
+// AltFire hurls the blade as a boomerang (ThrownVRSword). On by default. throw_returns off =
+// the thrown blade flies out, cuts, and vanishes instead of homing back to your hand.
+user bool  vr_sword_throw         = true;
+user bool  vr_sword_throw_returns = true;
 
 // --- Ice Hook (baked in from the standalone IceHook_mod, part of the default class via
 // Player.StartItem -- doomplayer.zs, same mechanism as Pistol/Fist/VRSword). The prototype's

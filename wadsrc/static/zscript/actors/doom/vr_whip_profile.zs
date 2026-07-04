@@ -178,8 +178,8 @@ class Whip_Ember : WhipProfile
 	{
 		if (whip == null) return;
 
-		// Fire burst: a bright disc flash + a small radius sear around the tip.
-		whip.level.AddGlowPanel(Color(255, 255, 150, 40), 46.0, tip.x, tip.y, tip.z, 15, 1.0, 0.0, 0.0, 0);
+		// Fire burst: an expanding SDF flash at the tip (engine-standalone, no AddGlowPanel).
+		XRSDFBurst.Emit(tip, Color(255, 255, 150, 40), 8.0, 52.0, 8);
 
 		double burnR = 56.0;
 		BlockThingsIterator it = BlockThingsIterator.CreateFromPos(tip.x, tip.y, tip.z, burnR, burnR, false);
@@ -240,9 +240,14 @@ class Whip_Tesla : WhipProfile
 			vector3 d = c - tip;
 			if (d.Length() > arcR) continue;
 
-			// Bolt from tip toward the target: dir packed as (dirX,dirY), reach in counter.
-			double a = atan2(d.y, d.x);
-			whip.level.AddGlowPanel(Color(255, 190, 230, 255), d.Length(), tip.x, tip.y, tip.z, 26, 1.0, cos(a), sin(a), int(d.Length()));
+			// SDF lightning arc: a streak of electric sparks from tip to the target (no AddGlowPanel).
+			vector3 tc = v.pos + (0, 0, v.Height * 0.5);
+			int sparks = 6;
+			for (int s = 0; s <= sparks; s++)
+			{
+				vector3 sp = tip + (tc - tip) * (double(s) / double(sparks));
+				XRSDFBurst.Emit(sp, Color(255, 190, 230, 255), 3.0, 9.0, 5);
+			}
 			v.DamageMobj(whip, whip.target, 10, 'Electric');
 			arcsLeft--;
 		}

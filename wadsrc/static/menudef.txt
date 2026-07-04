@@ -3064,9 +3064,9 @@ OptionMenu VRWeaponOptions protected
 	TFLV_Tooltip "\c[Cyan]Pitch Adjust\c-  -  tilts the weapon \c[White]up or down\c- in your hand. Nudge it so the barrel points where the laser/aim actually goes for your controller grip."
 	Slider "$VRWEAPONMNU_SPRITE_MODEL_SCALE",	"vr_weaponScale", 0.1, 3.0, 0.1, 2
 	TFLV_Tooltip "\c[Cyan]Sprite/Model Scale\c-  -  overall \c[White]size\c- of the weapon held in your hand. Shrink or grow it to taste."
-	StaticText "3D Weapon Models", gold
-	Option "Enable 3D Weapon Models",		"vr_weapon_shell", "OnOff"
-	TFLV_Tooltip "\c[Gold]3D Weapon Models\c-  -  shows every gun as a real \c[White]3D model in your hand\c- that moves and animates as you fire and reload, instead of a flat 2D sprite. Works on weapons from any loaded mod. On by default; off falls back to flat sprites."
+	StaticText "3D Weapon Model Assignment", gold
+	Option "Enable 3D Weapon Model Assignment",		"vr_weapon_shell", "OnOff"
+	TFLV_Tooltip "\c[Gold]3D Weapon Model Assignment\c-  -  adds \c[White]3D weapon models\c- to the guns in scanned mods and PK3s for VR-friendliness: every weapon from any loaded mod is auto-matched to a 3D model that holds and animates in your hand, instead of a flat 2D sprite. On by default; off falls back to flat sprites."
 	StaticText ""
 	Option "Manual Reload (Chamber + Gesture)",	"vr_manual_reload", "OnOff"
 	TFLV_Tooltip "\c[Cyan]Manual Reload\c-  -  \c[White]On\c- makes you reload with a physical gesture and tracks a live chamber/round counter, instead of auto-reloading. On by default."
@@ -3154,6 +3154,13 @@ OptionMenu VRSwordOptions protected
 	StaticText "Zelda Mode", gold
 	Option "Full-Health Sword Beam", "vr_sword_zelda_mode", "OnOff"
 	TFLV_Tooltip "\c[Gold]Zelda Mode\c-  -  like the Master Sword: while at \c[White]full health\c-, every swing (or Fire) launches a glowing sword-beam that tumbles through the air and deals \c[White]plasma\c- damage, tinted to your blade. Take one hit and the beams stop until you heal up. Off by default."
+
+	StaticText ""
+	StaticText "Throw", gold
+	Option "Throwable Blade (AltFire)", "vr_sword_throw", "OnOff"
+	TFLV_Tooltip "\c[Gold]Throwable Blade\c-  -  \c[White]On\c- (default): AltFire hurls your blade as a glowing SDF sword that tumbles downrange, cuts what it passes, and boomerangs back. Off disables the throw."
+	Option "Blade Returns (Boomerang)", "vr_sword_throw_returns", "OnOff"
+	TFLV_Tooltip "\c[Gold]Blade Returns\c-  -  \c[White]On\c- (default) the thrown blade homes back to your hand. \c[White]Off\c- it flies out, cuts, and vanishes (you always keep the equipped sword either way)."
 
 	StaticText ""
 	StaticText "Swing Sensitivity", gold

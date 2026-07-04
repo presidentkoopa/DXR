@@ -141,6 +141,60 @@ class XRWhipChainLink : Actor
 // 21 bones). Spawned by XRWhip only when the vr_whip_model CVar is on; XRWhip parks it at the
 // hand and drives its bones each tic from the Verlet sim via SetModelBonePose. Invisible sprite
 // -- the model itself is the whole visual. A_ChangeModel attaches the modeldef 'XRWhipRigged'
+// A one-shot expanding SDF flash burst (crack ring, fire pop, spark) drawn by the engine-resident
+// SDF sprite shader (SIGL -> vr_sdf_procedural.fp, circle mode) -- NO AddGlowPanel, so the whip's
+// crack/elemental FX render in the base engine with no Radiance mod. Scales r0->r1 and fades over
+// 'maxLife' tics. Also used by the Ember/Tesla profiles (vr_whip_profile.zs).
+class XRSDFBurst : Actor
+{
+	vector3 col;
+	double  r0, r1;
+	int     life, maxLife;
+
+	Default
+	{
+		+NOBLOCKMAP +NOGRAVITY +NOINTERACTION +DONTSPLASH +CLIENTSIDEONLY +NOTIMEFREEZE
+		+BRIGHT +FORCEXYBILLBOARD
+		RenderStyle "Add";
+		Radius 1;
+		Height 1;
+	}
+
+	// spawn a burst at world point p, colour c, growing startR->endR over 'ticks' tics.
+	static void Emit(vector3 p, Color c, double startR, double endR, int ticks)
+	{
+		let b = XRSDFBurst(Actor.Spawn("XRSDFBurst", p));
+		if (!b) return;
+		b.col = (c.r / 255.0, c.g / 255.0, c.b / 255.0);
+		b.r0 = startR; b.r1 = endR; b.maxLife = max(ticks, 1); b.life = b.maxLife;
+	}
+
+	override void PostBeginPlay()
+	{
+		Super.PostBeginPlay();
+		msdf_enabled = 0;        // SDF circle/sigil core
+		msdf_glitch  = 0.10;
+	}
+
+	override void Tick()
+	{
+		if (life-- <= 0) { Destroy(); return; }
+		double f    = 1.0 - double(life) / double(maxLife);   // 0 -> 1 over the life
+		double r    = r0 + (r1 - r0) * f;
+		double fade = 1.0 - f;
+		Scale = (r / 64.0, r / 64.0);
+		msdf_color = col * (1.5 * fade);
+		Alpha = fade;
+	}
+
+	States
+	{
+	Spawn:
+		SIGL A 1 Bright;
+		Wait;
+	}
+}
+
 // as a per-actor override, and SetModelUseProceduralPose(true) tells the render path to read our
 // per-bone TRS buffer instead of the (nonexistent) baked animation.
 class XRWhipModel : Actor
@@ -274,6 +328,7 @@ class XRWhip : Weapon
 	Default
 	{
 		Weapon.SelectionOrder 4200;
+		Weapon.SlotNumber 9;   // [XR] VR grab-tool slot (with IceHook + VRSword); mirrors DoomPlayer's Player.WeaponSlot 9
 		+WEAPON.NOAUTOAIM
 		+WEAPON.NOALERT
 		+WEAPON.MELEEWEAPON
@@ -597,10 +652,11 @@ class XRWhip : Weapon
 		if (ActiveWhip.SndCrack.Length() > 0)
 			A_StartSound(ActiveWhip.SndCrack, CHAN_WEAPON, boom ? CHANF_OVERLAP : 0, boom ? 1.0 : 0.8);
 
-		// shockwave ring (wgType 14) + a white core flash (15); bigger on a boom
+		// SDF crack flash: an expanding ring + a bright core pop at the tip (engine-standalone,
+		// no AddGlowPanel/Radiance). Bigger on a genuine supersonic boom.
 		double ringR = boom ? 60.0 : 34.0;
-		level.AddGlowPanel(ActiveWhip.CrackColor, ringR, tip.x, tip.y, tip.z, 14, 1.0, 0.0, 0.0, 0);
-		level.AddGlowPanel(ActiveWhip.CrackColor, ringR * 0.5, tip.x, tip.y, tip.z, 15, 1.0, 0.0, 0.0, 0);
+		XRSDFBurst.Emit(tip, ActiveWhip.CrackColor, ringR * 0.25, ringR, boom ? 8 : 6);
+		XRSDFBurst.Emit(tip, ActiveWhip.CrackColor, ringR * 0.4, ringR * 0.15, 4);   // hot core snap
 
 		int last = nodes.Size() - 1;
 		vector3 a = nodes[last - 1].pos;
@@ -1069,18 +1125,36 @@ class XRWhip : Weapon
 		healthTracked = false;
 	}
 
+	// The taut grapple line, drawn as CONNECTED SDF SEGMENTS (engine-standalone, no AddGlowPanel).
+	// Reuses the rope's chainLinks pool -- while grappling the rope isn't drawn, so the pool is free.
 	private void RenderGrappleLine(vector3 handPos)
 	{
 		vector3 target = (grappleMode == GM_YANK && grappleVictim)
 			? grappleVictim.pos + (0, 0, grappleVictim.Height * 0.5)
 			: grappleAnchor;
 		vector3 seg = target - handPos;
+		vector3 headPos = owner ? owner.GetHeadPos() : pos;
+		Color cc = ActiveWhip.CordColor;
+		vector3 fcol = (cc.r / 255.0, cc.g / 255.0, cc.b / 255.0) * 1.3;
+
 		int steps = 12;
-		for (int i = 0; i <= steps; i++)
+		for (int i = 0; i < steps; i++)
 		{
-			vector3 p = handPos + seg * (double(i) / double(steps));
-			level.AddGlowPanel(ActiveWhip.CordColor, 4.0, p.x, p.y, p.z, 15, 0.7, 0.0, 0.0, 0);
+			if (i >= chainLinks.Size())
+				chainLinks.Push(XRWhipChainLink(Spawn("XRWhipChainLink", handPos)));
+			XRWhipChainLink lk = chainLinks[i];
+			if (!lk) continue;
+			vector3 a = handPos + seg * (double(i)     / double(steps));
+			vector3 b = handPos + seg * (double(i + 1) / double(steps));
+			vector3 faceN = headPos - (a + b) * 0.5;
+			if (faceN.Length() < 0.0001) faceN = (0.0, 0.0, 1.0);
+			lk.OrientSegment(a, b, faceN.Unit(), 5.0);
+			lk.msdf_enabled = 512;
+			lk.msdf_glitch  = 0.05;
+			lk.msdf_color   = fcol;
+			lk.Alpha = 1.0;
 		}
+		HideChain(steps);
 	}
 
 	// ---- per-tic driver -----------------------------------------------------------------
