@@ -22,6 +22,8 @@ A fork of **DoomXR** (iAmErmac's QuestZDoom-based VR fork of GZDoom) rebuilt int
 
 **Baseline vs. upstream DoomXR:** 439 files changed, +18,431 / −10,831 lines.
 
+Yo some of this shit is native to the buiid I started from, but a shitload of this is new to DXR.
+Just wait until I get portalstacking in here.
 ---
 
 ## VR & Input Interaction — native hook surface
