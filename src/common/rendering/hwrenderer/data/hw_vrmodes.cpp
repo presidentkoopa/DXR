@@ -486,16 +486,27 @@ CVAR(Float, vr_snapTurn, 45.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_switch_sticks, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_secondary_button_mappings, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_two_handed_weapons, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
-CVAR(Float, vr_twohand_radius, 8.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+// Two-hand engage = max distance BETWEEN the hands (p_user.cpp VR_CalculateTwoHanding). Kept
+// intentionally TIGHT (~2in = ~2u at vr_vunits_per_meter=34): engage only when the hands nearly
+// touch. Per-weapon IQM grip points will supersede this crude hand-to-hand metric later.
+CVAR(Float, vr_twohand_radius, 2.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+// Two-hand grip zone is a CAPSULE down the barrel, not a sphere at the grip: vr_twohand_radius is the
+// PERPENDICULAR tolerance (how far the off-hand may be off the barrel LINE), vr_twohand_length is how far
+// FORWARD along the barrel you may grip. Sized to the SHOTGUN (the longest weapon) so every gun fits inside;
+// tight sideways = no accidental triggers, long forward = the natural foregrip hold engages. Per-weapon IQM
+// grip points will supersede this later. 30u ~= 0.9m at vr_vunits_per_meter=34 covers a pump shotgun's reach.
+CVAR(Float, vr_twohand_length, 30.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_twohand_whitelist_only, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_show_hands, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Float, vr_throw_force, 1.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_throw_sensory_hooks, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Float, vr_grab_cone_angle, 30.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 // Gravity gloves are deliberately SHORT range (close-quarters grab) -- the whip (vr_whip.zs
-// ActiveWhip.Reach, currently 300) is the long-range retrieval tool. Was 500 (longer than the
-// whip itself), which was backwards; corrected to keep the two tools clearly differentiated.
-CVAR(Float, vr_grab_max_dist, 150.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+// ActiveWhip.Reach, currently 300) is the long-range retrieval tool. Was 500 (48ft at
+// vr_vunits_per_meter=34 -- a screen-filling reach cone, longer than the whip itself, backwards).
+// 90u = ~2.6m: point-and-pull just past arm's length, clearly shorter than the 300u whip yank so
+// the two tools stay distinct. The debug reach cone (hw_weapon.cpp) draws at exactly this value.
+CVAR(Float, vr_grab_max_dist, 90.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Float, vr_grab_magnet_speed, 10.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 // "Easier Grabbing" gameplay toggle (VR Grab Options menu): halves EFFECTIVE mass -- throw/pull
 // force only, not the actor's real Mass/collision physics -- for flags:grabprop props (currently
@@ -503,9 +514,36 @@ CVAR(Float, vr_grab_magnet_speed, 10.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 // native cvar (fast EXTERN_CVAR access), not a CVARINFO one (which would need a FindCVar lookup
 // every tic).
 CVAR(Bool, vr_easy_grab_props, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+// Scale factor for the above (was a hardcoded 0.5 in both p_user.cpp throw sites and vr_whip.zs's
+// yank check) -- expanded to a user-tunable slider. Default preserved exactly (0.5 = half mass).
+CVAR(Float, vr_easy_grab_scale, 0.5f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_autoequip, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
-CVAR(Float, vr_climb_radius, 32.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+// Climb grab tolerance = how close the hand must be to a climbable surface. 32u was ~0.94m (a
+// ~6ft bubble around each hand -- why the debug spheres looked enormous). 10u = ~0.3m/~1ft: you
+// grab the wall when your hand is actually AT it, and it barely overlaps the grab/catch volumes
+// so the intent arbiter has far less to disambiguate.
+CVAR(Float, vr_climb_radius, 10.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Float, vr_climb_speed_mult, 1.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+
+// --- Central grip-intent arbiter (VR_ResolveGripOwner in p_user.cpp; EXTERN_CVAR'd there) ---
+// All defaults chosen so the arbiter reproduces today's behavior tic-for-tic EXCEPT vr_whip_grip_pump.
+CVAR(Bool,  vr_grip_arbiter,             true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // master; 0 = legacy per-consumer path (rollout escape hatch)
+CVAR(Bool,  vr_grip_arbiter_hysteresis,  true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // continuation latch on/off
+CVAR(Float, vr_grip_commit_arm,          0.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // analog depth to CLAIM (0 => gate inert = pure digital)
+CVAR(Float, vr_grip_commit_release,      0.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // analog depth below which a CLAIM lapses (Schmitt low rail)
+CVAR(Bool,  vr_whip_grip_pump,           true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // THE one intended change: whip rope-pump on grip (0 = BT_USER1 only)
+CVAR(Float, vr_climb_z_slack,           24.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // reserved for future 3D climb Z-gate (descoped v1); inert
+
+// [XR grip arbiter] The ONE authority mapping a WEAPON-SLOT index (VR_MAINHAND 0 / VR_OFFHAND 1) to the
+// PHYSICAL controller index (0=LEFT,1=RIGHT), handedness-correct. Byte-identical to the mapping used by
+// VRMode::GetWeaponTransform above (rightHanded = vr_control_scheme < 10; MAINHAND->rightHanded,
+// OFFHAND->1-rightHanded). Exposed so p_user.cpp's arbiter and the ZScript whip both convert through the
+// same math instead of hand-rolling vr_control_scheme, which is exactly the left-hander bug we're closing.
+int VR_PhysicalHandForSlot(int slot)
+{
+	const int rightHanded = (vr_control_scheme < 10) ? 1 : 0;
+	return (slot == VR_OFFHAND) ? (1 - rightHanded) : rightHanded;
+}
 
 // --- Native hardpoint-mount + arm-IK subsystem cvars (read via EXTERN_CVAR in p_user.cpp) ---
 CVAR(Float, vr_hardpoint_radius,   12.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)  // default reach when slot.radius<=0

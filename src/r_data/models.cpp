@@ -61,6 +61,34 @@ EXTERN_CVAR(Float, vr_weaponScale)
 EXTERN_CVAR(Float, vr_3dweaponOffsetX);
 EXTERN_CVAR(Float, vr_3dweaponOffsetY);
 EXTERN_CVAR(Float, vr_3dweaponOffsetZ);
+EXTERN_CVAR(Int, vr_mode)   // [XR] real VR-on check; vrmode->IsVR() lies (returns 0) in the render path
+
+// [XR] Local VR body avatar tuning. vr_body_scale shrinks ONLY the local player's own body model,
+// anchored at its feet (the mesh origin), so the head drops below the HMD while the feet stay on the
+// floor -- fixes "my face is at chest level, I'm inside the mesh". vr_body_z is an extra vertical
+// nudge in map units (+up) for fine-tuning. Both are live-tunable in the console. Default 0.70 puts a
+// ~56u marine's head just under a standing eye; dial to taste.
+CVAR(Float, vr_body_scale, 0.70f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_body_z,     0.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+// [XR] Yaw correction (degrees) for the local VR body only -- the marine mesh is authored ~90 off,
+// so it faces sideways relative to the pawn. Added to the body's render yaw. Live-tunable; if it
+// faces the wrong way at 90, try -90 / 180 / 270.
+CVAR(Float, vr_body_yaw,   90.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+// [XR] Auto-fit the body to the player's REAL height. When on (default), vr_body_scale is IGNORED and
+// the body is scaled every frame so the marine's head sits vr_body_headroom map-units below the live
+// HMD eye height (read from r_viewpoint.CenterEyePos, i.e. OpenXR floor-relative tracking), feet
+// planted. Fits any player, standing or seated, with no tuning. vr_body_scale is the manual fallback
+// when auto-fit is off.
+CVAR(Bool,  vr_body_autofit,  true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_body_headroom, 4.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+
+// [XR] The live body-fit scale actually applied to the local avatar this frame (autofit smoothed
+// value, or the manual vr_body_scale when autofit is off). Published so the playsim arm-IK
+// (p_user.cpp VR_UpdateArmIK) can divide the world hand target by the SAME scale the renderer used,
+// converting the target from rendered-body space into the unscaled baseframe the IK solves in.
+// Written on the render thread, read on the playsim thread: a plain float, at worst one frame stale,
+// and the value is heavily smoothed, so no sync is needed.
+float g_xr_vrBodyRenderScale = 0.70f;
 
 extern TDeletingArray<FVoxel *> Voxels;
 extern TDeletingArray<FVoxelDef *> VoxelDefs;
@@ -82,6 +110,43 @@ void RenderModel(FModelRenderer *renderer, float x, float y, float z, FSpriteMod
 	float scaleFactorX = actor->Scale.X * smf->xscale;
 	float scaleFactorY = actor->Scale.X * smf->yscale;
 	float scaleFactorZ = actor->Scale.Y * smf->zscale;
+
+	// [XR] Local VR body avatar: shrink ONLY the player's own body model, anchored at its feet (the
+	// mesh origin -- the scale at objectToWorldMatrix.scale() below is applied around model space 0,0,0
+	// which for the marine is between the feet). This drops the head below the HMD while the feet stay
+	// planted. Every other actor renders unchanged. vr_body_z adds a vertical nudge for fine-tuning.
+	const bool isVRBody = ((int)vr_mode != 0 && actor == players[consoleplayer].mo);
+	if (isVRBody)
+	{
+		float bodyScale = vr_body_scale;   // manual fallback
+		if (vr_body_autofit)
+		{
+			// CenterEyePos.Z - actor->Z() == the live HMD eye height above the floor in map units
+			// (OpenXR floor-relative tracking, already * vr_vunits_per_meter). Smooth it so head-bob
+			// doesn't pulse the body -- only the slow standing height tracks. Then scale the marine so
+			// its head (~actor Height at scale 1) sits vr_body_headroom units below the eyes, feet planted.
+			double eyeAboveFeet = r_viewpoint.CenterEyePos.Z - actor->Z();
+			static double smoothedEye = 0.0;
+			if (eyeAboveFeet > 1.0)
+			{
+				if (smoothedEye <= 0.0) smoothedEye = eyeAboveFeet;
+				else                    smoothedEye += (eyeAboveFeet - smoothedEye) * 0.03;
+			}
+			const double headH = (actor->Height > 1.0) ? actor->Height : 56.0;
+			if (smoothedEye > 1.0)
+				bodyScale = (float)clamp((smoothedEye - (double)vr_body_headroom) / headH, 0.25, 1.6);
+		}
+		// [XR] Publish the exact scale we're about to apply so the playsim arm-IK divides the hand
+		// target by the SAME factor (see g_xr_vrBodyRenderScale decl above). Do this even when the
+		// scale is 1.0 so a stale value never lingers.
+		if (bodyScale > 0.05f && bodyScale < 8.0f) g_xr_vrBodyRenderScale = bodyScale;
+		if (bodyScale > 0.f && bodyScale != 1.f)
+		{
+			scaleFactorX *= bodyScale;
+			scaleFactorY *= bodyScale;
+			scaleFactorZ *= bodyScale;
+		}
+	}
 	float pitch = 0;
 	float roll = 0;
 	double rotateOffset = 0;
@@ -140,11 +205,23 @@ void RenderModel(FModelRenderer *renderer, float x, float y, float z, FSpriteMod
 	VSMatrix objectToWorldMatrix;
 	objectToWorldMatrix.loadIdentity();
 
-	// Model space => World space
-	objectToWorldMatrix.translate(x, z, y);
+	// Model space => World space ([XR] +vr_body_z raises/lowers the local VR body only)
+	objectToWorldMatrix.translate(x, z + (isVRBody ? (double)vr_body_z : 0.0), y);
 
 	// [Nash] take SpriteRotation into account
 	angle += actor->SpriteRotation.Degrees();
+
+	// [XR] correct the local VR body's facing (marine mesh authored ~90 off). Body only.
+	if (isVRBody) angle += vr_body_yaw;
+
+	// [XR] Decouple the body facing from the HMD: the pawn yaw follows the headset, so without this the
+	// whole torso spins when you turn your head ("no neck"). If P_PlayerThink has a valid decoupled
+	// body yaw, render the body at THAT heading (plus the mesh-correction + sprite rotation) instead of
+	// the raw HMD-slaved pawn yaw. Pawn Angles.Yaw is untouched, so gameplay + arm-IK targets are as-is.
+	if (isVRBody && actor->player != nullptr && actor->player->vr_body_facing_valid)
+	{
+		angle = actor->player->vr_body_facing_yaw + vr_body_yaw + actor->SpriteRotation.Degrees();
+	}
 
 	// consider the pixel stretching. For non-voxels this must be factored out here
 	float stretch = 1.f;
@@ -205,7 +282,7 @@ void RenderModel(FModelRenderer *renderer, float x, float y, float z, FSpriteMod
 	renderer->EndDrawModel(actor->RenderStyle, smf_flags);
 }
 
-void RenderHUDModel(FModelRenderer *renderer, DPSprite *psp, FVector3 translation, FVector3 rotation, FVector3 rotation_pivot, FSpriteModelFrame *smf)
+void RenderHUDModel(FModelRenderer *renderer, DPSprite *psp, FVector3 translation, FVector3 rotation, FVector3 rotation_pivot, FSpriteModelFrame *smf, int forceHand)
 {
 	auto vrmode = VRMode::GetVRModeCached(true);
 	AActor * playermo = players[consoleplayer].camera;
@@ -230,15 +307,17 @@ void RenderHUDModel(FModelRenderer *renderer, DPSprite *psp, FVector3 translatio
 		}
 	}
 
-	// Intercept fist rendering for VR Hand Hot-Swapping
-	if (vrmode->IsVR() && psp->Caller && psp->Caller->Keywords.IndexOf("fist") != -1)
+	// Intercept fist rendering for VR Hand Hot-Swapping. Gate on vr_mode (the actual setting) OR
+	// IsVR() -- IsVR() returns 0 in the render path even in VR (see hw_sprites body-avatar note), which
+	// was silently disabling the fist->hand swap entirely, i.e. "no hands even when punching".
+	if (((int)vr_mode != 0 || vrmode->IsVR()) && psp->Caller && psp->Caller->Keywords.IndexOf("fist") != -1)
 	{
 		// Try to find the global VRHandModel class
 		PClassActor* handClass = PClass::FindActor("VRHandModel");
 		if (handClass)
 		{
 			// Determine which hand we are rendering (0 = main, 1 = offhand)
-			int handIdx = psp->GetCaller() == playermo->player->OffhandWeapon ? 1 : 0;
+			int handIdx = (forceHand >= 0) ? forceHand : (psp->GetCaller() == playermo->player->OffhandWeapon ? 1 : 0);
 			int handState = playermo->player->vr_hand_state[handIdx];
 
 			// Map hand state to ZScript State name
@@ -265,12 +344,20 @@ void RenderHUDModel(FModelRenderer *renderer, DPSprite *psp, FVector3 translatio
 	if (smf == nullptr)
 		return;
 
-	int smf_flags = smf->getFlags(psp->Caller ? psp->Caller->modelData : nullptr);
+	// [XR] Is the model being drawn the VR hand -- either the fist-swap above set smf = VRHandModel, or
+	// the standalone gun-hands path (hw_weapon.cpp) passed it in as smf? If so, resolve its flags from
+	// its OWN modeldef (nullptr modelData), NOT the weapon's: the weapon's overrideFlagsClear can strip
+	// the hand's MDL_MODELSAREATTACHMENTS, which gates the bind-pose bone upload -- and stripping it left
+	// vhand.iqm (0-baked-frame rig) uploading no bones -> the hand rendered as zero geometry.
+	static const PClass* s_vrHandClass = PClass::FindActor("VRHandModel");
+	const bool handSwapped = (smf->type != nullptr && smf->type == s_vrHandClass);
+
+	int smf_flags = smf->getFlags(handSwapped ? nullptr : (psp->Caller ? psp->Caller->modelData : nullptr));
 
 	// The model position and orientation has to be drawn independently from the position of the player,
 	// but we need to position it correctly in the world for light to work properly.
 	VSMatrix objectToWorldMatrix = renderer->GetViewToWorldMatrix();
-	int hand = (psp && psp->GetCaller() == playermo->player->OffhandWeapon) ? 1 : 0;
+	int hand = (forceHand >= 0) ? forceHand : ((psp && psp->GetCaller() == playermo->player->OffhandWeapon) ? 1 : 0);
 	if (vrmode->GetWeaponTransform(&objectToWorldMatrix, hand))
 	{
 		float scale = 0.01f;
@@ -333,7 +420,19 @@ void RenderHUDModel(FModelRenderer *renderer, DPSprite *psp, FVector3 translatio
 	auto trans = psp->GetTranslation();
 	if ((psp->Flags & PSPF_PLAYERTRANSLATED)) trans = psp->Owner->mo->Translation;
 
+	// [XR] Defense-in-depth for the VR hand: if the WEAPON (psp->Caller) is DECOUPLEDANIMATIONS,
+	// CalcModelFrame substitutes BaseSpriteModelFrames[weapon->GetClass()] for our swapped hand smf,
+	// discarding the hand frame before any bones upload. Temporarily clear the flag across just this
+	// hand render so the substitution can't fire, then restore it (single call, fully reverted).
+	decltype(psp->Caller->flags9) xr_savedFlags9{}; bool xr_clearedDecouple = false;   // ActorFlags9, not uint
+	if (handSwapped && psp->Caller && (psp->Caller->flags9 & MF9_DECOUPLEDANIMATIONS))
+	{
+		xr_savedFlags9 = psp->Caller->flags9;
+		psp->Caller->flags9 &= ~MF9_DECOUPLEDANIMATIONS;
+		xr_clearedDecouple = true;
+	}
 	RenderFrameModels(renderer, playermo->Level, smf, psp->GetState(), psp->GetTics(), trans, psp->Caller);
+	if (xr_clearedDecouple) psp->Caller->flags9 = xr_savedFlags9;
 	renderer->EndDrawHUDModel(playermo->RenderStyle, smf_flags);
 }
 
@@ -599,6 +698,7 @@ const TArray<VSMatrix> * ProcessModelFrame(FModel * animation, bool nextFrame, i
 		// ZScript-supplied per-bone pose (e.g. the physics whip) overrides any baked animation.
 		// CalculateBonesIQM already branches on (animationData ? *animationData : TRSData).
 		animationData = &modelData->proceduralPose;
+		{ static int s_vrRenderDbg = 0; if (s_vrRenderDbg < 20) { s_vrRenderDbg++; Printf("[VRIK_RENDER] useProc=1 poseSize=%d is_decoupled=%d modelframe=%d\n", (int)modelData->proceduralPose.Size(), (int)is_decoupled, drawinfo.modelframe); } }
 	}
 	else if (drawinfo.animationid >= 0)
 	{
@@ -631,6 +731,8 @@ const TArray<VSMatrix> * ProcessModelFrame(FModel * animation, bool nextFrame, i
 			-1.0f,
 			animationData);
 	}
+
+	if (animationData != nullptr) { static int s_vrRenderDbg2 = 0; if (s_vrRenderDbg2 < 20) { s_vrRenderDbg2++; Printf("[VRIK_RENDER2] boneData=%p size=%d\n", boneData, boneData ? (int)boneData->Size() : -1); } }
 
 	return boneData;
 }

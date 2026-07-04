@@ -3168,6 +3168,8 @@ OptionMenu VRWhipOptions protected
 	TFLV_Tooltip "\c[Gold]Yank Force Scale\c-  -  multiplies how hard you can pull an entangled enemy toward you. Heavier enemies still resist more regardless of this."
 	Slider "Entangle Min Speed", "vr_whip_entangle_minspeed", 0.5, 15.0, 0.5, 1
 	TFLV_Tooltip "\c[Gold]Entangle Min Speed\c-  -  the minimum pull force needed to actually catch an enemy. Below this, the crack still hits but doesn't pull. Default \c[White]4\c-."
+	Slider "Entangle Swing Window", "vr_whip_yank_peak_decay", 0.5, 0.98, 0.01, 2
+	TFLV_Tooltip "\c[Gold]Entangle Swing Window\c-  -  how long a hard swing 'counts' for the mass check when you pull the grapple trigger a moment later. Higher lingers longer (easier to catch heavy things off a wind-up); lower demands the trigger pull land right at the peak of your swing. Default \c[White]0.85\c-."
 	Slider "Entangle Duration", "vr_whip_entangle_duration", 4, 40, 2, 0
 	TFLV_Tooltip "\c[Gold]Entangle Duration\c-  -  how many tics an entangled enemy stays in the guaranteed-vulnerable window for a melee follow-up. Default \c[White]12\c-."
 	Slider "Tumble/Roll Rate", "vr_whip_roll_speed_scale", 0.0, 3.0, 0.1, 1
@@ -3189,7 +3191,7 @@ OptionMenu VRWhipOptions protected
 	TFLV_Tooltip "\c[Gold]Crack Knockback Cap\c-  -  hard limit on how hard a single whip crack shoves an enemy (mirrors the engine's own 32 attack-knockback cap). Heavier enemies are shoved less regardless."
 
 	StaticText " "
-	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_whip_model vr_whip_profile vr_whip_crack_threshold vr_whip_two_hand_boost vr_whip_contextual_yank vr_whip_reel_speed vr_whip_swing_pump vr_whip_yank_force_scale vr_whip_entangle_minspeed vr_whip_entangle_duration vr_whip_roll_speed_scale vr_whip_yank_pull_cap vr_whip_yank_vel_ceiling vr_whip_grapple_vel_ceiling vr_whip_grapple_hit_cap vr_whip_grapple_hit_scale vr_whip_crack_knock_ceiling"
+	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_whip_model vr_whip_profile vr_whip_crack_threshold vr_whip_two_hand_boost vr_whip_contextual_yank vr_whip_reel_speed vr_whip_swing_pump vr_whip_yank_force_scale vr_whip_entangle_minspeed vr_whip_yank_peak_decay vr_whip_entangle_duration vr_whip_roll_speed_scale vr_whip_yank_pull_cap vr_whip_yank_vel_ceiling vr_whip_grapple_vel_ceiling vr_whip_grapple_hit_cap vr_whip_grapple_hit_scale vr_whip_crack_knock_ceiling"
 	TFLV_Tooltip "\c[Red]Reset to defaults\c-  -  restores all whip settings above to their factory values."
 }
 
@@ -3450,6 +3452,8 @@ OptionMenu VROptionsMenu protected
 	TFLV_Tooltip "\c[Cyan]Physics Options\c-  -  explosion physics, whether blasts move keys, and the meters-to-units scale used by the physics sim."
 	Submenu "Combat Options",               "VRCombatOptions"
 	TFLV_Tooltip "\c[Cyan]Combat Options\c-  -  hands, recoil, bullet-snatching, parrying, catch/parry feedback, and locational-damage multipliers (headshots, legshots, crits)."
+	Submenu "Body Avatar",                  "VRBodyOptions"
+	TFLV_Tooltip "\c[Cyan]Body Avatar\c-  -  your own first-person marine body: show/hide, size, height and facing. Dial the size so your head clears your view and the facing so it points where you walk."
 	Submenu "Gravity Path",                 "XRGravityPathOptions"
 	TFLV_Tooltip "\c[Cyan]Gravity Path\c-  -  the palm-out draw-a-walkway power: tile color/size, reach, attach range, mount smoothing, fall-catch and the palm-out cast gate."
 	Submenu "SDF Score System Options",     "VRSDFScoreOptions"
@@ -3613,6 +3617,12 @@ OptionMenu "VRGrabOptions" protected
     Slider "Throw Force Multiplier", "vr_throw_force", 0.5, 5.0, 0.1, 1
     TFLV_Tooltip "\c[Cyan]Throw Force\c-  -  multiplier on the release velocity when you throw a held item (also scaled by the item's mass); raise it to hurl things harder."
     StaticText " "
+    StaticText "Easier Grabbing", gold
+    Option "Easier Grabbing", "vr_easy_grab_props", "OnOff"
+    TFLV_Tooltip "\c[Gold]Easier Grabbing\c-  -  reduces the EFFECTIVE mass (pull/throw force only, not real physics) of grabbable props like the explosive barrel, so pulling and throwing them feels lighter. Off leaves them at true weight."
+    Slider "Easy Grab Strength", "vr_easy_grab_scale", 0.1, 1.0, 0.05, 2
+    TFLV_Tooltip "\c[Cyan]Easy Grab Strength\c-  -  how much lighter Easier Grabbing makes a prop feel; \c[White]1.0\c- = no reduction (same as Off), lower numbers feel lighter. Default \c[White]0.5\c- = half weight."
+    StaticText " "
     StaticText "Intelligent Intent Weights", gold
     Slider "Distance Weight", "vr_grab_weight_dist", 0.0, 1.0, 0.05, 2
     TFLV_Tooltip "\c[Red]Distance Weight\c-  -  meant to bias grab-target scoring toward closer items, but no code reads this cvar so it is currently \c[White]inert\c-."
@@ -3693,6 +3703,27 @@ OptionValue "VR_CritSound"
 	2, "Plasma Zap"
 	3, "Metal Tink"
 	4, "Energy Crack"
+}
+
+OptionMenu "VRBodyOptions"
+{
+    class TFLV_TooltipOptionMenu
+    Title "VR Body Avatar"
+    TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+    TFLV_TooltipAppearance "", "", "GITDTTBG"
+
+    Option "Show Body", "vr_show_body", "OnOff"
+    TFLV_Tooltip "\c[Cyan]Show Body\c-  -  draws your own first-person marine body at your position. \c[White]On\c- by default; turn \c[White]Off\c- to hide it."
+    Option "Auto-Fit To My Height", "vr_body_autofit", "OnOff"
+    TFLV_Tooltip "\c[Cyan]Auto-Fit To My Height\c-  -  \c[White]On\c- (default) reads your real HMD height off the OpenXR floor and sizes the body so its head sits just below your eyes, feet planted -- no tuning, fits any player. Turn \c[White]Off\c- to size it by hand with Body Size below."
+    Slider "Head Clearance", "vr_body_headroom", 0.0, 16.0, 1.0, 0
+    TFLV_Tooltip "\c[Gold]Head Clearance\c-  -  with Auto-Fit on, how many map-units below your eyes the marine's head is placed. Raise if the head still intrudes; lower to bring it up. Default \c[White]4\c-."
+    Slider "Body Size (manual)", "vr_body_scale", 0.3, 1.2, 0.05, 2
+    TFLV_Tooltip "\c[Gold]Body Size (manual)\c-  -  only used when \c[White]Auto-Fit is Off\c-. Scales your body, anchored at the feet, so the head drops below your view while the feet stay planted. Default \c[White]0.70\c-."
+    Slider "Body Height", "vr_body_z", -16.0, 16.0, 1.0, 0
+    TFLV_Tooltip "\c[Gold]Body Height\c-  -  nudges the whole body up or down in map units, in case the feet float or sink after scaling. Default \c[White]0\c-."
+    Slider "Body Facing", "vr_body_yaw", 0, 315, 45, 0
+    TFLV_Tooltip "\c[Gold]Body Facing\c-  -  rotates the body's facing (the marine mesh is authored sideways). Slide it until the body points the way you walk. Try \c[White]90 / 180 / 270\c-. Default \c[White]90\c-."
 }
 
 OptionMenu "VRCombatOptions" protected

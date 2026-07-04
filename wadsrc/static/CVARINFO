@@ -29,8 +29,9 @@ user int vr_crit_sound = 1;
 // GITD/glow-in-the-dark cvar, moved to the Radiance Control Panel mod's own cvarinfo.txt.)
 
 // --- Grabbable Props (ExplosiveBarrel etc, "flags:grabprop" keyword) ---
-// vr_easy_grab_props itself is a NATIVE C++ cvar (hw_vrmodes.cpp) -- read directly in p_user.cpp's
-// per-tic grab/throw code, so it can't also be declared here (fatal "cvar already exists").
+// vr_easy_grab_props and vr_easy_grab_scale are both NATIVE C++ cvars (hw_vrmodes.cpp) -- read
+// directly in p_user.cpp's per-tic grab/throw code, so neither can also be declared here (fatal
+// "cvar already exists"). vr_whip.zs reads vr_easy_grab_scale via the usual CVar.FindCVar lookup.
 // Whip-yank "catch": once a yanked flags:grabprop prop reaches the player, it's handed into the
 // held-item slot (VR_TrySetHeldItem) instead of just landing loose. Off by default: catching a
 // live prop (e.g. a primed barrel) deals no damage. On: a small self-damage tick on catch, for
@@ -210,6 +211,8 @@ user bool  vr_icehook_pick_liquids = false;  // can the pick bite liquid surface
 user bool  vr_icehook_autopull     = true;   // zip the thrower toward the hook when it sticks
 user float vr_icehook_pull_speed   = 30.0;   // reel speed, map units/tic
 user float vr_icehook_pull_range   = 900.0;  // abandon the pull past this distance
+user bool  vr_icehook_autoreturn   = true;   // thrown pick flies BACK to you after a delay (off = walk over to retrieve)
+user int   vr_icehook_return_delay  = 70;    // tics before an idle stuck pick starts returning (35 = 1s)
 
 // --- XR Whip (Verlet rope, crack physics, contextual grapple/entangle) ---
 // Starting estimates for in-headset tuning, not finished balance values. The first weapon in
@@ -229,6 +232,11 @@ user float vr_whip_reel_speed         = 22.0;  // deliberate-reel pull speed (ma
 user float vr_whip_swing_pump         = 1.0;   // climb-to-pump-the-swing strength (0 = off)
 user float vr_whip_yank_force_scale   = 1.0;   // entangle-yank strength multiplier
 user float vr_whip_entangle_minspeed  = 4.0;   // min pull speed (map-units/tic) needed to catch at all
+// Entanglement mass pre-gate (physics-audit follow-up): AltFire is a single button-down tic, not
+// a velocity-crossing like the crack, so gating on the exact-frame hand speed would demand aiming
+// precisely AND being at peak swing speed simultaneously. Instead a decay-peak-hold tracks the
+// recent hand speed each tic; this is the per-tic decay factor (higher = window lingers longer).
+user float vr_whip_yank_peak_decay    = 0.85;  // rolling peak hand-speed decay/tic for the entangle gate
 user int   vr_whip_entangle_duration  = 12;    // tics an enemy stays in the guaranteed-vulnerable window
 user float vr_whip_roll_speed_scale   = 1.0;   // entangled-enemy tumble-rate multiplier
 user float vr_whip_grapple_vel_ceiling= 40.0;  // pinball safeguard: max player speed while attached

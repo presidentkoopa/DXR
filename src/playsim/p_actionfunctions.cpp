@@ -70,6 +70,7 @@
 #include "actorinlines.h"
 #include "types.h"
 #include "model.h"
+#include "r_data/models.h"   // [XR] FindModelFrame / FSpriteModelFrame for VR_EnsureAvatarModelDataAndGetModel
 #include "shadowinlines.h"
 #include "i_time.h"
 #include "common/rendering/hwrenderer/data/hw_vrmodes.h"
@@ -92,7 +93,10 @@ CVAR(Bool, vr_recoil, false, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_allow_bullet_snatching, true, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_allow_weapon_parrying, true, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
 CVAR(Float, vr_parry_radius_mult, 1.2f, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
-CVAR(Float, vr_catch_radius, 24.0f, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
+// Catch / bullet-snatch proximity. 24u was ~0.71m (a ~4.5ft catch bubble -- caught things nowhere
+// near your hand). 3u = ~0.09m: glove essentially on the projectile, with vr_grab_magnet_speed
+// covering the last bit. Draws 1:1 as the green debug sphere in hw_weapon.cpp.
+CVAR(Float, vr_catch_radius, 3.0f, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
 CVAR(Float, vr_recoil_climb_mult, 1.0f, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
 CVAR(Float, vr_stabilization_recoil_mult, 0.5f, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_catch_haptic, true, CVAR_ARCHIVE|CVAR_GLOBALCONFIG)
@@ -5206,6 +5210,56 @@ static void EnsureModelData(AActor * mobj)
 	}
 }
 
+// [XR] The marine IK avatar is bound via its STATIC modeldef (Model DoomPlayer), so a plain player
+// pawn never gets a DActorModelData -- and VR_UpdateArmIK needs one to write the solved bone pose into
+// (the renderer reads modelData->proceduralPose, r_data/models.cpp). This creates that modelData
+// (leaving modelData->models EMPTY, so CalcModelOverrides is untouched and the body keeps rendering
+// from its static modeldef -- no visual change) and returns the rigged avatar FModel (joints > 0)
+// resolved from that same static modeldef, or null. Lives here because this file already has
+// EnsureModelData + FindModelFrame + the Models table; p_user.cpp only forward-declares + calls it.
+FModel* VR_EnsureAvatarModelDataAndGetModel(AActor* mo)
+{
+	if (mo == nullptr) return nullptr;
+	EnsureModelData(mo);   // allocates an empty modelData if the pawn has none (the pose target)
+	FSpriteModelFrame* smf = FindModelFrame(mo, mo->sprite, mo->frame, false, false);
+	FModel* result = nullptr;
+	if (smf != nullptr)
+	{
+		for (unsigned i = 0; i < smf->modelIDs.Size(); i++)
+		{
+			int id = smf->modelIDs[i];
+			if (id < 0 || (unsigned)id >= Models.Size()) continue;
+			FModel* m = Models[id];
+			if (m != nullptr && m->GetLoadState() == FModel::READY && m->GetJointCount() > 0) { result = m; break; }
+		}
+	}
+	// [XR] TEMP probe (throttled): the prime suspect for "arms never move" is this returning null.
+	// Dumps the marine model lookup so ONE launch tells us if the IQM isn't READY, has 0 joints, or
+	// its modelIDs are empty/out of range. Remove once arms track.
+	static int s_avmdDbg = 0;
+	if (s_avmdDbg < 20)
+	{
+		s_avmdDbg++;
+		Printf("[VRIK_MODEL] sprite=%d frame=%d smf=%p result=%p", (int)mo->sprite, (int)mo->frame, smf, result);
+		if (smf != nullptr)
+		{
+			Printf(" nIDs=%u", smf->modelIDs.Size());
+			for (unsigned i = 0; i < smf->modelIDs.Size(); i++)
+			{
+				int id = smf->modelIDs[i];
+				Printf(" [%u]id=%d", i, id);
+				if (id >= 0 && (unsigned)id < Models.Size())
+				{
+					FModel* m = Models[id];
+					Printf(" state=%d joints=%d", m ? (int)m->GetLoadState() : -1, m ? m->GetJointCount() : -1);
+				}
+			}
+		}
+		Printf("\n");
+	}
+	return result;
+}
+
 static void CleanupModelData(AActor * mobj)
 {
 	if ( !(mobj->flags9 & MF9_DECOUPLEDANIMATIONS)
@@ -5770,6 +5824,18 @@ DEFINE_ACTION_FUNCTION(AActor, GetHandVelocity)
 		outVel = DVector3(avg.X, avg.Z, avg.Y) * (vr_scale_meters_to_units / 35.0);
 	}
 	ACTION_RETURN_VEC3(outVel);
+}
+
+// [XR grip arbiter / fling fix] The whip (ZScript) publishes whether a live pendulum-swing owns the pawn
+// this tic, so native climb (VR_UpdateClimbing / P_VRWhipSwingActive) can yield its Vel write + gravity
+// flag to the swing -- closing the climb-vs-swing double-Vel-writer fling. Per-player (grappleActive is
+// single-actor state), so no hand param. Called every GM_ATTACHED+AltFire-held tic, cleared in EndGrapple.
+DEFINE_ACTION_FUNCTION(AActor, VR_SetWhipSwingLive)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_BOOL(live);
+	if (self->player != nullptr) self->player->vr_whip_swing_live = live;
+	return 0;
 }
 
 // Lets ZScript hand an actor into a hand's native VR-held-item slot (player_t::vr_held_items),

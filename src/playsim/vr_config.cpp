@@ -70,21 +70,25 @@ void FVRConfig::LoadConfig()
         FHardpointSlot rShoulder;      // over-the-right-shoulder (rifle/whip draw)
         rShoulder.anchor = HP_ANCHOR_BODY; rShoulder.action = HP_ACT_HOLSTER; rShoulder.hand = -1;
         rShoulder.ox = 7.0f;  rShoulder.oy = -2.0f; rShoulder.oz = -6.0f;
+        rShoulder.cells = 3;  // bigger two-handed-class weapons ride here -- 3 squares
         Hardpoints.Push(rShoulder);
 
         FHardpointSlot lShoulder;      // over-the-left-shoulder
         lShoulder.anchor = HP_ANCHOR_BODY; lShoulder.action = HP_ACT_HOLSTER; lShoulder.hand = -1;
         lShoulder.ox = -7.0f; lShoulder.oy = -2.0f; lShoulder.oz = -6.0f;
+        lShoulder.cells = 3;
         Hardpoints.Push(lShoulder);
 
         FHardpointSlot rHip;           // right hip (sidearm / sword)
         rHip.anchor = HP_ANCHOR_BODY; rHip.action = HP_ACT_HOLSTER; rHip.hand = -1;
         rHip.ox = 8.0f;  rHip.oy = 2.0f;  rHip.oz = -26.0f;
+        rHip.cells = 2;  // sidearm-class weapons -- 2 squares
         Hardpoints.Push(rHip);
 
         FHardpointSlot lHip;           // left hip (ice hooks / off-hand tool)
         lHip.anchor = HP_ANCHOR_BODY; lHip.action = HP_ACT_HOLSTER; lHip.hand = -1;
         lHip.ox = -8.0f; lHip.oy = 2.0f;  lHip.oz = -26.0f;
+        lHip.cells = 2;
         Hardpoints.Push(lHip);
 
         // ---- WRIST ABILITY MOUNTS (HP_ACT_ABILITY) ----------------------------------
@@ -159,6 +163,7 @@ void FVRConfig::LoadConfig()
                     }
 
                     if (o.HasMember("radius") && o["radius"].IsNumber()) slot.radius = o["radius"].GetFloat();
+                    if (o.HasMember("cells") && o["cells"].IsInt()) slot.cells = max(1, o["cells"].GetInt());
                     if (o.HasMember("weapon_class") && o["weapon_class"].IsString())
                         slot.weaponClass = FName(o["weapon_class"].GetString());
                     if (o.HasMember("ability") && o["ability"].IsString())

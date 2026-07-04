@@ -379,11 +379,8 @@ void ZCCDoomCompiler::DispatchProperty(FPropertyInfo *prop, ZCC_PropertyStmt *pr
 			}
 		}
 	}
-	// [DIAG] identify the crashing property/actor during InitDefaults (temporary)
-	Printf("DBG_PROP actor=%s prop=%s nparm=%d\n",
-		bag.Info ? bag.Info->TypeName.GetChars() : "?",
-		prop->name ? prop->name : "?",
-		params.Size() > 0 ? params[0].i : -1);
+	// [XR] removed the per-property DBG_PROP spam Printf (leftover diagnostic; flooded the log with a
+	// line for every actor property on every boot and buried the real diagnostics).
 	// call the handler
 	try
 	{

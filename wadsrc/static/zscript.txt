@@ -17,11 +17,12 @@ version "4.14.2"
 #include "zscript/engine/ui/menu/loadsavemenu.zs"
 #include "zscript/engine/ui/menu/menu.zs"
 #include "zscript/ui/vr_weapon_menu.zs"
-#include "zscript/ui/vr_damage_counters.zs"
-#include "zscript/ui/vr_sdf_combos.zs"
+// vr_damage_counters.zs / vr_sdf_combos.zs / vr_sdf_procedural.zs / sdf_gif_entity.zs moved to the
+// Radiance Control Panel mod -- they were pure consumers of the native msdf_enabled/msdf_color/
+// msdf_glitch Actor fields (declared in zscript/actors/actor.zs) and the VRDM/SIGL/SDFG sprites,
+// with no engine-only dependency, so they can live in the mod pk3 for easier iteration. The native
+// fields, the shader .fp files, and their gldefs.txt HardwareShader bindings all stay here.
 #include "zscript/ui/vr_rom_load.zs"
-#include "zscript/ui/vr_sdf_procedural.zs"
-#include "zscript/ui/sdf_gif_entity.zs"
 #include "zscript/effects/vr_death_effects.zs"
 #include "zscript/engine/ui/menu/menucustomize.zs"
 #include "zscript/engine/ui/menu/menuitembase.zs"

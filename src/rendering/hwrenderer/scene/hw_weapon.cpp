@@ -69,6 +69,9 @@ EXTERN_CVAR(Bool, r_drawplayersprites)
 EXTERN_CVAR(Bool, r_deathcamera)
 EXTERN_CVAR(Bool, vr_laser_sight)
 EXTERN_CVAR(Bool, vr_show_hands)
+// [XR] real VR-on check; vrmode->IsVR() lies (returns 0) in the render path (same bug worked around for
+// the body avatar + fist-swap in r_data/models.cpp). Without this the gun-grip hand never renders in VR.
+EXTERN_CVAR(Int, vr_mode)
 EXTERN_CVAR(Bool, vr_laser_show_melee)
 EXTERN_CVAR(Bool, vr_laser_hide_on_wheel)
 EXTERN_CVAR(Bool, vr_laser_beam)
@@ -1241,39 +1244,70 @@ void HWDrawInfo::DrawPlayerSprites(bool hudModelStep, FRenderState &state)
 		}
 	}
 
-	// [New Logic] Draw VR Hands
-	if (vrmode->IsVR() && vr_show_hands)
+	// [New Logic] Draw VR Hands -- ALWAYS render a hand at BOTH controllers when in VR, regardless of
+	// whether a weapon is held on that hand. The old path only drew a hand where a weapon WITH a psprite
+	// existed on that exact hand, so an empty or psprite-less hand showed nothing ("no hands"). Here we
+	// force the hand index (RenderHUDModel positions via GetWeaponTransform(hand), keyed only by the
+	// index) and borrow ANY valid psprite as render context when the hand's own weapon has none. Overlap
+	// with the gun model on the same hand is accepted for now -- the goal is that hands are VISIBLE.
+	// [XR] Use (vr_mode != 0 || IsVR()) because IsVR() returns 0 in this render path (documented bug).
+	if (((int)vr_mode != 0 || vrmode->IsVR()) && vr_show_hands && hudsprites.Size() > 0)
 	{
-		for (int hand = 0; hand < 2; ++hand)
+		AActor* playermo = players[consoleplayer].camera;
+		PClassActor* handClass = PClass::FindActor("VRHandModel");
+
+		// Fallback render context: the first hudsprite with a valid caller. Its weapon identity does NOT
+		// set the hand position (the forced index below does) -- it only supplies state/tics/level/flags.
+		DPSprite* anyPsp = nullptr;
+		for (unsigned i = 0; i < hudsprites.Size(); i++)
+			if (hudsprites[i].weapon && hudsprites[i].weapon->GetCaller() != nullptr) { anyPsp = hudsprites[i].weapon; break; }
+
+		if (playermo != nullptr && playermo->player != nullptr && handClass != nullptr)
 		{
-			bool hasFist = false;
-			AActor* weapon = (hand == 0) ? players[consoleplayer].ReadyWeapon : players[consoleplayer].OffhandWeapon;
-			for (unsigned i = 0; i < hudsprites.Size(); i++)
+			for (int hand = 0; hand < 2; ++hand)
 			{
-				if (weapon != nullptr && hudsprites[i].weapon && hudsprites[i].weapon->GetCaller() == weapon && 
-					weapon->Keywords.IndexOf("fist") != -1)
+				AActor* weapon = (hand == 0) ? players[consoleplayer].ReadyWeapon : players[consoleplayer].OffhandWeapon;
+
+				// A FIST on this hand is already swapped to a hand inside RenderHUDModel during that
+				// weapon's own psprite pass -- skip here so we don't draw the hand twice on that hand.
+				if (weapon != nullptr && weapon->Keywords.IndexOf("fist") != -1)
+					continue;
+
+				// Prefer this hand's own weapon psprite as context; else borrow anyPsp so an empty or
+				// psprite-less hand STILL renders a hand (the forced index puts it at the right controller).
+				DPSprite* ctxPsp = nullptr;
+				for (unsigned i = 0; i < hudsprites.Size(); i++)
+					if (weapon != nullptr && hudsprites[i].weapon && hudsprites[i].weapon->GetCaller() == weapon) { ctxPsp = hudsprites[i].weapon; break; }
+				if (ctxPsp == nullptr) ctxPsp = anyPsp;
+				if (ctxPsp == nullptr || ctxPsp->GetCaller() == nullptr) continue; // no usable context at all
+
+				int handState = playermo->player->vr_hand_state[hand];
+				FName stateName = NAME_Spawn;
+				if (handState == 1) stateName = "Grip";
+				else if (handState == 2) stateName = "Climb";
+				else if (handState == 3) stateName = "Point";
+
+				FState* targetState = handClass->FindState(stateName);
+				if (targetState == nullptr) continue;
+				FSpriteModelFrame* handSmf = FindModelFrame(handClass, targetState->sprite, targetState->GetFrame(), true);
+				if (handSmf == nullptr) continue;
+
+				FHWModelRenderer renderer(this, state, hudsprites[0].lightindex);
+				RenderHUDModel(&renderer, ctxPsp, FVector3(0, 0, 0), FVector3(0, 0, 0), FVector3(0, 0, 0), handSmf, hand);
+				state.SetVertexBuffer(screen->mVertexData);
+
+				// [XR] [VRHANDDRAW] throttled probe: which hands actually reached the draw call, in what
+				// state, using whose context. A hand MISSING here never got drawn (upstream gate); a hand
+				// PRESENT here but invisible in-headset means transform/geometry, not this gate. Remove once
+				// hands are confirmed visible.
+				static int s_vrHandDraw = 0;
+				if (s_vrHandDraw < 24)
 				{
-					// This hand already has a fist weapon which will be swapped to a hand in RenderHUDModel
-					hasFist = true;
-					break;
+					s_vrHandDraw++;
+					Printf("[VRHANDDRAW] hand=%d state=%s ctx=%s weapon=%s\n", hand, stateName.GetChars(),
+						ctxPsp->GetCaller()->GetClass()->TypeName.GetChars(),
+						weapon ? weapon->GetClass()->TypeName.GetChars() : "none");
 				}
-			}
-			
-			if (!hasFist)
-			{
-				// Standalone VR hand for a NON-fist weapon (e.g. a hand wrapped around the pistol).
-				// This cannot be drawn from here yet: the model path (RenderHUDModel ->
-				// RenderFrameModels -> CalcModelFrame) is keyed on a valid psprite's Caller actor --
-				// CalcModelFrame:391 resolves the DECOUPLEDANIMATIONS base frame via
-				// BaseSpriteModelFrames[actor->GetClass()], and RenderFrameModels derefs actor->Level
-				// unconditionally. A bare hand has no such actor, so feeding null here would crash,
-				// not render. The old code hid this behind a gate on a nonexistent VHAN* sprite lump
-				// (always invalid -> 'continue'), which silently skipped the hand anyway.
-				//
-				// Hands DO render via the fist-swap path in RenderHUDModel (a fist-keyword weapon's
-				// psprite is hot-swapped to VRHandModel). Drawing a hand ON a non-fist gun needs a
-				// persistent VRHandModel actor to supply that Caller -- deferred model-pipeline work.
-				(void)weapon;
 			}
 		}
 	}

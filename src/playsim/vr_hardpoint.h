@@ -58,7 +58,22 @@ struct FHardpointSlot
 	float    oy          = 0.0f;             // local offset Y (map units) from anchor
 	float    oz          = 0.0f;             // local offset Z (map units) from anchor
 	float    radius      = 0.0f;             // per-slot reach; <=0 => use cvar vr_hardpoint_radius
+	int      cells       = 1;                // visual grid footprint ("squares"), UI-only -- does not
+	                                          // change the one-weapon-per-slot holster mechanic, just
+	                                          // how many squares VRHardpointGrid_Draw renders for it
 	FName    weaponClass = NAME_None;        // ability/preferred weapon class (config only)
 	FName    abilityName = NAME_None;        // ZScript event name fired for HP_ACT_ABILITY
 	bool     enabled     = true;
 };
+
+// player_t is defined in d_player.h; forward-declared here to avoid pulling that (and its
+// transitive includes) into this lightweight shared header.
+struct player_t;
+
+// Resolves hardpoint slot `slotIndex`'s CURRENT world position (body-yaw-relative or
+// wrist-relative, exactly matching the math VR_UpdateHardpoints applies for real grip/proximity
+// checks in p_user.cpp) into `out` (x,y,z, map units). Returns false if player/mo/slotIndex is
+// invalid. Defined once in vmthunks_actors.cpp (shared by the GetHardpointWorldPos ZScript thunk
+// and the native VRHardpointGrid_Draw renderer) so the mechanic and its visual marker can never
+// drift apart.
+bool VR_ResolveHardpointWorldPos(player_t* player, int slotIndex, int forHand, double out[3]);

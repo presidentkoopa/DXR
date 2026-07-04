@@ -485,6 +485,11 @@ public:
 	double vr_climbing_haptic_dist[2];
 	double vr_climbing_speed[2];
 	bool vr_is_climbing[2] = { false, false };
+	// [XR grip arbiter] published by the whip (GM_ATTACHED + AltFire held), read by native climb via
+	// P_VRWhipSwingActive so climb yields its Vel write + gravity flag to a live pendulum swing (fling fix).
+	// Per-player (grappleActive is single-actor state, one whip per player). POD bool, zero-init like the
+	// climb flags above -- NOT subject to the AActor-defaults FString-clobber. TRANSIENT: do NOT serialize.
+	bool vr_whip_swing_live = false;
 	DVector3 vr_climb_start_pos[2];
 
 	int vr_hand_state[2] = { 0, 0 }; // 0: Idle, 1: Grip, 2: Climb, 3: Point
@@ -500,6 +505,8 @@ public:
 		int   hand    = -1;               // -1 = either hand may reach; 0/1 = restrict to one hand
 		float ox = 0.f, oy = 0.f, oz = 0.f; // local offset (map units) from the anchor
 		float radius  = 0.f;              // per-slot reach; <=0 => use cvar vr_hardpoint_radius
+		int   cells   = 1;                // visual grid footprint ("squares"); UI-only, copied
+		                                   // from FHardpointSlot::cells at seed/AssignHardpoint time
 		bool  occupied = false;           // a weapon is currently stowed at this slot
 		bool  enabled  = false;           // slot is active
 		TObjPtr<AActor*> stowedWeapon = MakeObjPtr<AActor*>(nullptr); // holstered weapon actor (GC-safe)
@@ -521,6 +528,23 @@ public:
 	bool        vr_ik_active = false;             // true when VR_UpdateArmIK wrote a valid pose this tic
 	bool        vr_ik_enabled = true;             // per-player gate toggled by the SetArmIKEnabled thunk
 	float       vr_grip_value[2] = { 0.f, 0.f };  // ANALOG squeeze 0..1, mirrored from VRMode::GetGripValue each tic
+	// ---- CENTRAL GRIP-INTENT ARBITER (native; VR_ResolveGripOwner writes, all grip consumers + whip thunks read) ----
+	// EGripOwner (file-scope enum in p_user.cpp): 0 NONE,1 CLIMB,2 GLOVE,3 WHIP,4 HARDPOINT,5 TWOHAND.
+	// ALL PHYSICAL-controller-indexed (0=LEFT,1=RIGHT) -- same space as VR_IsGripPressed / vr_hand_vel_buffer.
+	// TRANSIENT CLIENT-PRESENTATION STATE -- EXCLUDE from the player_t FSerializer << list (same rule as
+	// vr_ik_pose / vr_body_facing_yaw below), or grip ownership leaks into savegames/net.
+	int  vr_grip_owner[2]         = { 0, 0 };            // GRIP_NONE; the arbiter verdict this tic
+	int  vr_grip_owner_prev[2]    = { 0, 0 };            // last tic (edge detection + continuation latch)
+	bool vr_grip_raw[2]           = { false, false };    // ONE canonical grip read this tic (sanitized ticcmd)
+	bool vr_grip_raw_prev[2]      = { false, false };    // replaces vr_was_grip_pressed + vr_hardpoint_was_grip
+	bool vr_grip_committed[2]     = { false, false };    // Schmitt latch for the analog commit gate
+	bool vr_whip_rope_attached[2] = { false, false };    // whip publishes (PHYSICAL index) on GM_ATTACHED only; arbiter reads
+	// [XR] Decoupled body-avatar facing (deg). The pawn yaw follows the HMD, so drawing the body at it
+	// spins the whole torso when you turn your head ("no neck"). The render reads this instead for the
+	// local VR body; P_PlayerThink holds it steady until the head turns past a dead-zone, then catches
+	// up. Transient client-presentation state -- do NOT serialize (same rule as vr_ik_pose above).
+	float       vr_body_facing_yaw = 0.f;
+	bool        vr_body_facing_valid = false;
 
 	double GetDeltaViewHeight() const
 	{

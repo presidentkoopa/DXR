@@ -183,6 +183,8 @@ struct VRMode
 
 void VR_HapticEvent(const char* event, int position, int intensity, float angle, float yHeight );
 void VR_ThrowActor(AActor* item, int hand, const DVector3& controllerLinearVelocity, const DVector3& controllerAngularVelocity);
+// [XR grip arbiter] WEAPON-SLOT (VR_MAINHAND 0 / VR_OFFHAND 1) -> PHYSICAL controller index (0=L,1=R), handedness-correct.
+int VR_PhysicalHandForSlot(int slot);
 struct player_t;
 void VR_UpdateGravityGloves(player_t* player);
 void VR_ApplyRecoil(player_t* player, int hand, float force);

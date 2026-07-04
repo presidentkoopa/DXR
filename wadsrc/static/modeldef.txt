@@ -41,7 +41,7 @@ Model IceHook
    Path "models/icehook"
    Model 0 "icehook.iqm"
    Skin 0 "icehook_skin.png"
-   Scale 1.0 1.0 1.0
+   Scale 0.2 0.2 0.2   // [XR] shrunk to 20% (was 1.0) -- render-only, static mesh (0 joints), no hitbox change
 
    FrameIndex ICHK A 0 0
 }
@@ -146,7 +146,13 @@ Model VRHandModel
    Model 0 "vhand.iqm"
    Skin 0 "vhand.png"
    Scale 1.0 1.0 1.0
-   
+   // KEYSTONE: vhand.iqm is a rigged IQM with 0 baked frames. Without modelsareattachments the
+   // GetBasePose() bind-pose upload gate (r_data/models.cpp ~635/713) never fires, so the fist-swap
+   // resolves a frame (handFrame=1) but uploads NO bones -> the hand renders zero geometry on every
+   // weapon. This flag makes it render its bind pose, exactly as DoomPlayer/marine_nohands.iqm does.
+   // (DECOUPLEDANIMATIONS is the WRONG fix here -- it fails on a 0-animation IQM: frame1 stays -1.)
+   modelsareattachments
+
    // VR Hand States (Idle, Grip, Climb, Point)
    FrameIndex VHAN A 0 0
    FrameIndex VHAN B 0 1

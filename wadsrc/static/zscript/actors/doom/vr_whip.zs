@@ -181,6 +181,13 @@ class XRWhip : Weapon
 	int     lastKnownHealth;
 	bool    healthTracked;
 
+	// ---- rolling peak hand-speed (entanglement mass pre-gate in StartGrappleFromAim) ----
+	// Updated every non-grappling tic in Tick(). AltFire fires on a single button-down tic, not a
+	// velocity-crossing like the crack, so gating on the exact-frame reading would demand aiming
+	// precisely AND being at peak swing speed simultaneously -- a decay-peak-hold instead lets a
+	// wind-up-then-trigger swing register.
+	double  handSpeedPeak;
+
 	// ---- Tier 2: rigged model driving (opt-in via `set vr_whip_model 1`) ----
 	XRWhipModel whipModel;
 	const MDL_BONES   = 21;     // whip_root + seg_00..seg_19
@@ -530,10 +537,37 @@ class XRWhip : Weapon
 			return;
 		}
 
+		bool hitActor = (lt.HitType == TRACE_HitActor && lt.HitActor && lt.HitActor.bShootable);
+
+		// Entanglement mass pre-gate (physics-audit follow-up): previously ANY shootable actor
+		// entangled instantly regardless of mass -- only the CONTINUOUS per-tic pull check below
+		// (in UpdateGrapple) caught a too-heavy target, one tic later, reading as a catch-then-
+		// instant-release flicker. Gate it at the SOURCE instead, reusing the exact same ratio so
+		// "swing harder" already buys tolerance for more mass -- no new balance constants. Bosses
+		// are exempt: the reel-toward-them fallback in UpdateGrapple is the intended outcome for
+		// something that heavy, not a failure case.
+		if (hitActor && !lt.HitActor.bBoss)
+		{
+			double gateMass = lt.HitActor.Mass;
+			if (CVB("vr_easy_grab_props", false) && lt.HitActor.Keywords.IndexOf("flags:grabprop") != -1)
+				gateMass *= CVF("vr_easy_grab_scale", 0.5);
+			double gateMassRatio = 100.0 / max(1.0, gateMass);
+			double gatePullSpeed = min(handSpeedPeak * CVF("vr_whip_yank_force_scale", 1.0) * gateMassRatio,
+										CVF("vr_whip_yank_pull_cap", 45.0));
+			if (gatePullSpeed < CVF("vr_whip_entangle_minspeed", 4.0))
+			{
+				// too heavy for how hard you swung -- the crack still hit via FireCrack on the way
+				// in, just no entanglement; dry-throw sound reuses the "missed" feedback
+				if (ActiveWhip && ActiveWhip.SndWhoosh.Length() > 0)
+					A_StartSound(ActiveWhip.SndWhoosh, CHAN_WEAPON);
+				return;
+			}
+		}
+
 		grappleActive = true;
 		grappleTimer = WHIP_GRAPPLE_TIME;
 
-		if (lt.HitType == TRACE_HitActor && lt.HitActor && lt.HitActor.bShootable)
+		if (hitActor)
 		{
 			grappleVictim = lt.HitActor;
 			grappleMode = GM_YANK;
@@ -587,6 +621,18 @@ class XRWhip : Weapon
 
 		if (grappleMode == GM_ATTACHED)
 		{
+			// [XR fling fix] Publish live-swing every tic the pendulum owns the pawn. We are past the
+			// BT_ALTATTACK-held early-return (~609), inside grappleActive, in the GM_ATTACHED branch --
+			// all three predicate terms hold. Native climb (VR_UpdateClimbing) reads this and yields its
+			// Vel write + gravity flag to us, so only one system moves the pawn this tic (no fling).
+			if (owner && owner.player) owner.VR_SetWhipSwingLive(true);
+			// [XR grip arbiter] Publish rope-attached under the FREE hand's PHYSICAL index (GM_ATTACHED only,
+			// never GM_YANK) so the arbiter grants that hand GRIP_WHIP and ApplySwingPump can act on grip.
+			if (owner && owner.player)
+			{
+				int freeSlot = 1 - (bOffhandWeapon ? 1 : 0);
+				owner.VR_SetWhipRopeAttached(owner.VR_PhysicalHandForSlot(freeSlot), true);
+			}
 			vector3 toA = grappleAnchor - owner.pos;
 			double d = toA.Length();
 			if (d < 1.0) { EndGrapple(); return; }            // degenerate: anchor ~= player, bail (parity w/ GM_YANK guard)
@@ -642,12 +688,14 @@ class XRWhip : Weapon
 
 			int hand = bOffhandWeapon ? 1 : 0;
 			double handSpeed = owner.GetHandVelocity(hand).Length();     // "the player velocity check"
-			// "Easier Grabbing" gameplay toggle: halves EFFECTIVE mass (pull force only, not the
-			// actor's real Mass/collision physics) for flags:grabprop props -- same toggle and
-			// keyword the gravity-glove throw/pull code checks (p_user.cpp), kept consistent here.
+			// "Easier Grabbing" gameplay toggle: scales EFFECTIVE mass (pull force only, not the
+			// actor's real Mass/collision physics) for flags:grabprop props -- same toggle, keyword,
+			// AND scale cvar the gravity-glove throw/pull code checks (p_user.cpp), kept consistent
+			// here. Was a hardcoded 0.5; now vr_easy_grab_scale (native cvar, hw_vrmodes.cpp) so it's
+			// user-tunable -- default unchanged. Same formula used by the entanglement pre-gate above.
 			double yankMass = grappleVictim.Mass;
 			if (CVB("vr_easy_grab_props", false) && grappleVictim.Keywords.IndexOf("flags:grabprop") != -1)
-				yankMass *= 0.5;
+				yankMass *= CVF("vr_easy_grab_scale", 0.5);
 			double massRatio = 100.0 / max(1.0, yankMass);      // mirrors the throw-formula convention
 			// #1 CRITICAL (physics audit): clamp pullSpeed at the SOURCE. handSpeed is a raw VR
 			// controller reading with NO ceiling anywhere in the native pipeline, so a tracking spike
@@ -763,11 +811,19 @@ class XRWhip : Weapon
 	// constraint above and shouldn't be touched here.
 	private void ApplySwingPump(vector3 rope)
 	{
-		if (!(owner.player.cmd.buttons & BT_USER1)) return;
-
 		int hand = bOffhandWeapon ? 1 : 0;
-		int offHand = 1 - hand;
-		vector3 offVel = owner.GetHandVelocity(offHand);
+		int offHand = 1 - hand;                          // free hand's WEAPON SLOT
+		int physOff = owner.VR_PhysicalHandForSlot(offHand);   // -> PHYSICAL controller index (handedness-correct)
+
+		// [XR grip arbiter] Enable the rope-length pump on the free hand's GRIP (the arbiter granted it
+		// GRIP_WHIP because rope-attached is published for that hand). Retires the old BT_USER1 gate for VR;
+		// BT_USER1 stays as the flatscreen/no-VR fallback (matches every VR weapon's button-fallback rule).
+		bool vrPump = owner.player.PlayInVR && CVB("vr_whip_grip_pump", true)
+		              && owner.VR_GetGripOwner(physOff) == GRIP_WHIP;
+		bool flatPump = !owner.player.PlayInVR && (owner.player.cmd.buttons & BT_USER1);
+		if (!vrPump && !flatPump) return;
+
+		vector3 offVel = owner.GetHandVelocity(physOff);      // physical-indexed (fixes latent slot-as-physical read)
 		double climbRate = -(offVel dot rope);       // hand moving TOWARD anchor shortens the rope
 
 		double pumpScale = CVF("vr_whip_swing_pump", 1.0);
@@ -830,6 +886,17 @@ class XRWhip : Weapon
 
 	void EndGrapple()
 	{
+		// [XR fling fix] Clear live-swing FIRST -- before any other statement -- so no future early-return
+		// added above can leave it latched true and permanently suppress climb. Native climb resumes its
+		// Vel + gravity management next tic. Pairs with the publish in UpdateGrapple's GM_ATTACHED branch.
+		if (owner && owner.player) owner.VR_SetWhipSwingLive(false);
+		// [XR grip arbiter] Clear rope-attached on BOTH physical hands (cheap, index-agnostic) so no stale
+		// GRIP_WHIP grant survives the grapple ending regardless of which hand held it.
+		if (owner && owner.player)
+		{
+			owner.VR_SetWhipRopeAttached(0, false);
+			owner.VR_SetWhipRopeAttached(1, false);
+		}
 		if (grappleSetNoGrav && owner) owner.bNoGravity = false;
 		grappleSetNoGrav = false;
 		grappleActive = false;
@@ -938,6 +1005,12 @@ class XRWhip : Weapon
 		double tipSpeed = tipVel.Length();
 		double handSpeed = owner.GetHandVelocity(hand).Length();
 		double effTip = max(tipSpeed, handSpeed);      // sim leads, hand speed is the floor
+
+		// decay-peak-hold for the GM_YANK entanglement pre-gate (see field comment) -- runs here,
+		// not inside UpdateGrapple, because this whole function returns early while grappleActive
+		// (Tick() line ~889), i.e. it only samples while NOT already grappling, which is exactly
+		// the window before an AltFire press that the pre-gate needs to see.
+		handSpeedPeak = max(handSpeed, handSpeedPeak * CVF("vr_whip_yank_peak_decay", 0.85));
 
 		// vr_whip_crack_threshold is a global override on top of the profile's own CrackSpeed --
 		// profiles differ from each other by a multiplicative ratio to their own 95.0 baseline, so

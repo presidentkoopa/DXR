@@ -1248,6 +1248,16 @@ namespace
 
 }
 
+void VRWorldUI_DrawQuad(HWDrawInfo* di, FRenderState& state, const DVector3& center, const DVector3& right, const DVector3& up, float width, float height, FGameTexture* texture, PalEntry color, bool textured, bool rotate180)
+{
+	DrawWorldQuad(di, state, center, right, up, width, height, texture, color, textured, rotate180);
+}
+
+void VRWorldUI_DrawDisc(HWDrawInfo* di, FRenderState& state, const DVector3& center, const DVector3& right, const DVector3& up, float radius, PalEntry color)
+{
+	DrawWorldDisc(di, state, center, right, up, radius, color);
+}
+
 void VRWheel_OpenWeapon()
 {
 	OpenWheel(EVRWheelType::MainWeapon);

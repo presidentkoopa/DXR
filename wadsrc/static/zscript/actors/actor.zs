@@ -888,7 +888,9 @@ class Actor : Thinker native
 	// anchor: 0=HP_ANCHOR_BODY (chest/head + yaw offset), 1=HP_ANCHOR_WRIST (other hand).
 	// action: 0=HP_ACT_HOLSTER (draw/stow the hand weapon), 1=HP_ACT_ABILITY (fire event).
 	// hand:   -1 either hand may reach, 0=main, 1=off. Returns slot index, or -1 if full.
-	native int  AssignHardpoint(int anchor, int actionType, int hand, double ox, double oy, double oz, double radius, Name weaponClass, Name abilityName);
+	// cells: visual grid footprint ("squares") this slot renders as, e.g. pistol-class=2,
+	// shotgun-class=3 -- UI-only, does not change the one-weapon-per-slot holster mechanic.
+	native int  AssignHardpoint(int anchor, int actionType, int hand, double ox, double oy, double oz, double radius, Name weaponClass, Name abilityName, int cells = 1);
 	// Disable a previously-assigned slot (drops any stowed-weapon GC reference).
 	native void ClearHardpoint(int slotIndex);
 	// Nearest enabled slot within reach of the given hand this tic, else -1.
@@ -897,6 +899,24 @@ class Actor : Thinker native
 	native Actor GetHardpointStowed(int slotIndex);
 	// Analog VR squeeze 0..1 for a hand (0=main,1=off). 0 when not in VR.
 	native double GetGripValue(int hand);
+	// [XR grip arbiter / fling fix] Whip publishes whether a live pendulum-swing owns the pawn this tic
+	// (GM_ATTACHED + AltFire held); native climb reads it and yields Vel + gravity so only one system
+	// writes pawn Vel per tic. Per-player (no hand param). Call true every live-swing tic, false in EndGrapple.
+	native void VR_SetWhipSwingLive(bool live);
+	// [XR grip arbiter] Read the per-hand grip-ownership verdict (EGripOwner). PHYSICAL controller index.
+	native int  VR_GetGripOwner(int physHand);
+	// [XR grip arbiter] Map a WEAPON-SLOT index (VR_MAINHAND 0 / VR_OFFHAND 1) to the PHYSICAL controller
+	// index honoring handedness (vr_control_scheme), so ZScript never hand-rolls that math.
+	native int  VR_PhysicalHandForSlot(int slot);
+	// [XR grip arbiter] Whip publishes rope-attached (GM_ATTACHED only) so the arbiter can grant GRIP_WHIP.
+	native void VR_SetWhipRopeAttached(int physHand, bool attached);
+	// [XR grip arbiter] EGripOwner constants mirroring the file-scope enum in p_user.cpp.
+	const GRIP_NONE = 0;
+	const GRIP_CLIMB = 1;
+	const GRIP_GLOVE = 2;
+	const GRIP_WHIP = 3;
+	const GRIP_HARDPOINT = 4;
+	const GRIP_TWOHAND = 5;
 	// Toggle the native two-bone arm IK solver for this player's avatar.
 	native void SetArmIKEnabled(bool enable);
 	// Stow the hand's weapon into a slot (clears the PSprite via VR_DoHolster).

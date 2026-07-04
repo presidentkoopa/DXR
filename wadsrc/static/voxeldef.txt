@@ -22,6 +22,14 @@ col5a = "col5a" {AngleOffset = 270}
 col5b = "col5b" {AngleOffset = 270}
 col6a = "col6a" {AngleOffset = 270}
 
+// ExplosiveBarrel (BAR1 A/B) -- voxel files already shipped in voxels/, VOXELDEF entry was
+// the missing piece (upstream reikalldoomvoxels never wired this one either -- their own
+// DECORATE barrel replacement is commented out). Sprite-name substitution only, so this
+// applies to our own custom ExplosiveBarrel (VR keywords intact) with zero DECORATE changes,
+// including while it's held/thrown/whip-yanked -- same actor, same BAR1 sprite throughout.
+bar1a = "bar1a" {AngleOffset = 270}
+bar1b = "bar1b" {AngleOffset = 270}
+
 media = "media" {AngleOffset = 270}
 mediz = "mediz" {AngleOffset = 270}
 stima = "stima" {AngleOffset = 270}

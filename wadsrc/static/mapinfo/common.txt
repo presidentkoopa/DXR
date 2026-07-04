@@ -5,7 +5,11 @@ Gameinfo
 	CheatKey = "maparrows/key.txt"
 	EasyKey = "maparrows/ravenkey.txt"
 	PrecacheSounds = "misc/secret", "misc/teleport", "misc/fallingsplat", "misc/ripslop"
-	AddEventHandlers = "SDFComboArbiter", "VRLocationalArbiter", "GrenadeHandler", "VRDamageHandler", "XR_GravityPathGiver", "WeaponReplacementHandler", "VRDeathHandler", "VRRomLoadHandler", "VRGifEventHandler", "VRTestingRig", "VRHardpointMarkerHandler"
+	// [XR] Removed THREE dead handler registrations whose classes were deleted from zscript (another
+	// lane) but left registered here -- each HARD-FATALS boot ("unknown event handler class X"):
+	//   SDFComboArbiter, VRDamageHandler, VRGifEventHandler (verified: no `class X` exists in zscript).
+	// The remaining 8 all have live classes. If a lane re-adds one of these classes, re-add it here.
+	AddEventHandlers = "VRLocationalArbiter", "GrenadeHandler", "XR_GravityPathGiver", "WeaponReplacementHandler", "VRDeathHandler", "VRRomLoadHandler", "VRTestingRig", "VRHardpointMarkerHandler"
 }
 
 DoomEdNums

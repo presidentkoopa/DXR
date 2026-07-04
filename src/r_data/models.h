@@ -121,7 +121,11 @@ void BSPWalkCircle(FLevelLocals *Level, float x, float y, float radiusSquared, c
 }
 
 void RenderModel(FModelRenderer* renderer, float x, float y, float z, FSpriteModelFrame* smf, AActor* actor, double ticFrac);
-void RenderHUDModel(FModelRenderer* renderer, DPSprite* psp, FVector3 translation, FVector3 rotation, FVector3 rotation_pivot, FSpriteModelFrame *smf);
+// [XR] forceHand: -1 = derive the hand (main/offhand) from psp->Caller (default, unchanged behaviour);
+// 0/1 = force this hand index so a VR hand can be drawn at a specific controller even when the psp used
+// for context isn't that hand's weapon (or that hand holds no weapon at all). Positioning uses
+// GetWeaponTransform(hand), keyed only by the index, so a borrowed context still lands on the right hand.
+void RenderHUDModel(FModelRenderer* renderer, DPSprite* psp, FVector3 translation, FVector3 rotation, FVector3 rotation_pivot, FSpriteModelFrame *smf, int forceHand = -1);
 
 struct CalcModelFrameInfo
 {

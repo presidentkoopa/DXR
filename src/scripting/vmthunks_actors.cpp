@@ -2393,6 +2393,8 @@ DEFINE_ACTION_FUNCTION(AActor, AssignHardpoint)
 	PARAM_FLOAT(radius);
 	PARAM_NAME(weaponClass);    // ability/preferred weapon class (config only)
 	PARAM_NAME(abilityName);    // ZScript event fired for HP_ACT_ABILITY
+	PARAM_INT(cells);           // visual grid footprint ("squares"); UI-only. ZScript-side default
+	                            // (actor.zs: int cells = 1) fills this in when a caller omits it.
 
 	player_t *player = XR_HardpointOwner(self);
 	if (player == nullptr) { ACTION_RETURN_INT(-1); }
@@ -2408,6 +2410,7 @@ DEFINE_ACTION_FUNCTION(AActor, AssignHardpoint)
 	slot.oy       = (float)oy;
 	slot.oz       = (float)oz;
 	slot.radius   = (float)radius;   // <=0 => VR_UpdateHardpoints falls back to cvar
+	slot.cells    = max(1, cells);
 	slot.occupied = false;
 	slot.enabled  = true;
 	slot.stowedWeapon = nullptr;     // TObjPtr::operator=(nullptr_t); nothing stowed yet
@@ -2524,6 +2527,38 @@ DEFINE_ACTION_FUNCTION(AActor, GetGripValue)
 	ACTION_RETURN_FLOAT(v);
 }
 
+// [XR grip arbiter] Read the per-hand grip-ownership verdict (EGripOwner) that VR_ResolveGripOwner
+// published this tic. PHYSICAL controller index (0=L,1=R). Returns GRIP_NONE(0) off-player/out-of-range.
+DEFINE_ACTION_FUNCTION(AActor, VR_GetGripOwner)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_INT(physHand);
+	player_t* p = self->player;
+	if (p == nullptr || physHand < 0 || physHand > 1) ACTION_RETURN_INT(0 /*GRIP_NONE*/);
+	ACTION_RETURN_INT(p->vr_grip_owner[physHand]);
+}
+
+// [XR grip arbiter] WEAPON-SLOT (VR_MAINHAND 0 / VR_OFFHAND 1) -> PHYSICAL controller index, handedness-correct.
+// Delegates to the single authority in hw_vrmodes.cpp so ZScript never hand-rolls vr_control_scheme math.
+DEFINE_ACTION_FUNCTION(AActor, VR_PhysicalHandForSlot)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_INT(slot);
+	ACTION_RETURN_INT(VR_PhysicalHandForSlot(slot));
+}
+
+// [XR grip arbiter] The whip publishes rope-attached (GM_ATTACHED only) under the free hand's PHYSICAL
+// index, so the arbiter can grant that hand GRIP_WHIP and the pump reads it back consistently.
+DEFINE_ACTION_FUNCTION(AActor, VR_SetWhipRopeAttached)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_INT(physHand);
+	PARAM_BOOL(attached);
+	player_t* p = self->player;
+	if (p != nullptr && physHand >= 0 && physHand <= 1) p->vr_whip_rope_attached[physHand] = attached;
+	return 0;
+}
+
 DEFINE_ACTION_FUNCTION(AActor, SetArmIKEnabled)
 {
 	PARAM_SELF_PROLOGUE(AActor);
@@ -2569,15 +2604,15 @@ DEFINE_ACTION_FUNCTION(AActor, GetHardpointAnchorType)
 // gripping hand" query IsHardpointNear provides). Reuses the EXACT anchor math
 // VR_UpdateHardpoints (p_user.cpp) applies, so a drawn marker always sits exactly
 // where a real draw/stow grip would actually trigger -- no drift between the two.
-DEFINE_ACTION_FUNCTION(AActor, GetHardpointWorldPos)
+//
+// Factored out (not just inlined in the thunk below) so the native VRHardpointGrid_Draw
+// renderer (hw_vr_hardpoint_grid.cpp) can call the SAME math directly -- declared in
+// vr_hardpoint.h, external linkage, no header for DVector3 needed by callers (raw out[3]).
+bool VR_ResolveHardpointWorldPos(player_t* player, int slotIndex, int forHand, double out[3])
 {
-	PARAM_SELF_PROLOGUE(AActor);
-	PARAM_INT(slotIndex);
-	PARAM_INT(forHand);   // which hand's "other hand" to use for a WRIST slot; 0 or 1
-
-	player_t *player = XR_HardpointOwner(self);
-	if (player == nullptr || player->mo == nullptr) { ACTION_RETURN_VEC3(DVector3(0, 0, 0)); }
-	if (slotIndex < 0 || slotIndex >= player->vr_hardpoint_count) { ACTION_RETURN_VEC3(DVector3(0, 0, 0)); }
+	out[0] = out[1] = out[2] = 0.0;
+	if (player == nullptr || player->mo == nullptr) return false;
+	if (slotIndex < 0 || slotIndex >= player->vr_hardpoint_count) return false;
 
 	const auto &slot = player->vr_hardpoints[slotIndex];
 	if (forHand != 0) forHand = 1;
@@ -2605,7 +2640,21 @@ DEFINE_ACTION_FUNCTION(AActor, GetHardpointWorldPos)
 		double ry = slot.ox * sy + slot.oy * cy;
 		result = bodyAnchor + DVector3(rx, ry, slot.oz);
 	}
-	ACTION_RETURN_VEC3(result);
+
+	out[0] = result.X; out[1] = result.Y; out[2] = result.Z;
+	return true;
+}
+
+DEFINE_ACTION_FUNCTION(AActor, GetHardpointWorldPos)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_INT(slotIndex);
+	PARAM_INT(forHand);   // which hand's "other hand" to use for a WRIST slot; 0 or 1
+
+	player_t *player = XR_HardpointOwner(self);
+	double out[3];
+	VR_ResolveHardpointWorldPos(player, slotIndex, forHand, out);
+	ACTION_RETURN_VEC3(DVector3(out[0], out[1], out[2]));
 }
 
 DEFINE_ACTION_FUNCTION(AActor, VR_HolsterHand)

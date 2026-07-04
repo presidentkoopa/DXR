@@ -29,6 +29,10 @@ class IceHook : DoomWeapon
 	Default
 	{
 		Weapon.SelectionOrder 1800;
+		Scale 0.2;						// [XR] runtime Scale is IGNORED for this model, so the real size fix is
+										//      BAKED into the mesh geometry (verts x0.05 in icehook.iqm, backup
+										//      .bak alongside). Kept at the 0.2 baseline so re-baking the iqm to a
+										//      different factor changes size predictably. To resize: re-bake the iqm.
 		Weapon.SlotNumber 9;			// unused slot — selectable on "9", no clash with 1-8
 		Weapon.AmmoUse 0;
 		Weapon.AmmoGive 0;
@@ -151,7 +155,14 @@ class IceHookProjectile : Actor
 				// Embed a persistent hook at the impact point — the actor a
 				// future climb/grapple layer would treat as a remote anchor.
 				Actor s = Spawn("IceHookStuck", pos, ALLOW_REPLACE);
-				if (s) { s.angle = angle; s.target = target; }	// target = the thrower, for the pull
+				if (s)
+				{
+					s.angle = angle; s.target = target;	// target = the thrower, for the pull
+					// [stick FX] VR-visible ice-blue flash + sharp bite sound the INSTANT it locks in, so you
+					// know without staring. Particles are invisible in the VR stereo pass, so use AddGlowPanel.
+					Level.AddGlowPanel(Color(255, 90, 205, 255), 32.0, pos.x, pos.y, pos.z, 14, 1.0, 0.0, 0.0, 0);
+					A_StartSound("weapons/grnbounce", CHAN_WEAPON, 0, 1.0);
+				}
 			}
 			else
 			{
@@ -180,6 +191,7 @@ class IceHookStuck : Actor
 	int  life;
 	int  pullTimer;
 	bool pulling;
+	int  returnTimer;   // [return] tics until an idle pick flies back (or is retrievable)
 
 	override void PostBeginPlay()
 	{
@@ -194,6 +206,8 @@ class IceHookStuck : Actor
 		let ap = CVar.GetCVar("vr_icehook_autopull");
 		pulling = (target && target.player && (ap ? ap.GetBool() : true));
 		pullTimer = 105;	// ~3s hard cap so a snagged pull can't strand you
+		let rd = CVar.GetCVar("vr_icehook_return_delay");
+		returnTimer = rd ? rd.GetInt() : 70;
 	}
 
 	override void Tick()
@@ -230,6 +244,39 @@ class IceHookStuck : Actor
 		else if (pulling)
 		{
 			StopPull();	// thrower died / vanished
+		}
+
+		// [findability] a subtle VR-visible pulse (~6/sec) so a planted pick is easy to spot for retrieval.
+		if ((Level.maptime % 10) == 0)
+			Level.AddGlowPanel(Color(200, 90, 205, 255), 14.0, pos.x, pos.y, pos.z, 14, 0.6, 0.0, 0.0, 0);
+
+		// [return / retrieve] once the grapple-pull is done, the pick either flies BACK to the thrower
+		// (boomerang, vr_icehook_autoreturn ON) or just waits to be walked-over and collected (toggle OFF).
+		if (!pulling && target)
+		{
+			let ar = CVar.GetCVar("vr_icehook_autoreturn");
+			bool autoReturn = ar ? ar.GetBool() : true;
+			if (autoReturn)
+			{
+				if (returnTimer > 0) returnTimer--;
+				else
+				{
+					Vector3 to = (target.pos + (0.0, 0.0, 32.0)) - pos;   // aim for mid-body, not feet
+					double d = to.Length();
+					if (d < 48.0)
+					{
+						Level.AddGlowPanel(Color(255, 90, 205, 255), 20.0, pos.x, pos.y, pos.z, 14, 1.0, 0.0, 0.0, 0);
+						A_StartSound("weapons/grnbounce", CHAN_BODY);	// caught it back
+						Destroy(); return;
+					}
+					SetOrigin(pos + to.Unit() * min(28.0, d), true);	// fly back to the hand (a prop, not the pawn -- SetOrigin ok)
+				}
+			}
+			else if ((target.pos - pos).Length() < 56.0)
+			{
+				A_StartSound("weapons/grnbounce", CHAN_BODY);	// walked over and collected
+				Destroy(); return;
+			}
 		}
 
 		if (life > 0)
