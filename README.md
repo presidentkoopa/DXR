@@ -1,6 +1,6 @@
 ![Radiance Engine](https://github.com/iAmErmac/DoomXR/blob/doomxr/branding/banner.png)
 
-# ⚡ DXR — an Untitled VR Light-Gun / Melee Game (Engine Overhaul)
+# ⚡ DXR — Gravity Plate Update 
 
 A fork of **DoomXR** (iAmErmac's QuestZDoom-based VR fork of GZDoom) rebuilt into a purpose-built VR light-gun / physical-melee game. Design rule throughout: **behavior lives in native C++ per-tic subsystems; ZScript is limited to data and thin override hooks.** Full technical accounting in [`Documentation/DXR_VS_DOOMXR_CHANGES.md`](Documentation/DXR_VS_DOOMXR_CHANGES.md).
 
