@@ -16,7 +16,7 @@ A fork of **DoomXR** (iAmErmac's QuestZDoom-based VR fork of GZDoom) rebuilt int
 8. **KEYWORDS.json behavior engine** — per-actor and per-weapon behavior (kickback, vulnerability, ballistics, parry) declared as data, resolved natively, no recompile.
 9. **Grip-intent arbiter** — one owner per hand resolved by priority so climb / whip / gloves / holsters never fight over the same grip; handedness-correct.
 10. **Analog + motion input to gameplay** — smoothed, tic-normalized hand velocity (swing/flick detection) and analog grip squeeze (0–1) exposed to scripts.
-11. **Data-driven gesture engine** — a native per-tic classifier reads a per-hand motion-history ring buffer and names the verb (flick / thrust / slash / circle / reversal / …), matched against a declarative `vr_gestures.json` table; a fired gesture calls one `VR_GestureFired` ZScript hook. New gestures are a JSON row plus a script case — no recompile. One engine, not 90 hardcoded moves; a whole magic game's worth of sigils is a JSON file.
+11. **Data-driven gesture engine** — a native per-tic classifier reads a per-hand motion-history ring buffer and names the verb (flick / thrust / slash / circle / reversal / …), matched against a declarative `vr_gestures.json` table; a fired gesture calls one `VR_GestureFired` ZScript hook. New gestures are a JSON row plus a script case — no recompile. The planned 90-gesture library (and a whole magic game's worth of sigils beyond it) ships as a JSON file, not 90 hardcoded C++ moves — one engine, infinite content.
 
 > [!WARNING]
 > **Status: work-in-progress***
