@@ -1,6 +1,6 @@
 ![Radiance Engine](https://github.com/iAmErmac/DoomXR/blob/doomxr/branding/banner.png)
 
-# ⚡ DXR — DIKX Update
+# ⚡ DXR — DIKX Update - "DIKX IN BOTH HANDS!"
 
 *DIKX — **D**oom **I**nverse **K**inematics × **XR**: a first-person body that reaches where your hands do — and both of them stay full.*
 
