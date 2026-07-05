@@ -6,6 +6,9 @@
 
 A fork of **DoomXR** (iAmErmac's QuestZDoom-based VR fork of GZDoom) rebuilt into a purpose-built VR light-gun / physical-melee game. Design rule throughout: **behavior lives in native C++ per-tic subsystems; ZScript and JSON are data and thin override hooks.**
 
+recent patch:
+IQM ShieldSaw, IQM Chainsaw (Complete IQM roster and MDL bkups)
+
 > [!WARNING]
 > **Status: work-in-progress.** Some systems await a full rebuild to activate.
 
