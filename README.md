@@ -118,6 +118,24 @@ The hooks are single-purpose primitives; new mechanics are recombinations, not n
 
 ---
 
+## First-person body avatar — arm-IK by renderer matrix-inverse
+
+DXR renders your own 3D marine in first person and drives its arms to your controllers every tic. The flagship trick is *how* the world→model-local conversion is done: instead of hand-rebuilding the transform chain (drawn yaw, body Z, body scale, coordinate swap) and dialing it in, the IK **inverts the renderer's own matrix.**
+
+* **Publish the exact GPU matrix.** The renderer captures its finalized VR-body model matrix as a global — `VSMatrix g_xr_vrBodyObjectToWorld` (+ valid flag) — at `r_data/models.cpp:323`, the last mutation before `BeginDrawModel`. That's the *exact* matrix the GPU skins with, handed to the playsim through a lock-free render→playsim contract.
+* **One inverse solves everything.** `VR_UpdateArmIK` (`playsim/p_user.cpp`) computes, per hand:
+  `target_baseframe = swapYZ · objectToWorld⁻¹ · controller_world_GL`
+  — where `swapYZ` is the Y/Z row-swap matching the IQM skinning convention and `controller_world_GL` is the raw GL columns (`m[12], m[13], m[14]`) of the controller transform. That single inverse subsumes the drawn body yaw, `vr_body_z`, `bodyScale`, **and** the coordinate swap — all inverted for free, no dialing. The hand lands on the controller *by construction*; an adversarial check proved `render(F⁻¹(ctrl)) == ctrl` to **1.6 × 10⁻¹⁴** (machine epsilon). Exact where hand-math never was.
+* **Two-bone solver.** `IK_SolveTwoBoneArm` — a law-of-cosines shoulder/elbow solve in the model's baseframe; elbow direction from a pole vector; world-space joint rotations converted to parent-relative for the pose. An optional clamped stretch lets the arm exceed its natural span to reach.
+* **Wrist orientation (the subtle fix).** `IK_ControllerModelRot` transforms the controller's forward/up basis as *directions* (`w=0`) through the **same** inverse, then re-orthonormalizes with a **reversed cross order** (`right = f × u`, not `u × f`) — because the inverse carries `swapYZ`, which is orientation-reversing (det −1); the naive order renders the palm **mirrored.** Reversing the cross yields a proper det +1 rotation.
+* **Auto-fit height** (`r_data/models.cpp`): `bodyScale = clamp((smoothedEye − headroom) / neckH)`, where `neckH` is the measured bind model-Z of the `bip_neck` joint (63.64, parsed straight from the IQM). The neck-stump anchors at HMD eye height, feet on the floor — and the IK stays **scale-invariant**, because the matrix inverse undoes the same `bodyScale`.
+* **Procedural-bone upload.** `marine_novr.iqm` is a 152-joint rig with **zero baked frames**; the IK writes a per-joint TRS into `proceduralPose` every tic and `CalculateBonesIQM` (`common/models/models_iqm.cpp`) applies it inside a `swapYZ` sandwich — the exact swap the IK inverse mirrors. Upload gate: `modelsareattachments` in the modeldef; `+DECOUPLEDANIMATIONS` alone *fails* on a 0-animation IQM.
+* **The model.** A headless DOOM Eternal Slayer rip — neck stump, no head (you don't render your own face in first person), legs removed — 7 surfaces, each with its own per-part texture.
+
+Net: your marine's arms reach exactly where your hands are because the solve is the **algebraic inverse of the draw**, not an approximation of it.
+
+---
+
 ## Universal 3D Weapon Model framework (any mod, VR or flatscreen)
 
 DXR replaces 2D weapon sprites with 3D IQM/MD3 models without the model knowing anything about the weapon driving it. A native interception in `DPSprite::SetState` re-syncs the attached model's animation state to the weapon's matching state-label anchor (Ready / Fire / Reload / …):
