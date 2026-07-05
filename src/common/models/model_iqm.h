@@ -165,6 +165,10 @@ public:
 	bool GetJointBindTRS(int jointIndex, TRS& out) const override;
 	int GetJointParent(int jointIndex) const override;
 	int FindJointByName(FName name) const override;
+	// [XR] Case-insensitive name lookup + parent-resolved model-local bind position from baseframe[]
+	// (built in Load(), models_iqm.cpp ~151-176). Read-only; never touches proceduralPose/whip write path.
+	int FindJointByNameCI(FName name) const override;
+	bool GetJointBaseframePos(int jointIndex, FVector3& out) const override;
 };
 
 struct IQMReadErrorException { };

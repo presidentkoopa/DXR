@@ -18,9 +18,12 @@
 
 class ID24Incinerator : DoomWeapon // Incinerator
 {
+	mixin XR_ManualReload;   // [XR] chamber gate + box-mag physical reload (native VR gesture FSM refills it)
+
 	Default
 	{
 		Weapon.SelectionOrder 120;
+		Weapon.SlotNumber 6;   // [XR] slot 6 (matches DoomPlayer's Player.WeaponSlot 6)
 		Weapon.AmmoUse 1;
 		Weapon.AmmoGive 20;
 		Weapon.AmmoType "ID24Fuel";
@@ -34,15 +37,21 @@ class ID24Incinerator : DoomWeapon // Incinerator
 		INCN A -1;
 		Stop;
 	Ready:
-		FLMG A 1 A_WeaponReady;
+		FLMG A 0 { if (invoker.XRMagSize == 0) invoker.XR_InitChamber(20); }   // [XR] mag size 20
+		FLMG A 1 A_WeaponReady(WRF_ALLOWRELOAD);
 		Loop;
 	Deselect:
 		FLMG A 1 A_Lower;
 		Loop;
 	Select:
-		FLMG A 1 A_Raise;
+		FLMG A 1
+		{
+			A_Raise();
+			AssignWeaponHandling("boxmag");   // [XR] native box-mag FSM; hs_* geometric-default (no IQM needed)
+		}
 		Loop;
 	Fire:
+		TNT1 A 0 A_JumpIf(!A_XR_TryFire(), "Ready");   // [XR] chamber gate: consumes 1 loaded round, dry-clicks when empty
 		FLMF A 0 BRIGHT A_Jump(128, "FireAltSound");
 		FLMF A 0 BRIGHT A_StartSound("weapons/incinerator/fire1", CHAN_WEAPON);
 		Goto DoFire;
@@ -56,6 +65,11 @@ class ID24Incinerator : DoomWeapon // Incinerator
 		FLMF B 1 BRIGHT;
 		FLMG A 1;
 		FLMG A 0 A_ReFire;
+		Goto Ready;
+	Reload:
+		FLMG A 0 A_XR_EjectToPouch();   // VR: eject mag -> Ready (chest pouch reloads); flatscreen: falls through
+		FLMG A 30;
+		FLMG A 15 A_XR_RefillChamber();   // re-arm chamber from the reserve
 		Goto Ready;
 	Flash:
 		TNT1 A 2 A_Light2;

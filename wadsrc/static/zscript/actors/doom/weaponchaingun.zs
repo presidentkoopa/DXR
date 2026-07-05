@@ -6,31 +6,48 @@
 
 class Chaingun : DoomWeapon
 {
+	mixin XR_ManualReload;   // [XR] chamber gate + box-mag physical reload (native VR gesture FSM refills it)
+
 	Default
 	{
 		Weapon.SelectionOrder 700;
+		Weapon.SlotNumber 4;   // [XR] slot 4 (matches DoomPlayer's Player.WeaponSlot 4)
 		Weapon.AmmoUse 1;
 		Weapon.AmmoGive 20;
 		Weapon.AmmoType "Clip";
 		Inventory.PickupMessage "$GOTCHAINGUN";
 		Obituary "$OB_MPCHAINGUN";
 		Tag "$TAG_CHAINGUN";
-		Keywords "mass:50", "grab", "class:chaingun", "dmg:ballistic", "style:suppression", "weight:medium", "range:medium", "fire:auto", "handling:steady", "role:suppressor";
+		Keywords "mass:50", "grab", "class:chaingun", "grip:heavy", "dmg:ballistic", "style:suppression", "weight:medium", "range:medium", "fire:auto", "handling:steady", "role:suppressor", "vr_dualwield";
 	}
 	States
 	{
 	Ready:
-		CHGG A 1 A_WeaponReady;
+		CHGG A 0 { if (invoker.XRMagSize == 0) { invoker.XR_InitChamber(50); invoker.XRMagClass = "XRMag_Chaingun"; } }   // [XR] belt/mag size 50, chaingun mag
+		CHGG A 1 A_WeaponReady(WRF_ALLOWRELOAD);
 		Loop;
 	Deselect:
 		CHGG A 1 A_Lower;
 		Loop;
 	Select:
-		CHGG A 1 A_Raise;
+		CHGG A 1
+		{
+			A_Raise();
+			AssignWeaponHandling("boxmag");   // [XR] native box-mag FSM; hs_* geometric-default (no IQM needed)
+		}
 		Loop;
 	Fire:
-		CHGG AB 4 A_FireCGun;
+		TNT1 A 0 A_JumpIf(!A_XR_TryFire(), "Ready");   // [XR] chamber gate (shot 1); dry-clicks when empty
+		CHGG A 4 A_FireCGun;
+		TNT1 A 0 A_JumpIf(!A_XR_TryFire(), "Ready");   // [XR] chamber gate (shot 2)
+		CHGG B 4 A_FireCGun;
 		CHGG B 0 A_ReFire;
+		Goto Ready;
+	// [XR] Manual reload beat (flatscreen / gesture-FSM fallback). No baked reload anim on CHGG.
+	Reload:
+		CHGG A 0 A_XR_EjectToPouch();   // VR: eject mag -> Ready (chest pouch reloads); flatscreen: falls through
+		CHGG A 30;
+		CHGG A 12 A_XR_RefillChamber();   // re-arm chamber from the Clip reserve
 		Goto Ready;
 	Flash:
 		// VR: muzzle-flash sprite suppressed, muzzle light kept.

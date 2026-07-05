@@ -426,7 +426,7 @@ vec4 getLightColor(Material material, float fogdist, float fogfactor)
 #endif
 
 	//
-	// [GITD] up to MAX_WALL_GLOW_SPOTS localized glow pools (radial circles) on floor/ceiling.
+	// [RADIANCE] up to MAX_WALL_GLOW_SPOTS localized glow pools (radial circles) on floor/ceiling.
 	// uWallGlowSpots[i] = vec4(center.x, center.z, packedRGB, radius). Const loop bound (ES2-legal),
 	// count is the dynamic early-out; spots uniform is highp so the packed RGB unpacks exactly.
 	//

@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>DoomXR — Seam Reveal: The Coat of Holding</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#05060B;--cyan:#38E6FF;--amber:#FFD000;
+  --shell:#FF7A1B;--violet:#B428FF;--green:#46FF7A;
+  --text:#F4F7FF;--text2:#7FBFCF;--ghost:#3A4650;
+  --card-bg:rgba(8,10,16,0.72);
+}
+
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+html,body{width:1280px;height:800px;overflow:hidden;background:var(--bg);font-family:'Courier New',Courier,monospace}
+
+#scene{position:relative;width:1280px;height:800px;background:var(--bg);overflow:hidden}
+
+/* BACKDROP */
+#backdrop{position:absolute;inset:0;filter:blur(3px) saturate(0.12) brightness(0.5);opacity:0.09;pointer-events:none;z-index:1}
+
+/* VIGNETTE */
+#vignette{position:absolute;inset:0;background:radial-gradient(ellipse 72% 62% at 50% 44%,transparent 18%,rgba(0,0,0,0.5) 55%,rgba(0,0,0,0.94) 100%);pointer-events:none;z-index:2}
+
+/* AMBIENT GLOW — center warm glow behind the tear origin */
+#ambient{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);width:500px;height:380px;background:radial-gradient(ellipse,rgba(56,230,255,0.04) 0%,rgba(255,208,0,0.03) 40%,transparent 72%);pointer-events:none;z-index:3;opacity:0;transition:opacity 0.6s ease}
+#ambient.open{opacity:1}
+
+/* FLOOR SPILL */
+#floor-spill{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:600px;height:340px;background:radial-gradient(ellipse 65% 55% at 50% 98%,rgba(56,230,255,0.22) 0%,rgba(255,208,0,0.16) 22%,rgba(56,230,255,0.07) 50%,transparent 78%);filter:blur(28px);pointer-events:none;z-index:4;opacity:0;transition:opacity 0.7s ease 0.1s}
+#floor-spill.open{opacity:1}
+
+/* SHOCKWAVE */
+#shockwave{position:absolute;left:50%;top:62%;transform:translate(-50%,-50%) scale(0);width:380px;height:180px;border-radius:50%;border:2px solid rgba(56,230,255,0.65);box-shadow:0 0 24px 6px rgba(56,230,255,0.35),inset 0 0 24px 6px rgba(255,208,0,0.2);opacity:0;pointer-events:none;z-index:14}
+
+/* FLASH */
+#flash{position:absolute;inset:0;background:rgba(255,240,180,0);pointer-events:none;z-index:60;transition:background 0.06s}
+#flash.snap{background:rgba(255,240,180,0.32)}
+
+/* ═══════════════════════════════
+   THE TEAR — main SVG canvas
+   All content composited into one SVG so the clip works organically
+═══════════════════════════════ */
+#tear-canvas{position:absolute;left:50%;top:0;transform:translateX(-50%);width:400px;height:800px;overflow:visible;z-index:10;pointer-events:none}
+
+/* Lip flicker animations */
+@keyframes lip-flicker{
+  0%,100%{opacity:1}
+  7%{opacity:0.86}11%{opacity:1}
+  44%{opacity:0.91}46%{opacity:1}
+  79%{opacity:0.89}81%{opacity:1}
+}
+@keyframes lip-flicker2{
+  0%,100%{opacity:1}
+  15%{opacity:0.88}18%{opacity:1}
+  52%{opacity:0.92}54%{opacity:1}
+  83%{opacity:0.87}85%{opacity:1}
+}
+.flick1{animation:lip-flicker 6.7s steps(1) infinite}
+.flick2{animation:lip-flicker2 7.4s steps(1) infinite 0.9s}
+
+/* Shelf weapons — spin */
+@keyframes weapon-spin{from{transform:rotateY(0deg)}to{transform:rotateY(360deg)}}
+.spin-g{animation:weapon-spin 4.2s linear infinite;transform-origin:27px 18px;transform-box:fill-box}
+
+/* Dual halo pulse */
+@keyframes dual-pulse{
+  0%,100%{opacity:0.7}
+  50%{opacity:1}
+}
+.dual-halo-anim{animation:dual-pulse 2.3s ease-in-out infinite}
+
+/* BFG bob */
+@keyframes bfg-bob{
+  0%,100%{transform:translateY(0px)}
+  50%{transform:translateY(-6px)}
+}
+.bfg-bob{animation:bfg-bob 3.1s ease-in-out infinite}
+
+/* Gold halo buzz */
+@keyframes gold-buzz{
+  0%,100%{opacity:0.85}
+  50%{opacity:1}
+}
+.gold-buzz{animation:gold-buzz 1.6s ease-in-out infinite}
+
+/* Ghost parallax layers */
+@keyframes par-far{0%,100%{transform:translateX(0)}50%{transform:translateX(-6px)}}
+@keyframes par-near{0%,100%{transform:translateX(0)}50%{transform:translateX(9px)}}
+.par-far{animation:par-far 8.2s ease-in-out infinite}
+.par-near{animation:par-near 8.2s ease-in-out infinite}
+
+/* Depth content — opacity fade in */
+#depth-group{opacity:0;transition:opacity 0.5s ease 0.28s}
+#depth-group.open{opacity:1}
+
+/* Corner flicker */
+@keyframes corner-flick{0%,68%,100%{opacity:1}70%,84%{opacity:0.35}}
+.c-flick{animation:corner-flick 3.2s steps(3) infinite}
+
+/* Time indicator slam */
+@keyframes time-slam{0%{transform:scale(1.45)}60%{transform:scale(0.94)}100%{transform:scale(1)}}
+#time-val.slam{animation:time-slam 0.4s ease;color:var(--amber);text-shadow:0 0 8px var(--amber),0 0 26px rgba(255,208,0,0.7)}
+
+/* Tear rip open — controlled via JS inline style on transform */
+
+/* TIME INDICATOR */
+#time-indicator{position:absolute;top:20px;right:24px;z-index:25;text-align:right;opacity:0;transition:opacity 0.3s ease}
+#time-indicator.open{opacity:1}
+#time-label{font-size:8px;color:var(--text2);text-transform:uppercase;letter-spacing:0.14em;margin-bottom:1px}
+#time-val{font-size:24px;font-weight:900;color:var(--cyan);text-shadow:0 0 6px var(--cyan),0 0 20px rgba(56,230,255,0.45);letter-spacing:0.04em;transition:color 0.12s,text-shadow 0.12s}
+
+/* HOVER CARD */
+#hover-card{
+  position:absolute;right:16px;top:36%;width:186px;
+  background:var(--card-bg);border:1px solid rgba(255,208,0,0.28);border-radius:4px;
+  padding:14px 12px;z-index:22;
+  box-shadow:0 0 0 1px rgba(255,208,0,0.12) inset,0 0 22px 5px rgba(255,208,0,0.1),0 0 55px 14px rgba(255,208,0,0.05);
+  opacity:0;transform:translateY(10px);
+  transition:opacity 0.42s ease,transform 0.42s ease;
+}
+#hover-card.open{opacity:1;transform:translateY(0)}
+#hover-card::before,#hover-card::after{content:'';position:absolute;width:11px;height:11px;border-color:var(--amber);border-style:solid;box-shadow:0 0 7px var(--amber)}
+#hover-card::before{top:5px;left:5px;border-width:2px 0 0 2px}
+#hover-card::after{bottom:5px;right:5px;border-width:0 2px 2px 0}
+.hc-tag{font-size:14px;font-weight:900;letter-spacing:0.11em;text-transform:uppercase;color:var(--amber);text-shadow:0 0 5px var(--amber),0 0 16px rgba(255,208,0,0.55);margin-bottom:11px}
+.hc-label{font-size:8px;color:var(--text2);text-transform:uppercase;letter-spacing:0.11em;margin-bottom:3px}
+.hc-val{font-size:32px;font-weight:900;color:var(--text);text-shadow:0 0 12px var(--amber);letter-spacing:-0.02em;line-height:1}
+.hc-gauge{margin-top:7px;height:5px;border-radius:3px;background:rgba(255,255,255,0.07);overflow:hidden;box-shadow:0 0 4px rgba(255,208,0,0.25)}
+.hc-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--amber),#FFF2A0);box-shadow:0 0 9px var(--amber)}
+
+/* DWELL CARD */
+#dwell-card{
+  position:absolute;left:16px;top:32%;width:214px;
+  background:var(--card-bg);border:1px solid rgba(56,230,255,0.22);border-radius:4px;
+  padding:14px 12px;z-index:22;
+  box-shadow:0 0 0 1px rgba(56,230,255,0.1) inset,0 0 24px 6px rgba(56,230,255,0.08),0 0 55px 16px rgba(56,230,255,0.04);
+  opacity:0;transform:translateX(-12px);
+  transition:opacity 0.48s ease 0.18s,transform 0.48s ease 0.18s;
+}
+#dwell-card.open{opacity:1;transform:translateX(0)}
+#dwell-card::before,#dwell-card::after{content:'';position:absolute;width:11px;height:11px;border-color:var(--cyan);border-style:solid;box-shadow:0 0 7px var(--cyan)}
+#dwell-card::before{top:5px;left:5px;border-width:2px 0 0 2px}
+#dwell-card::after{bottom:5px;right:5px;border-width:0 2px 2px 0}
+.dc-tag{font-size:13px;font-weight:900;letter-spacing:0.11em;text-transform:uppercase;color:var(--cyan);text-shadow:0 0 5px var(--cyan),0 0 16px rgba(56,230,255,0.45);margin-bottom:8px}
+.dc-res-row{display:flex;align-items:baseline;gap:6px;margin-bottom:10px}
+.dc-res-lbl{font-size:8px;color:var(--text2);text-transform:uppercase;letter-spacing:0.1em}
+.dc-res-val{font-size:22px;font-weight:900;color:var(--text);text-shadow:0 0 9px var(--cyan)}
+.hands-row{display:flex;gap:5px;margin-bottom:10px}
+.hand-btn{flex:1;text-align:center;font-size:8px;font-weight:bold;text-transform:uppercase;letter-spacing:0.07em;padding:4px 0;border-radius:2px;border:1px solid}
+.hand-btn.main{color:var(--amber);border-color:rgba(255,208,0,0.45);background:rgba(255,208,0,0.07);box-shadow:0 0 5px rgba(255,208,0,0.18)}
+.hand-btn.off{color:var(--text2);border-color:rgba(127,191,207,0.28);background:rgba(127,191,207,0.04)}
+.pill-row{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.pill{font-size:7px;font-weight:bold;text-transform:uppercase;letter-spacing:0.05em;padding:2px 6px;border-radius:10px;border:1px solid}
+.p-class{color:var(--cyan);border-color:rgba(56,230,255,0.38);background:rgba(56,230,255,0.07)}
+.p-role{color:var(--text2);border-color:rgba(127,191,207,0.28);background:rgba(127,191,207,0.04)}
+.p-dmg{color:var(--shell);border-color:rgba(255,122,27,0.38);background:rgba(255,122,27,0.07)}
+.p-fire{color:var(--amber);border-color:rgba(255,208,0,0.32);background:rgba(255,208,0,0.05)}
+.p-range{color:var(--green);border-color:rgba(70,255,122,0.32);background:rgba(70,255,122,0.05)}
+.parry-lbl{font-size:7px;color:var(--violet);text-transform:uppercase;letter-spacing:0.11em;text-shadow:0 0 8px var(--violet);margin-bottom:4px}
+.parry-badge{display:flex;align-items:center;gap:6px;background:rgba(180,40,255,0.1);border:1px solid rgba(180,40,255,0.42);border-radius:3px;padding:4px 8px;box-shadow:0 0 9px rgba(180,40,255,0.18)}
+.parry-icon{width:10px;height:12px;border:2px solid var(--violet);border-radius:1px;box-shadow:0 0 5px var(--violet)}
+.parry-text{font-size:8px;font-weight:bold;color:var(--violet);text-transform:uppercase;letter-spacing:0.08em;text-shadow:0 0 6px var(--violet);flex:0 0 auto}
+.parry-bar{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,0.07);overflow:hidden}
+.parry-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--violet),#E080FF);box-shadow:0 0 7px var(--violet);width:63%}
+</style>
+</head>
+<body>
+<div id="scene">
+
+<h2 class="sr-only">DoomXR Arsenal UI — Seam Reveal: The Coat of Holding. First-person VR view. The player has gripped a seam of light at their belly and torn it open, revealing a bag-of-holding weapon vault in world space. Time is slowed to 0.15x. Owned weapons on a near shelf inside the tear include Shotgun, Super Shotgun with dwell card showing reserve 12 and parry badge, Chaingun spinning, dual Pistol pair with L-slash-R hand chips, and BFG 9000 hovered with reserve 40. Unowned ghost weapons recede into depth behind the shelf.</h2>
+
+<!-- BACKDROP -->
+<div id="backdrop">
+<svg viewBox="0 0 1280 800" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="540" width="1280" height="260" fill="#19120A"/>
+  <rect x="0" y="195" width="175" height="370" fill="#191922" rx="1"/>
+  <rect x="160" y="295" width="95" height="275" fill="#131318"/>
+  <rect x="280" y="235" width="145" height="335" fill="#1B1B26"/>
+  <rect x="450" y="315" width="65" height="255" fill="#15151F"/>
+  <rect x="950" y="195" width="195" height="370" fill="#191922"/>
+  <rect x="1090" y="275" width="195" height="295" fill="#131318"/>
+  <rect x="810"  y="295" width="125" height="275" fill="#1B1B26"/>
+  <rect x="710"  y="355" width="72"  height="215" fill="#15151F"/>
+  <rect x="0" y="537" width="1280" height="5" fill="#281809"/>
+  <!-- frozen fireball — kept dim -->
+  <circle cx="882" cy="315" r="50" fill="rgba(255,110,22,0.38)"/>
+  <circle cx="882" cy="315" r="26" fill="rgba(255,190,70,0.52)"/>
+  <circle cx="882" cy="315" r="11" fill="rgba(255,235,160,0.8)"/>
+  <!-- debris -->
+  <polygon points="195,540 228,480 264,540" fill="#0E0E14"/>
+  <polygon points="988,540 1018,500 1056,540" fill="#0E0E14"/>
+  <rect x="488" y="524" width="22" height="18" fill="#131318" transform="rotate(14,499,533)"/>
+  <rect x="615" y="530" width="16" height="14" fill="#131318" transform="rotate(-8,623,537)"/>
+</svg>
+</div>
+
+<!-- VIGNETTE -->
+<div id="vignette"></div>
+
+<!-- AMBIENT GLOW (behind tear) -->
+<div id="ambient"></div>
+
+<!-- FLOOR SPILL -->
+<div id="floor-spill"></div>
+
+<!-- SHOCKWAVE -->
+<div id="shockwave"></div>
+
+<!-- FLASH -->
+<div id="flash"></div>
+
+<!-- ═══════════════════════════
+     MAIN TEAR SVG
+     Renders: throat, lip glows, clipped depth content (ghosts + shelf weapons)
+═══════════════════════════ -->
+<svg id="tear-canvas" viewBox="0 0 400 800" xmlns="http://www.w3.org/2000/svg">
+<defs>
+
+  <!-- TEAR SHAPE — organic lens, belly-wide, tip at ~y=230, bottom at y=780 -->
+  <!-- "open" variant: widest ~190px at belly (y≈540); "closed" is scaleX(0.04) via transform on #tear-canvas-inner -->
+  <path id="tear-path" d="M200,232
+    C230,235 295,290 310,385
+    C322,462 318,558 300,640
+    C280,710 248,755 200,762
+    C152,755 120,710 100,640
+    C82,558 78,462 90,385
+    C105,290 170,235 200,232 Z"/>
+
+  <!-- Clip for depth content -->
+  <clipPath id="tear-clip">
+    <use href="#tear-path"/>
+  </clipPath>
+
+  <!-- GLOW FILTERS -->
+  <filter id="f-cyan-lip" x="-80%" y="-30%" width="260%" height="160%">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b1"/>
+    <feGaussianBlur in="SourceGraphic" stdDeviation="10"  result="b2"/>
+    <feGaussianBlur in="SourceGraphic" stdDeviation="22"  result="b3"/>
+    <feMerge><feMergeNode in="b3"/><feMergeNode in="b2"/><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="f-amb-lip" x="-80%" y="-30%" width="260%" height="160%">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b1"/>
+    <feGaussianBlur in="SourceGraphic" stdDeviation="10"  result="b2"/>
+    <feGaussianBlur in="SourceGraphic" stdDeviation="22"  result="b3"/>
+    <feMerge><feMergeNode in="b3"/><feMergeNode in="b2"/><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="f-glow-sm" x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur stdDeviation="3"/>
+  </filter>
+  <filter id="f-ghost" x="-30%" y="-30%" width="160%" height="160%">
+    <feGaussianBlur stdDeviation="2.5"/>
+  </filter>
+  <filter id="f-depth-glow" x="-20%" y="-10%" width="140%" height="120%">
+    <feGaussianBlur stdDeviation="12"/>
+  </filter>
+
+  <!-- RADIAL GRADIENTS -->
+  <radialGradient id="void-grad" cx="50%" cy="60%" r="50%">
+    <stop offset="0%"  stop-color="#07090E"/>
+    <stop offset="55%" stop-color="#030407"/>
+    <stop offset="100%" stop-color="#000000"/>
+  </radialGradient>
+  <radialGradient id="inner-glow" cx="50%" cy="68%" r="48%">
+    <stop offset="0%"   stop-color="rgba(30,52,72,0.7)"/>
+    <stop offset="50%"  stop-color="rgba(12,22,34,0.35)"/>
+    <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+  </radialGradient>
+  <radialGradient id="dual-halo-g" cx="50%" cy="50%" r="50%">
+    <stop offset="0%"   stop-color="rgba(56,230,255,0.42)"/>
+    <stop offset="65%"  stop-color="rgba(56,230,255,0.12)"/>
+    <stop offset="100%" stop-color="rgba(56,230,255,0)"/>
+  </radialGradient>
+  <radialGradient id="bfg-halo-g" cx="50%" cy="50%" r="50%">
+    <stop offset="0%"   stop-color="rgba(255,208,0,0.5)"/>
+    <stop offset="60%"  stop-color="rgba(255,208,0,0.14)"/>
+    <stop offset="100%" stop-color="rgba(255,208,0,0)"/>
+  </radialGradient>
+  <radialGradient id="halo-violet" cx="50%" cy="50%" r="50%">
+    <stop offset="0%"   stop-color="rgba(180,40,255,0.42)"/>
+    <stop offset="65%"  stop-color="rgba(180,40,255,0.1)"/>
+    <stop offset="100%" stop-color="rgba(180,40,255,0)"/>
+  </radialGradient>
+  <radialGradient id="halo-amber" cx="50%" cy="50%" r="50%">
+    <stop offset="0%"   stop-color="rgba(255,208,0,0.38)"/>
+    <stop offset="65%"  stop-color="rgba(255,208,0,0.08)"/>
+    <stop offset="100%" stop-color="rgba(255,208,0,0)"/>
+  </radialGradient>
+
+</defs>
+
+<!-- ── The full assembly lives in this group; JS animates its scaleX ── -->
+<g id="tear-inner">
+
+<!-- ══ 1. THROAT VOID ══ -->
+<use href="#tear-path" fill="url(#void-grad)"/>
+<use href="#tear-path" fill="url(#inner-glow)"/>
+
+<!-- ══ 2. DEPTH CONTENT (clipped to tear shape) ══ -->
+<g id="depth-group" clip-path="url(#tear-clip)">
+
+  <!-- Far depth ambient -->
+  <ellipse cx="200" cy="400" rx="145" ry="200" fill="rgba(18,30,42,0.6)" filter="url(#f-depth-glow)"/>
+
+  <!-- ── GHOST WEAPONS (far, ~y 280–380, small, blurred, desaturated) ── -->
+  <g class="par-far" filter="url(#f-ghost)" opacity="0.26">
+
+    <!-- Ghost: Plasma Rifle -->
+    <g transform="translate(90,295) scale(0.68)">
+      <rect x="2" y="11" width="44" height="10" rx="2" fill="none" stroke="#3A4650" stroke-width="1.4"/>
+      <rect x="36" y="7" width="10" height="16" rx="2" fill="none" stroke="#3A4650" stroke-width="1.1"/>
+      <rect x="6" y="14" width="8" height="5"  rx="1" fill="none" stroke="#3A4650" stroke-width="0.9"/>
+      <line x1="4" y1="15" x2="40" y2="15" stroke="#3A4650" stroke-width="0.6" stroke-dasharray="3,3"/>
+    </g>
+    <text x="113" y="323" font-size="6" fill="#3A4650" text-anchor="middle" font-family="Courier New" letter-spacing="1">PLASMA</text>
+
+    <!-- Ghost: Rocket Launcher -->
+    <g transform="translate(154,288) scale(0.62)">
+      <rect x="2" y="10" width="44" height="12" rx="3" fill="none" stroke="#3A4650" stroke-width="1.4"/>
+      <rect x="36" y="7" width="10" height="18" rx="2" fill="none" stroke="#3A4650" stroke-width="1.1"/>
+      <circle cx="8" cy="16" r="6" fill="none" stroke="#3A4650" stroke-width="1.1"/>
+      <rect x="14" y="13" width="20" height="6" rx="1" fill="none" stroke="#3A4650" stroke-width="0.9"/>
+    </g>
+    <text x="182" y="318" font-size="6" fill="#3A4650" text-anchor="middle" font-family="Courier New" letter-spacing="1">RL</text>
+
+    <!-- Ghost: VR Sword (vertical) -->
+    <g transform="translate(222,276) scale(0.64)">
+      <line x1="14" y1="2"  x2="14" y2="46" stroke="#3A4650" stroke-width="1.8"/>
+      <line x1="4"  y1="30" x2="24" y2="30" stroke="#3A4650" stroke-width="2.2"/>
+      <rect x="11" y="44"   width="6"  height="7"  rx="1" fill="none" stroke="#3A4650" stroke-width="1"/>
+      <polygon points="14,2 11,14 17,14" fill="none" stroke="#3A4650" stroke-width="0.9"/>
+    </g>
+    <text x="236" y="320" font-size="6" fill="#3A4650" text-anchor="middle" font-family="Courier New" letter-spacing="1">SWORD</text>
+
+    <!-- Ghost: Whip -->
+    <g transform="translate(270,290) scale(0.66)">
+      <rect x="2" y="9" width="18" height="10" rx="2" fill="none" stroke="#3A4650" stroke-width="1.3"/>
+      <path d="M20,14 Q30,7 38,14 Q44,19 46,26" fill="none" stroke="#3A4650" stroke-width="1.3"/>
+      <circle cx="46" cy="26" r="3.5" fill="none" stroke="#3A4650" stroke-width="1"/>
+    </g>
+    <text x="300" y="322" font-size="6" fill="#3A4650" text-anchor="middle" font-family="Courier New" letter-spacing="1">WHIP</text>
+
+  </g><!-- end ghost far -->
+
+  <!-- ── SHELF LINE ── -->
+  <line x1="66" y1="678" x2="334" y2="678"
+    stroke="url(#shelf-line-grad)" stroke-width="1"
+    style="filter:drop-shadow(0 0 4px rgba(56,230,255,0.3))"/>
+  <defs>
+    <linearGradient id="shelf-line-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="rgba(56,230,255,0)"/>
+      <stop offset="20%"  stop-color="rgba(56,230,255,0.45)"/>
+      <stop offset="80%"  stop-color="rgba(255,208,0,0.45)"/>
+      <stop offset="100%" stop-color="rgba(255,208,0,0)"/>
+    </linearGradient>
+  </defs>
+
+  <!-- ── OWNED SHELF WEAPONS (near, y ~540–680) ── -->
+  <g class="par-near">
+
+    <!-- ─── SHOTGUN (cyan, common) ─── -->
+    <!-- halo -->
+    <ellipse cx="100" cy="612" rx="34" ry="26" fill="url(#dual-halo-g)" opacity="0.7"/>
+    <!-- icon -->
+    <g transform="translate(72,598)">
+      <rect x="2"  y="8"  width="46" height="9"  rx="2" fill="rgba(56,230,255,0.12)" stroke="#38E6FF" stroke-width="1.5"/>
+      <rect x="38" y="5"  width="10" height="15" rx="2" fill="rgba(56,230,255,0.08)" stroke="#38E6FF" stroke-width="1.2"/>
+      <rect x="6"  y="12" width="9"  height="5"  rx="1" fill="rgba(56,230,255,0.18)" stroke="#38E6FF" stroke-width="0.9"/>
+      <circle cx="4" cy="12" r="1.8" fill="#38E6FF" style="filter:drop-shadow(0 0 3px #38E6FF)"/>
+    </g>
+    <text x="100" y="636" font-size="7.5" fill="#7FBFCF" text-anchor="middle" font-family="Courier New"
+      letter-spacing="1" style="text-shadow:0 0 5px #38E6FF">SHTGN</text>
+
+    <!-- ─── SSG (violet, epic — dwell-card source) ─── -->
+    <ellipse cx="155" cy="608" rx="36" ry="28" fill="url(#halo-violet)" opacity="0.75"/>
+    <g transform="translate(126,594)">
+      <rect x="2"  y="7"  width="48" height="12" rx="2" fill="rgba(180,40,255,0.12)" stroke="#B428FF" stroke-width="1.5"/>
+      <rect x="36" y="3"  width="14" height="18" rx="2" fill="rgba(180,40,255,0.08)" stroke="#B428FF" stroke-width="1.2"/>
+      <!-- dual barrels -->
+      <rect x="2" y="8"  width="24" height="4" rx="1" fill="rgba(180,40,255,0.15)" stroke="#B428FF" stroke-width="0.9"/>
+      <rect x="2" y="14" width="24" height="4" rx="1" fill="rgba(180,40,255,0.15)" stroke="#B428FF" stroke-width="0.9"/>
+      <rect x="28" y="10" width="8" height="6" rx="1" fill="rgba(180,40,255,0.1)" stroke="#B428FF" stroke-width="0.8"/>
+    </g>
+    <text x="155" y="632" font-size="7.5" fill="#B428FF" text-anchor="middle" font-family="Courier New"
+      letter-spacing="1" style="text-shadow:0 0 6px #B428FF">SSG</text>
+
+    <!-- ─── CHAINGUN (amber, rare, spinning) ─── -->
+    <ellipse cx="210" cy="608" rx="34" ry="26" fill="url(#halo-amber)" opacity="0.7"/>
+    <g class="spin-g" transform="translate(184,594)">
+      <rect x="14" y="8"  width="34" height="10" rx="2" fill="rgba(255,208,0,0.12)" stroke="#FFD000" stroke-width="1.5"/>
+      <!-- barrel cluster -->
+      <circle cx="7"  cy="9"  r="5" fill="none" stroke="#FFD000" stroke-width="1.1"/>
+      <circle cx="7"  cy="17" r="5" fill="none" stroke="#FFD000" stroke-width="1.1"/>
+      <circle cx="7"  cy="25" r="5" fill="none" stroke="#FFD000" stroke-width="1.1"/>
+      <circle cx="7"  cy="17" r="8" fill="none" stroke="rgba(255,208,0,0.28)" stroke-width="0.8"/>
+      <rect x="46" y="6"  width="10" height="14" rx="2" fill="rgba(255,208,0,0.08)" stroke="#FFD000" stroke-width="1.2"/>
+    </g>
+    <text x="210" y="632" font-size="7.5" fill="#FFD000" text-anchor="middle" font-family="Courier New"
+      letter-spacing="1" style="text-shadow:0 0 6px #FFD000">CHAIN</text>
+
+    <!-- ─── DUAL PISTOLS (2x, cyan, special) ─── -->
+    <!-- shared halo — wider -->
+    <ellipse cx="270" cy="606" rx="46" ry="30" fill="url(#dual-halo-g)" class="dual-halo-anim"/>
+    <!-- 2x badge -->
+    <rect x="286" y="575" width="18" height="11" rx="2" fill="#FFD000" style="filter:drop-shadow(0 0 5px #FFD000)"/>
+    <text x="295" y="584" font-size="8" fill="#000" font-weight="900" text-anchor="middle" font-family="Courier New" letter-spacing="0.5">2x</text>
+    <!-- Left pistol (mirrored) -->
+    <g transform="translate(237,588) scale(-1,1) translate(-37,0)">
+      <rect x="4"  y="8"  width="28" height="9"  rx="2" fill="rgba(56,230,255,0.12)" stroke="#38E6FF" stroke-width="1.4"/>
+      <rect x="28" y="5"  width="9"  height="14" rx="2" fill="rgba(56,230,255,0.08)" stroke="#38E6FF" stroke-width="1.1"/>
+      <rect x="8"  y="17" width="11" height="7"  rx="1" fill="rgba(56,230,255,0.08)" stroke="#38E6FF" stroke-width="0.9"/>
+      <circle cx="5" cy="12" r="1.6" fill="#38E6FF" style="filter:drop-shadow(0 0 3px #38E6FF)"/>
+    </g>
+    <!-- Right pistol -->
+    <g transform="translate(267,588)">
+      <rect x="4"  y="8"  width="28" height="9"  rx="2" fill="rgba(56,230,255,0.12)" stroke="#38E6FF" stroke-width="1.4"/>
+      <rect x="28" y="5"  width="9"  height="14" rx="2" fill="rgba(56,230,255,0.08)" stroke="#38E6FF" stroke-width="1.1"/>
+      <rect x="8"  y="17" width="11" height="7"  rx="1" fill="rgba(56,230,255,0.08)" stroke="#38E6FF" stroke-width="0.9"/>
+      <circle cx="5" cy="12" r="1.6" fill="#38E6FF" style="filter:drop-shadow(0 0 3px #38E6FF)"/>
+    </g>
+    <!-- L/R hand chips -->
+    <rect x="230" y="630" width="38" height="10" rx="2" fill="#38E6FF" style="filter:drop-shadow(0 0 4px #38E6FF)"/>
+    <text x="249" y="638" font-size="5.5" fill="#000" font-weight="900" text-anchor="middle" font-family="Courier New" letter-spacing="0.3">L = OFF HAND</text>
+    <rect x="274" y="630" width="40" height="10" rx="2" fill="#FFD000" style="filter:drop-shadow(0 0 4px #FFD000)"/>
+    <text x="294" y="638" font-size="5.5" fill="#000" font-weight="900" text-anchor="middle" font-family="Courier New" letter-spacing="0.3">R = MAIN HAND</text>
+    <text x="270" y="648" font-size="7.5" fill="#7FBFCF" text-anchor="middle" font-family="Courier New"
+      letter-spacing="1" style="text-shadow:0 0 5px #38E6FF">PISTOL x2</text>
+    <text x="270" y="659" font-size="7" fill="#7FBFCF" text-anchor="middle" font-family="Courier New" letter-spacing="0.8">RESERVE <tspan fill="#F4F7FF" font-weight="900">48</tspan></text>
+
+    <!-- ─── BFG 9000 (hovered, gold, bobbing, scaled-up) ─── -->
+    <g id="bfg-group" class="bfg-bob">
+      <!-- large gold halo -->
+      <ellipse cx="333" cy="598" rx="52" ry="42" fill="url(#bfg-halo-g)" class="gold-buzz"/>
+      <!-- BFG icon (bigger) -->
+      <g transform="translate(299,574)">
+        <rect x="2"  y="12" width="62" height="16" rx="3" fill="rgba(255,208,0,0.16)" stroke="#FFD000" stroke-width="2"/>
+        <!-- sphere barrel -->
+        <circle cx="12" cy="20" r="12" fill="rgba(70,255,122,0.11)" stroke="#46FF7A" stroke-width="1.8"/>
+        <circle cx="12" cy="20" r="7.5" fill="rgba(70,255,122,0.18)" stroke="#46FF7A" stroke-width="1.1"/>
+        <circle cx="12" cy="20" r="3.5" fill="rgba(200,255,210,0.95)" style="filter:drop-shadow(0 0 6px #46FF7A)"/>
+        <!-- housing -->
+        <rect x="58" y="8"  width="12" height="24" rx="3" fill="rgba(255,208,0,0.1)" stroke="#FFD000" stroke-width="1.5"/>
+        <!-- vents -->
+        <line x1="26" y1="12" x2="26" y2="28" stroke="rgba(70,255,122,0.55)" stroke-width="0.9"/>
+        <line x1="34" y1="12" x2="34" y2="28" stroke="rgba(70,255,122,0.55)" stroke-width="0.9"/>
+        <line x1="42" y1="12" x2="42" y2="28" stroke="rgba(70,255,122,0.45)" stroke-width="0.9"/>
+        <line x1="50" y1="12" x2="50" y2="28" stroke="rgba(70,255,122,0.35)" stroke-width="0.9"/>
+        <!-- top edge highlight -->
+        <line x1="2" y1="12" x2="64" y2="12" stroke="rgba(255,240,100,0.4)" stroke-width="0.7"/>
+      </g>
+      <!-- BFG label -->
+      <text x="333" y="624" font-size="8.5" fill="#FFD000" text-anchor="middle" font-family="Courier New"
+        font-weight="900" letter-spacing="1.2" style="text-shadow:0 0 8px #FFD000">BFG 9000</text>
+      <!-- "HOVERED" indicator arc -->
+      <path d="M305,558 A30,30 0 0,1 361,558" fill="none" stroke="rgba(255,208,0,0.45)" stroke-width="1" stroke-dasharray="3,4"/>
+    </g>
+
+  </g><!-- end par-near -->
+
+</g><!-- end depth-group -->
+
+<!-- ══ 3. LIP GLOWS (on top of content, outside clip) ══ -->
+
+<!-- Left lip — soft outer bloom -->
+<path class="flick1"
+  d="M200,232 C170,235 105,290 90,385 C78,462 82,558 100,640 C120,710 152,755 200,762"
+  fill="none" stroke="rgba(56,230,255,0.35)" stroke-width="20" filter="url(#f-cyan-lip)"/>
+<!-- Left lip — hard bright inner edge -->
+<path class="flick1"
+  d="M200,232 C170,235 105,290 90,385 C78,462 82,558 100,640 C120,710 152,755 200,762"
+  fill="none" stroke="#38E6FF" stroke-width="2.5"/>
+<!-- Left lip — white core highlight -->
+<path class="flick1"
+  d="M200,232 C170,235 105,290 90,385 C78,462 82,558 100,640 C120,710 152,755 200,762"
+  fill="none" stroke="rgba(200,255,255,0.82)" stroke-width="0.9"/>
+
+<!-- Right lip — soft outer bloom -->
+<path class="flick2"
+  d="M200,232 C230,235 295,290 310,385 C322,462 318,558 300,640 C280,710 248,755 200,762"
+  fill="none" stroke="rgba(255,208,0,0.35)" stroke-width="20" filter="url(#f-amb-lip)"/>
+<!-- Right lip — hard bright inner edge -->
+<path class="flick2"
+  d="M200,232 C230,235 295,290 310,385 C322,462 318,558 300,640 C280,710 248,755 200,762"
+  fill="none" stroke="#FFD000" stroke-width="2.5"/>
+<!-- Right lip — white core highlight -->
+<path class="flick2"
+  d="M200,232 C230,235 295,290 310,385 C322,462 318,558 300,640 C280,710 248,755 200,762"
+  fill="none" stroke="rgba(255,245,180,0.82)" stroke-width="0.9"/>
+
+<!-- ── TIP SPARKS ── -->
+<circle cx="200" cy="232" r="5.5" fill="rgba(255,255,255,0.94)"
+  style="filter:drop-shadow(0 0 10px white) drop-shadow(0 0 4px #38E6FF)"/>
+<circle cx="200" cy="762" r="4.5" fill="rgba(255,255,255,0.78)"
+  style="filter:drop-shadow(0 0 8px white) drop-shadow(0 0 4px #FFD000)"/>
+
+</g><!-- end tear-inner -->
+
+</svg><!-- end tear-canvas -->
+
+<!-- TIME INDICATOR -->
+<div id="time-indicator">
+  <div id="time-label">TIME</div>
+  <div id="time-val">0.15x</div>
+</div>
+
+<!-- HOVER CARD: BFG 9000 -->
+<div id="hover-card">
+  <div class="hc-tag">BFG 9000</div>
+  <div class="hc-label">RESERVE</div>
+  <div class="hc-val">40</div>
+  <div class="hc-gauge"><div class="hc-fill" style="width:40%"></div></div>
+</div>
+
+<!-- DWELL CARD: Super Shotgun -->
+<div id="dwell-card">
+  <div class="dc-tag">SUPER SHOTGUN</div>
+  <div class="dc-res-row">
+    <span class="dc-res-lbl">RESERVE</span>
+    <span class="dc-res-val">12</span>
+  </div>
+  <div class="hands-row">
+    <div class="hand-btn main">MAIN</div>
+    <div class="hand-btn off">OFF</div>
+  </div>
+  <div class="pill-row">
+    <span class="pill p-class">SHOTGUN</span>
+    <span class="pill p-role">CQB</span>
+    <span class="pill p-dmg">DMG 210</span>
+    <span class="pill p-fire">FIRE 0.8s</span>
+    <span class="pill p-range">RANGE SHORT</span>
+  </div>
+  <div class="parry-lbl">PARRY</div>
+  <div class="parry-badge">
+    <div class="parry-icon"></div>
+    <span class="parry-text">DEFLECT</span>
+    <div class="parry-bar"><div class="parry-fill"></div></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  SEAM REVEAL — animation controller
+// ═══════════════════════════════════════════════════════════════
+
+const tearInner  = document.getElementById('tear-inner');
+const depthGroup = document.getElementById('depth-group');
+const ambient    = document.getElementById('ambient');
+const floorSpill = document.getElementById('floor-spill');
+const hoverCard  = document.getElementById('hover-card');
+const dwellCard  = document.getElementById('dwell-card');
+const timeInd    = document.getElementById('time-indicator');
+const timeVal    = document.getElementById('time-val');
+const shockwave  = document.getElementById('shockwave');
+const flash      = document.getElementById('flash');
+const bfgGroup   = document.getElementById('bfg-group');
+
+let commitRunning = false;
+
+// ── Helpers ──
+function setTearScale(sx) {
+  // scaleX from center of tear canvas (x=200)
+  tearInner.setAttribute('transform', `translate(200,0) scale(${sx},1) translate(-200,0)`);
+}
+
+function triggerShock() {
+  shockwave.style.transition = 'none';
+  shockwave.style.transform  = 'translate(-50%,-50%) scale(0.08)';
+  shockwave.style.opacity    = '0.9';
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    shockwave.style.transition = 'transform 1.0s cubic-bezier(0.1,0.9,0.38,1), opacity 0.9s ease-out';
+    shockwave.style.transform  = 'translate(-50%,-50%) scale(4.2)';
+    shockwave.style.opacity    = '0';
+  }));
+}
+
+// ── RIP-OPEN ──
+function doRipOpen(onDone) {
+  // Start as thin slit
+  setTearScale(0.03);
+  depthGroup.classList.remove('open');
+  ambient.classList.remove('open');
+  floorSpill.classList.remove('open');
+  hoverCard.classList.remove('open');
+  dwellCard.classList.remove('open');
+  timeInd.classList.remove('open');
+
+  // Beat 1: quick pause then rip
+  setTimeout(() => {
+    tearInner.style.transition = 'transform 0.74s cubic-bezier(0.18,1.55,0.38,1)';
+    setTearScale(1.0);
+  }, 90);
+
+  // Beat 2: spill + depth bloom
+  setTimeout(() => {
+    ambient.classList.add('open');
+    floorSpill.classList.add('open');
+    depthGroup.classList.add('open');
+    triggerShock();
+  }, 760);
+
+  // Beat 3: cards appear
+  setTimeout(() => {
+    hoverCard.classList.add('open');
+    dwellCard.classList.add('open');
+    timeInd.classList.add('open');
+    if (onDone) onDone();
+  }, 1020);
+}
+
+// ── COMMIT (weapon grab, snap shut, re-open) ──
+function doCommit() {
+  if (commitRunning) return;
+  commitRunning = true;
+
+  // 1 — hover card dismisses, BFG punches toward viewer
+  hoverCard.style.transition = 'transform 0.2s ease-in, opacity 0.22s ease-in';
+  hoverCard.style.transform  = 'scale(1.7) translateY(-22px)';
+  hoverCard.style.opacity    = '0';
+
+  bfgGroup.style.transition  = 'transform 0.22s cubic-bezier(0.2,1.5,0.4,1), opacity 0.2s ease-in';
+  bfgGroup.style.transform   = 'translate(0,0) scale(1.45)';
+  bfgGroup.style.opacity     = '0';
+  bfgGroup.style.transformOrigin = '333px 598px';
+
+  // 2 — snap shut
+  setTimeout(() => {
+    flash.classList.add('snap');
+    setTimeout(() => flash.classList.remove('snap'), 75);
+
+    tearInner.style.transition = 'transform 0.16s cubic-bezier(0.55,0,1,0.45)';
+    setTearScale(0.03);
+    depthGroup.classList.remove('open');
+    ambient.classList.remove('open');
+    floorSpill.classList.remove('open');
+    dwellCard.classList.remove('open');
+    timeInd.classList.remove('open');
+  }, 260);
+
+  // 3 — time slams to 1.0x
+  setTimeout(() => {
+    timeInd.classList.add('open');
+    timeVal.textContent = '1.0x';
+    timeVal.classList.add('slam');
+    setTimeout(() => timeVal.classList.remove('slam'), 500);
+  }, 360);
+
+  // 4 — reset BFG, re-rip after dramatic pause
+  setTimeout(() => {
+    bfgGroup.style.transition      = 'none';
+    bfgGroup.style.transform       = 'none';
+    bfgGroup.style.opacity         = '1';
+    hoverCard.style.transition     = 'none';
+    hoverCard.style.opacity        = '0';
+    hoverCard.style.transform      = 'translateY(10px)';
+    timeVal.textContent            = '0.15x';
+    timeInd.classList.remove('open');
+
+    doRipOpen(() => {
+      commitRunning = false;
+      scheduleCommit();
+    });
+  }, 2500);
+}
+
+function scheduleCommit() {
+  const delay = 5200 + Math.random() * 2400;
+  setTimeout(() => { if (!commitRunning) doCommit(); }, delay);
+}
+
+// ── INIT ──
+// Start in closed state, no transition
+tearInner.style.transition = 'none';
+setTearScale(0.03);
+
+window.addEventListener('load', () => {
+  doRipOpen(() => scheduleCommit());
+});
+</script>
+</body>
+</html>

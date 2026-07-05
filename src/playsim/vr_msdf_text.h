@@ -25,7 +25,8 @@ public:
     {
         BEHAVIOR_TrackTarget,
         BEHAVIOR_FloatFree,
-        BEHAVIOR_Gravity
+        BEHAVIOR_Gravity,
+        BEHAVIOR_Anchor       // static world label: no movement (Tick leaves moveStep at 0)
     };
 
     static FVRMSDFTextThinker* SpawnText(FLevelLocals* Level, const DVector3& pos, FName keyword, const FString& text, int lifetime, double scale = 1.0, FName tribe = NAME_None, ETextStyle style = STYLE_Classic, ETextBehavior behavior = BEHAVIOR_FloatFree);

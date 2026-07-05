@@ -400,11 +400,12 @@ class ShieldSaw : Weapon
 	Default
 	{
 		Weapon.SelectionOrder 4200;
+		Weapon.SlotNumber 1;   // [XR] off-hand block/saw sits on the melee slot (with Fist/Chainsaw/Flamethrower); mirrors DoomPlayer's Player.WeaponSlot 1
 		+WEAPON.NOAUTOAIM
 		+WEAPON.NOALERT
 		+WEAPON.NOAUTOSWITCHTO
 		Tag "Shield Saw";
-		Keywords "mass:55", "grab", "class:shieldsaw", "dmg:saw", "style:melee_throw", "weight:heavy", "range:medium", "fire:continuous", "handling:heavy", "role:defense_offense", "flags:throwable";
+		Keywords "mass:55", "grab", "class:shieldsaw", "grip:none", "dmg:saw", "style:melee_throw", "weight:heavy", "range:medium", "fire:continuous", "handling:heavy", "role:defense_offense", "flags:throwable";
 		Inventory.PickupMessage "Picked up the Shield Saw!";
 	}
 

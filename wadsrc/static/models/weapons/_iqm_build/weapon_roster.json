@@ -1,0 +1,386 @@
+{
+  "_comment": "DoomXR weapon MD3->rigged-IQM roster. Built by build_all_weapons.py via build_weapon_iqm.py. Paths are relative to this file's directory (_iqm_build). Hotspots are in MD3 model space (hs_grip at grip/origin carries all mesh weight; the rest are weightless data points read by the native reload FSM + two-hand subsystem). 'axis' documents the orientation the geometry analyzer used (informational; explicit hotspots are baked verbatim). 'confidence' medium = mesh authored diagonally, cardinal-axis hotspots are approximate -> eyeball in headset.",
+  "weapons": [
+    {
+      "weapon": "Pistol",
+      "md3": "../pistol/Pistol.md3",
+      "out": "../pistol/Pistol.iqm",
+      "style": "boxmag",
+      "material": "Pistol",
+      "hotspots": {
+        "hs_grip": [
+          0,
+          0,
+          0
+        ],
+        "hs_foregrip": [
+          11.5,
+          0,
+          -24.281
+        ],
+        "hs_magwell": [
+          30.133,
+          0,
+          -29.391
+        ],
+        "hs_rack": [
+          22.704,
+          0,
+          -16.466
+        ]
+      },
+      "axis": null,
+      "confidence": "high",
+      "ready_frame": 2
+    },
+    {
+      "weapon": "Shotgun",
+      "md3": "../shotgun/Shotgun.md3",
+      "out": "../shotgun/Shotgun.iqm",
+      "style": "shell",
+      "material": "Shotgun",
+      "hotspots": {
+        "hs_grip": [
+          0,
+          0,
+          0
+        ],
+        "hs_foregrip": [
+          21.8975,
+          -0.0625,
+          -13
+        ],
+        "hs_port": [
+          35.9094,
+          -0.0625,
+          -7.9898
+        ]
+      },
+      "axis": null,
+      "confidence": "high",
+      "ready_frame": 4
+    },
+    {
+      "weapon": "PlasmaRifle",
+      "md3": "../Plasma_Gun/Plasma.md3",
+      "out": "../Plasma_Gun/Plasma.iqm",
+      "style": "boxmag",
+      "material": "Plasma",
+      "hotspots": {
+        "hs_grip": [
+          0,
+          0,
+          0
+        ],
+        "hs_foregrip": [
+          45.64,
+          0.06,
+          -65.52
+        ],
+        "hs_magwell": [
+          23.67,
+          0,
+          -36.42
+        ],
+        "hs_rack": [
+          29.36,
+          0.06,
+          -17.52
+        ]
+      },
+      "axis": {
+        "long": "X",
+        "vert": "Z",
+        "lat": "Y",
+        "muzzle_at_max": true
+      },
+      "confidence": "high",
+      "ready_frame": 4
+    },
+    {
+      "weapon": "Chaingun",
+      "md3": "../hud/chaingun/Chaingun.md3",
+      "out": "../hud/chaingun/Chaingun.iqm",
+      "style": "boxmag",
+      "material": "Chaingun",
+      "hotspots": {
+        "hs_grip": [
+          0,
+          0,
+          0
+        ],
+        "hs_foregrip": [
+          50.3853,
+          -0.4375,
+          -19.8281
+        ],
+        "hs_magwell": [
+          63.0625,
+          0.2285,
+          -38.875
+        ],
+        "hs_rack": [
+          74.0966,
+          -0.4375,
+          -11.1669
+        ]
+      },
+      "axis": null,
+      "confidence": "high",
+      "ready_frame": 4
+    },
+    {
+      "weapon": "BFG9000",
+      "md3": "../hud/bfg/BFG.md3",
+      "out": "../hud/bfg/BFG.iqm",
+      "style": "pod",
+      "material": "BFG",
+      "hotspots": {
+        "hs_grip": [
+          0,
+          0,
+          0
+        ],
+        "hs_foregrip": [
+          50.07,
+          1.53,
+          -50
+        ],
+        "hs_breech": [
+          22.56,
+          1.53,
+          -24
+        ]
+      },
+      "axis": {
+        "long": "X",
+        "vert": "Z",
+        "lat": "Y",
+        "muzzle_at_max": true
+      },
+      "confidence": "medium",
+      "ready_frame": 6
+    },
+    {
+      "weapon": "SuperShotgun",
+      "md3": "../hud/ssg/ssg.md3",
+      "out": "../hud/ssg/ssg.iqm",
+      "style": "break",
+      "material": "SSG",
+      "hotspots": {
+        "hs_grip": [
+          0,
+          0,
+          0
+        ],
+        "hs_foregrip": [
+          43.8609,
+          0.0469,
+          -4.6094
+        ],
+        "hs_breech": [
+          29.4453,
+          0.0469,
+          -4.6094
+        ]
+      },
+      "axis": null,
+      "confidence": "high",
+      "ready_frame": 1
+    },
+    {
+      "weapon": "RocketLauncher",
+      "md3": "../hud/rpg/RPG.md3",
+      "out": "../hud/rpg/RPG.iqm",
+      "style": "pod",
+      "material": "RPG",
+      "hotspots": {
+        "hs_grip": [
+          0,
+          0,
+          0
+        ],
+        "hs_foregrip": [
+          -12.6,
+          -14.1,
+          14
+        ],
+        "hs_breech": [
+          19.1,
+          16.4,
+          2.9
+        ]
+      },
+      "axis": {
+        "long": "X",
+        "vert": "Z",
+        "lat": "Y",
+        "muzzle_at_max": false
+      },
+      "confidence": "medium",
+      "ready_frame": 5
+    },
+    {
+      "weapon": "SMG",
+      "md3": "../hud/smg/SMG.md3",
+      "out": "../hud/smg/SMG.iqm",
+      "style": "boxmag",
+      "material": "SMG",
+      "hotspots": {
+        "hs_grip": [
+          0,
+          0,
+          0
+        ],
+        "hs_foregrip": [
+          2,
+          0,
+          -8
+        ],
+        "hs_magwell": [
+          24,
+          0,
+          -34.5
+        ],
+        "hs_rack": [
+          24,
+          0,
+          -17
+        ]
+      },
+      "axis": {
+        "long": "X",
+        "vert": "Z",
+        "lat": "Y",
+        "muzzle_at_max": false
+      },
+      "confidence": "high",
+      "ready_frame": 4
+    },
+    {
+      "weapon": "Revolver",
+      "md3": "../hud/revolver/rev.md3",
+      "out": "../hud/revolver/rev.iqm",
+      "style": "break",
+      "material": "Revolver",
+      "hotspots": {
+        "hs_grip": [
+          0,
+          0,
+          0
+        ],
+        "hs_foregrip": [
+          31.2494,
+          0,
+          -7.2188
+        ],
+        "hs_breech": [
+          23.7594,
+          0,
+          -7.2188
+        ]
+      },
+      "axis": {
+        "long": "X",
+        "vert": "Z",
+        "lat": "Y",
+        "muzzle_at_max": true
+      },
+      "confidence": "high",
+      "ready_frame": 0
+    },
+    {
+      "weapon": "M79",
+      "md3": "../hud/m79/M79.md3",
+      "out": "../hud/m79/M79.iqm",
+      "style": "break",
+      "material": "M79",
+      "hotspots": {
+        "hs_grip": [
+          0,
+          0,
+          0
+        ],
+        "hs_foregrip": [
+          40,
+          0,
+          -35.25
+        ],
+        "hs_breech": [
+          29.7,
+          0,
+          -29.68
+        ]
+      },
+      "axis": {
+        "long": "X",
+        "vert": "Z",
+        "lat": "Y",
+        "muzzle_at_max": true
+      },
+      "confidence": "high",
+      "ready_frame": 3
+    },
+    {
+      "weapon": "Flamethrower",
+      "md3": "../hud/flamethrower/Flamethrower2.md3",
+      "out": "../hud/flamethrower/Flamethrower2.iqm",
+      "style": "canister",
+      "material": "Flamethrower",
+      "hotspots": {
+        "hs_grip": [
+          0,
+          0,
+          0
+        ],
+        "hs_foregrip": [
+          69.5669,
+          2.9531,
+          -5.4375
+        ],
+        "hs_tank": [
+          29.6906,
+          2.9531,
+          -11.5094
+        ]
+      },
+      "axis": null,
+      "confidence": "high",
+      "ready_frame": 0
+    },
+    {
+      "weapon": "Rifle",
+      "md3": "../hud/rifle/m16.md3",
+      "out": "../hud/rifle/m16.iqm",
+      "style": "boxmag",
+      "material": "ContraGun",
+      "hotspots": {
+        "hs_grip": [
+          0,
+          0.9,
+          0
+        ],
+        "hs_foregrip": [
+          35,
+          0.9,
+          0.1
+        ],
+        "hs_magwell": [
+          9.9,
+          0.9,
+          -1.5
+        ],
+        "hs_rack": [
+          20,
+          0.9,
+          3
+        ]
+      },
+      "axis": null,
+      "confidence": "high",
+      "reference": true,
+      "note": "Shipped m16.iqm is the proven reference; hotspots are pinned. Skipped by default (--include-reference to rebuild to this path).",
+      "ready_frame": 0
+    }
+  ]
+}

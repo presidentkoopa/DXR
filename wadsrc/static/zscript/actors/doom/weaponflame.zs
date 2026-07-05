@@ -6,32 +6,37 @@
 
 class Flamethrower : DoomWeapon
 {
+	mixin XR_ManualReload;   // [XR] chamber gate + reload; native VR gesture FSM refills it (vr_new_weapon_handling)
 	Default
 	{
 		Weapon.SelectionOrder 1800;
+		Weapon.SlotNumber 1;   // [XR] slot 1 (matches DoomPlayer's Player.WeaponSlot 1)
 		Weapon.AmmoUse 1;
 		Weapon.AmmoGive 50;
 		Weapon.AmmoType "Fuel";
 		Inventory.PickupMessage "Picked up a Flamethrower!";
 		Tag "Flamethrower";
-		Keywords "mass:60", "grab", "class:flamethrower", "dmg:fire", "style:stream", "weight:medium", "range:short", "fire:continuous", "role:crowd_control";
+		Keywords "mass:60", "grab", "class:flamethrower", "dmg:fire", "style:stream", "weight:medium", "range:short", "fire:continuous", "role:crowd_control", "vr_dualwield";
 	}
 	States
 	{
 	Ready:
-		HBFT A 1 A_WeaponReady;
+		HBFT A 0 { if (invoker.XRMagSize == 0) invoker.XR_InitChamber(40); }   // [XR] mag size 40
+		HBFT A 1 A_WeaponReady(WRF_ALLOWRELOAD);
 		Loop;
 	Deselect:
 		HBFT A 1 A_Lower;
 		Loop;
 	Select:
-		HBFT A 1 
+		HBFT A 1
 		{
 			A_Raise();
 			A_DataSiphonEquip();
+			AssignWeaponHandling("boxmag");   // [XR] DATA-ONLY: native box-mag FSM; hs_* auto-read from the IQM
 		}
 		Loop;
 	Fire:
+		TNT1 A 0 A_JumpIf(!A_XR_TryFire(), "Ready");   // [XR] chamber gate at entry only (continuous stream); dry-clicks when empty
 		HBFT B 1 Bright A_StartSound("weapons/flame", CHAN_WEAPON, CHANF_LOOPING);
 		Hold:
 		HBFT C 1 Bright 
@@ -53,6 +58,11 @@ class Flamethrower : DoomWeapon
 		HBFT B 1 Bright A_ReFire("Hold");
 		HBFT A 0 A_StopSound(CHAN_WEAPON);
 		HBFT A 0 A_StartSound("weapons/flamestop", CHAN_WEAPON);
+		Goto Ready;
+	Reload:
+		HBFT A 0 A_XR_EjectToPouch();   // VR: eject mag -> Ready (chest pouch reloads); flatscreen: falls through
+		HBFT A 30;
+		HBFT A 15 A_XR_RefillChamber();   // re-arm chamber from the reserve
 		Goto Ready;
 	Spawn:
 		HBFT A 0 A_CheckSpawnModel();

@@ -42,7 +42,39 @@ class IceHook : DoomWeapon
 		+WEAPON.NOALERT
 		Inventory.PickupMessage "You got the ICE HOOKS!";
 		Tag "Ice Hook";
-		Keywords "mass:4", "grab", "class:icehook", "dmg:pierce", "style:climb", "weight:light", "range:melee", "role:utility";
+		Keywords "mass:4", "grab", "class:icehook", "grip:none", "dmg:pierce", "style:climb", "weight:light", "range:melee", "role:utility";
+	}
+
+	// [XR grapple-point preview] No existing aim-resolution to mirror here (unlike the whip's
+	// StartGrappleFromAim) -- A_IceHookThrow just fires a physical projectile that flies until it
+	// hits something, no pre-fire trace at all. This is a genuinely new forward trace, run every tic
+	// while this hook is readied, so the preview promises roughly where a throw right now would land.
+	// Range is a generous fixed cap (the real projectile has no reach limit, it flies until impact),
+	// not tied to a cvar since there's nothing to tune -- it's just "far enough to always hit something."
+	override void Tick()
+	{
+		Super.Tick();
+		if (owner == null || owner.player == null) return;
+		bool active = (owner.player.ReadyWeapon == self) || (owner.player.OffhandWeapon == self);
+		if (!active) return;
+
+		CVar pe = CVar.FindCVar("vr_icehook_preview_enable");
+		if (pe && !pe.GetBool()) return;
+
+		bool offhand = (owner.player.OffhandWeapon == self) && (owner.player.ReadyWeapon != self);
+		Vector3 handPos = offhand ? owner.OffhandPos : owner.AttackPos;
+		double ang = offhand ? owner.OffhandAngle : owner.AttackAngle;
+		double pit = offhand ? owner.OffhandPitch : owner.AttackPitch;
+		double hz = handPos.z - owner.pos.z;
+
+		FLineTraceData lt;
+		bool hit = owner.LineTrace(ang, 1024.0, pit, 0, hz, 0.0, 0.0, lt);
+		if (hit && lt.HitType != TRACE_HitNone)
+		{
+			double radius = 6.0; { CVar r = CVar.FindCVar("vr_icehook_preview_radius"); if (r) radius = r.GetFloat(); }
+			int color = 0x40C0FF; { CVar c = CVar.FindCVar("vr_icehook_preview_color"); if (c) color = c.GetInt(); }
+			Level.AddGlowPanel(color, radius, lt.HitLocation.x, lt.HitLocation.y, lt.HitLocation.z, 0, 0.0, 0.0, 0.0, 0);
+		}
 	}
 
 	// --- main trigger: melee swing -------------------------------------------

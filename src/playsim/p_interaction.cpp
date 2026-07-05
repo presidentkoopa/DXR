@@ -80,14 +80,29 @@ CVAR (Bool, cl_showmultikills, true, CVAR_ARCHIVE)
 EXTERN_CVAR (Bool, show_obituaries)
 EXTERN_CVAR(Bool, vr_locational_damage)
 EXTERN_CVAR(Float, vr_locational_head_mult)
+EXTERN_CVAR(Float, vr_locational_chest_mult)
 EXTERN_CVAR(Float, vr_locational_leg_mult)
+EXTERN_CVAR(Float, vr_locational_head_threshold)
+EXTERN_CVAR(Float, vr_locational_chest_threshold)
+EXTERN_CVAR(Float, vr_locational_leg_threshold)
 EXTERN_CVAR(Float, vr_crit_chance)
 EXTERN_CVAR(Float, vr_crit_mult)
 EXTERN_CVAR(Bool, vr_allow_weapon_parrying)
 EXTERN_CVAR(Bool, vr_parry_haptic)
 EXTERN_CVAR(Bool, vr_parry_spark)
 EXTERN_CVAR(Float, vr_parry_reflect_speed_mult)
-CVAR(Bool, vr_show_locational_text, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+// [XR] OPT-IN: the "HEADSHOT!"/"BODYSHOT!"/"LEGSHOT!" floating SDF text is OFF by default now -- turn it
+// on in VR Options > Combat > Locational Damage. Locational damage itself still works with it off.
+CVAR(Bool, vr_show_locational_text, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+
+// [XR physics] Impact-momentum transfer. Any MOVING inflictor (a thrown mag, a rocket, any physical
+// body) shoves the thing it hits proportional to its own mass*velocity and inversely to the target's
+// Mass -- so a heavy object flung hard slides a light target back, a heavy target barely budges, and
+// the PLAYER participates both ways (player Mass = 100). Global + additive on top of the classic
+// damage kickback; fully tunable so it can't silently rebalance the game.
+CVAR(Bool,  vr_impact_momentum,       true,  CVAR_ARCHIVE)   // master on/off for the momentum system
+CVAR(Float, vr_impact_momentum_scale, 1.0f,  CVAR_ARCHIVE)   // global strength of the momentum shove
+CVAR(Float, vr_impact_momentum_max,   24.0f, CVAR_ARCHIVE)   // clamp so nothing launches across the room (<=0 = no clamp)
 
 
 CVAR (Float, sv_damagefactormobj, 1.0, CVAR_SERVERINFO|CVAR_CHEAT)
@@ -1319,6 +1334,23 @@ static int DamageMobj (AActor *target, AActor *inflictor, AActor *source, int da
 			VMValue params[] = { target, inflictor, source, damage, angle.Degrees(), mod.GetIndex(), flags };
 			VMCall(func, params, countof(params), nullptr, 0);
 		}
+
+		// [XR physics] Impact-momentum transfer (cvars near top of file). Shares the thrust gates
+		// above. A moving inflictor shoves the target by mass*speed / targetMass -- heavy flung hard
+		// slides a light target, a heavy target barely moves, and the player is just another mass.
+		if (vr_impact_momentum)
+		{
+			const float  sc     = vr_impact_momentum_scale;
+			const float  mx     = vr_impact_momentum_max;
+			const double ispeed = inflictor->Vel.Length();
+			const double tmass  = target->Mass > 0 ? double(target->Mass) : 1.0;
+			if (ispeed > 1.0 && inflictor->Mass > 0 && sc > 0.f)
+			{
+				double impulse = ispeed * (double(inflictor->Mass) / tmass) * sc;
+				if (mx > 0.f && impulse > double(mx)) impulse = double(mx);
+				target->Vel += inflictor->Vel / ispeed * impulse;   // shove along the inflictor's travel dir
+			}
+		}
 	}
 
 	// [RH] Avoid friendly fire if enabled
@@ -1646,7 +1678,7 @@ static int DoDamageMobj(AActor *target, AActor *inflictor, AActor *source, int d
 			
 			if (vr_parry_haptic)
 			{
-				VR_HapticEvent("parry", hand, 1.0, 0, 0);
+				VR_HapticEvent("parry", VR_PhysicalHandForSlot(hand) + 1, 100, 0, 0);
 			}
 			
 			if (vr_parry_spark)
@@ -1662,35 +1694,42 @@ static int DoDamageMobj(AActor *target, AActor *inflictor, AActor *source, int d
 		}
 	}
 
-	// Locational Damage -- DISPLAY ONLY as of 2026-07-02. The ZScript VRLocationalArbiter
-	// (vr_locational_damage.zs, registered) is now the sole source of the actual head/leg/torso
-	// damage multiplier -- it does everything this block used to do (same zone math, same
-	// inflictor-Z proxy) plus an explicit torso case and per-hand tracking for the combo system.
-	// Running both would double-apply the multiplier on every headshot/legshot. This block is
-	// kept only to drive the "HEADSHOT!"/"LEGSHOT!" floating text, which VRLocationalArbiter
-	// does not replicate; it no longer touches `damage`.
-	if (vr_locational_damage && inflictor && target && ((target->flags3 & MF3_ISMONSTER) || target->player) && !(flags & DMG_EXPLOSION) && mod != NAME_Melee)
+	// [XR] LOCATIONAL DAMAGE -- UNIFIED NATIVE (2026-07-04, supersedes the July-2 ZScript/native split).
+	// Zone detection + damage multiplier + hit-zone storage + optional text all live here now; the ZScript
+	// VRLocationalArbiter was RETIRED (it duplicated this logic and crashed writing FString zone tags onto
+	// native monsters). Four vertical zones by fraction of the monster's height (0 = feet, 1 = head-top):
+	//   head  >= vr_locational_head_threshold  (0.8)  -> head_mult  (2.0)
+	//   chest >= vr_locational_chest_threshold (0.6)  -> chest_mult (1.0, a neutral tunable hook)
+	//   legs  <= vr_locational_leg_threshold   (0.3)  -> leg_mult   (0.5) + stumble
+	//   torso  = the middle band                      -> 1.0
+	// Same head/leg thresholds + multipliers as before => no feel change; chest is the new band. Multiplier
+	// is applied to `damage` BEFORE DamageMobj (so the WorldThingDamaged event and crit both see it). Zone
+	// is stored on the native int Actor.LastHitZone (0=torso 1=head 2=chest 3=legs) for mods (SDF combos)
+	// via GetHitZoneName(). Text ("HEADSHOT!"/"BODYSHOT!"/"LEGSHOT!") is OPT-IN (vr_show_locational_text,
+	// default OFF). The inflictor Z is the puff/projectile at the impact point -- the accurate hit height.
+	if (vr_locational_damage && inflictor && target && ((target->flags3 & MF3_ISMONSTER) || target->player) && !(flags & DMG_EXPLOSION) && mod != NAME_Melee && target->Height > 0)
 	{
-		double headLower = target->floorz + target->Height - (target->Height * 0.20);
-		double headUpper = target->floorz + target->Height;
-		double legUpper = target->floorz + (target->Height * 0.25);
+		double zRatio = (inflictor->Z() - target->Z()) / target->Height;
+		int zone; double mult;
+		if (zRatio >= vr_locational_head_threshold)        { zone = 1; mult = vr_locational_head_mult;  }
+		else if (zRatio >= vr_locational_chest_threshold)  { zone = 2; mult = vr_locational_chest_mult; }
+		else if (zRatio <= vr_locational_leg_threshold)    { zone = 3; mult = vr_locational_leg_mult;   }
+		else                                               { zone = 0; mult = 1.0; }  // torso baseline
 
-		double inflictorZ = inflictor->Z();
-		// Some hitscans use the puff as inflictor, some projectiles use themselves.
-		if (inflictorZ >= headLower && inflictorZ <= headUpper)
+		damage = int(damage * mult);
+		target->LastHitZone = zone;
+		target->LastHitHand = 0;  // main hand; a per-shot hand tag isn't carried to P_DamageMobj
+
+		// Legshot stumble: brief speed cut on a leg hit.
+		if (zone == 3 && (target->flags3 & MF3_ISMONSTER))
 		{
-			if (vr_show_locational_text)
-			{
-				FVRMSDFTextThinker::SpawnText(target->Level, target->PosPlusZ(target->Height), FName("Arcade"), "HEADSHOT!", 35, 1.0, NAME_None);
-			}
+			target->Vel.X *= 0.1;
+			target->Vel.Y *= 0.1;
 		}
-		else if (inflictorZ <= legUpper)
-		{
-			if (vr_show_locational_text)
-			{
-				FVRMSDFTextThinker::SpawnText(target->Level, target->PosPlusZ(target->Height * 0.25), FName("Arcade"), "LEGSHOT!", 35, 0.8, NAME_None);
-			}
-		}
+		// [XR] NO SDF text / callout here on purpose. The "HEADSHOT!"/"BODYSHOT!"/"LEGSHOT!" floating SDF
+		// text is a SHADER/PARTY visual -> it lives in RADIANCE now (a mod WorldThingDamaged handler reads
+		// the zone the engine just stored, via Actor.LastHitZone / GetHitZoneName(), and spawns it). The
+		// engine does ONLY the invisible math: zone detection + damage multiplier + stumble + store the zone.
 	}
 
 	// Dynamic Critical Hit System

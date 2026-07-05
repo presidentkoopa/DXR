@@ -4,9 +4,73 @@
 server bool vr_start_with_rifle = false;
 server bool vr_start_with_whip = true;   // XRWhip is a default weapon (Indiana Jones leather; set vr_whip_profile 1 for the SDF techno chain)
 server bool vr_start_with_shieldsaw = true;   // [XR] ShieldSaw is a default spawn tool (off-hand block/saw/boomerang), selectable on slot 1
+// [XR] Full starting-loadout toggles (vr_weapon_logic.zs WorldThingSpawned). Default-on items come from
+// doomplayer.zs Player.StartItem; toggling one OFF removes it at spawn. Fist/Pistol are the core fallback.
+server bool vr_start_with_pistol   = true;
+server bool vr_start_with_fist     = true;
+server bool vr_start_with_sword    = true;
+server bool vr_start_with_icehook  = true;
+server bool vr_start_with_grenade  = true;
+server int  vr_start_grenade_count = 3;
+// [XR] Dual-wield starting loadout: spawn holding a matched pair, one gun per hand.
+// 0 = off (normal single-sidearm spawn), 1 = 2x Revolver, 2 = 2x Pistol, 3 = 2x SMG.
+// Read in vr_weapon_logic.zs WorldThingSpawned -> gives base + "_2" variant, equips both hands.
+server int  vr_start_dualwield     = 0;
 server bool vr_grenade_trajectory = true;
 server bool vr_weapon_throwable = true;
 server bool vr_spawn_models = true;
+
+// --- VR Ammo Pouch (chest-level manual-reload grab; vr_ammo_pouch.zs) ---
+user float vr_pouch_height  = 40.0;   // chest anchor height above the pawn origin (dial in from headset)
+user float vr_pouch_forward = 0.0;    // forward offset along facing (0 = torso center)
+user float vr_pouch_radius  = 18.0;   // reach-in radius + neon marker size
+user bool  vr_pouch_marker  = true;   // draw the neon chest-pouch marker
+user bool  vr_pouch_eject   = true;   // VR: reload bind EJECTS the mag (pouch reloads) vs full auto-reload beat
+user float vr_reload_haptic = 1.0;    // rumble strength multiplier for reload seat/rack/eject (0=off, 1=full)
+
+// --- VR Reload DEBUG overlay (wireframe boxes; vr_reload_debug.zs) ---
+user bool vr_reload_debug          = false;  // MASTER: draw wireframe debug boxes for reload
+user bool vr_reload_debug_hands    = true;   // green boxes on both hands
+user bool vr_reload_debug_clips    = true;   // cyan boxes on held magazines
+user bool vr_reload_debug_pouch    = true;   // white box at the chest pouch anchor
+user bool vr_reload_debug_hotspots = true;   // magwell/rack/foregrip boxes (needs Phase-1 rebuild)
+user float vr_reload_debug_scale   = 1.0;    // size multiplier for the debug wireframe boxes
+
+// --- VR Reload JUICE (physical mags; vr_reload_juice.zs) ---
+user bool  vr_reload_mag_throw       = true;   // ejecting flings a physical mag that staggers a monster it hits
+user int   vr_reload_mag_damage      = 8;      // damage a flung spent mag deals on a fast hit
+user float vr_reload_mag_eject_speed = 12.0;   // how hard the eject flings the spent mag
+user int   vr_reload_mag_life        = 6;      // seconds a spent mag lives on the floor before fading (0=forever)
+user bool  vr_reload_mag_trail       = true;   // fresh mag leaves a neon glow-streak as you carry/slam it home
+
+// --- VR Reload EXTRA juice (offhand-throw / variable dropped ammo / chaingun slam) ---
+user bool  vr_reload_mag_to_offhand      = false;  // eject hands the mag to your OFF-HAND to catch + throw yourself
+user float vr_reload_mag_throw_mult      = 1.5;    // how hard an offhand-flicked mag is thrown
+user bool  vr_reload_dropped_ammo        = true;   // monster-dropped guns carry a random (sometimes 0) chamber
+user bool  vr_reload_chaingun_slam       = true;   // two-hand off-hand DOWN slam instantly re-arms the chaingun belt
+user float vr_reload_chaingun_slam_speed = 14.0;   // off-hand downward speed that counts as a slam
+
+// --- VR Whip ammo-catch (vr_whip.zs) ---
+user bool  vr_whip_ammo_catch = true;   // whip-yank ammo -> catch with the right gun = instant reload
+
+// --- VR Grapple & Beatdown (vr_grapple.zs) ---
+user bool  vr_grapple              = true;   // grab a monster with the off-hand, punch it, throw the body
+user float vr_grapple_range        = 56.0;   // off-hand reach to grab a monster
+user float vr_grapple_punch_speed  = 18.0;   // main-hand speed that lands a punch on the held monster
+user float vr_grapple_punch_damage = 15.0;   // damage per punch
+user float vr_grapple_throw_mult   = 1.5;    // how hard the thrown body flies (x hand velocity)
+user float vr_grapple_stun_radius  = 96.0;   // area-stun radius when the thrown body hits a crowd
+user bool  vr_grapple_grab_heavy   = false;  // allow grabbing heavy/boss enemies (Mass > 600)
+
+// --- VR Reload ADVANCED juice (tactical / fumble / perfect / heat-vent) ---
+// NOTE: vr_reload_heat_per_shot / vr_reload_heat_max are registered in C++ (hw_vrmodes.cpp) --
+// re-declaring them here is a FATAL "cvar already exists" error, so they are intentionally absent.
+user bool  vr_reload_tactical        = true;   // eject with rounds left keeps 1 in the barrel (forfeits the partial mag)
+user bool  vr_reload_perfect_fx      = true;   // PERFECT-reload neon popup + glow when a refill hits the timing window
+user bool  vr_reload_heatvent        = true;   // energy weapons (plasma/BFG) use the heat-vent reload instead of box-mag
+user bool  vr_reload_fumble          = false;  // taking a big hit mid-reload can DROP the loose mag (never voids ammo)
+user int   vr_reload_fumble_damage   = 25;     // minimum hit damage that can trigger a fumble
+user int   vr_reload_fumble_chance   = 15;     // % chance a qualifying hit fumbles the reload
 
 // vr_ballistic_drop (physics bullet-drop realism, has a menu toggle) was genuinely undeclared -- the
 // GetBool()-guarded read silently disabled it; declaring makes it live. NOT declared here on purpose:
@@ -16,9 +80,8 @@ server bool vr_spawn_models = true;
 user bool vr_ballistic_drop = false;
 
 // --- Locational Damage Tuning ---
-server float vr_locational_head_threshold = 0.8;
-server float vr_locational_leg_threshold = 0.3;
-// (head_mult / leg_mult live in C++ hw_vrmodes.cpp with defaults 2.0 / 0.5 -- do not redeclare.)
+// (All locational cvars now live NATIVELY in C++ hw_vrmodes.cpp: vr_locational_head/chest/leg_threshold
+//  + vr_locational_head/chest/leg_mult. Do NOT redeclare here -- a duplicate cvar aborts boot.)
 user bool vr_debug_locational = false;
 // Headshot-kill crit sound (VRLocationalArbiter, vr_locational_damage.zs). User-side audio
 // preference: 0=Off, 1=Railgun Ping, 2=Plasma Zap, 3=Metal Tink, 4=Energy Crack. Each maps to a
@@ -26,7 +89,7 @@ user bool vr_debug_locational = false;
 user int vr_crit_sound = 1;
 
 // (Graveyard persistent-storage cvars gy_hashes/gy_locations/gy_obituaries, plus every other
-// GITD/glow-in-the-dark cvar, moved to the Radiance Control Panel mod's own cvarinfo.txt.)
+// RADIANCE/glow-in-the-dark cvar, moved to the Radiance Control Panel mod's own cvarinfo.txt.)
 
 // --- Grabbable Props (ExplosiveBarrel etc, "flags:grabprop" keyword) ---
 // vr_easy_grab_props and vr_easy_grab_scale are both NATIVE C++ cvars (hw_vrmodes.cpp) -- read
@@ -67,7 +130,7 @@ user float vr_sigil_base_complexity = 0.1;
 user bool vr_sigil_randomize_patterns = true;
 
 // --- Gameplay Modes ---
-// --- Radiance & Blackout (GITD / DarkDoomZ) ---
+// --- Radiance & Blackout (RADIANCE / DarkDoomZ) ---
 
 
 
@@ -98,6 +161,8 @@ server float vr_chaingun_rifle_chance = 0.0;
 server float vr_chaingun_smg_chance = 0.0;
 server float vr_weapon_revolver_chance = 0.0;
 server float vr_weapon_m79_chance = 0.0;
+server float vr_shotgun_ssg_chance = 0.0;   // [XR] map Shotgun -> SuperShotgun spawn chance
+server float vr_plasma_bfg_chance  = 0.0;   // [XR] map PlasmaRifle -> BFG9000 spawn chance
 
 user bool hf_offhand_ammo = true;
 user float hf_mainammo_x = 0.82;
@@ -118,15 +183,15 @@ user bool hf_condition = true;
 
 
 // --- Atmospheric Fog Suite ---
-// Feeds u_gitd_fog_* uniforms (main.fp applyOmniFog); read via FindCVar in HWDrawInfo::StartScene,
-// same idiom as the Monster Neon cvars above. gitd_fog_mode gates the whole effect (0 = off).
-user int   gitd_fog_mode        = 0;    // 0=Off 1=Ground-Mist 2=Spectral 3=Bit-Crush 4=Vortex
-user float gitd_fog_density     = 0.5;
-user float gitd_fog_height      = 0.0;
-user float gitd_fog_quantize    = 32.0;
-user float gitd_fog_rim_power   = 2.0;
-user float gitd_fog_speed       = 1.0;
-user bool  gitd_fog_lightlink   = false;
+// Feeds u_radiance_fog_* uniforms (main.fp applyOmniFog); read via FindCVar in HWDrawInfo::StartScene,
+// same idiom as the Monster Neon cvars above. radiance_fog_mode gates the whole effect (0 = off).
+user int   radiance_fog_mode        = 0;    // 0=Off 1=Ground-Mist 2=Spectral 3=Bit-Crush 4=Vortex
+user float radiance_fog_density     = 0.5;
+user float radiance_fog_height      = 0.0;
+user float radiance_fog_quantize    = 32.0;
+user float radiance_fog_rim_power   = 2.0;
+user float radiance_fog_speed       = 1.0;
+user bool  radiance_fog_lightlink   = false;
 
 // --- Global Visual Regimes ---
 // vr_visual_regime itself and vr_affine_warp/vr_arcade_crt are native C++ cvars
@@ -176,9 +241,10 @@ user float vr_chainsaw_lock_cone     = 35.0;   // angular view-cone window (Sphe
 user float vr_chainsaw_throw_dmg     = 25.0;   // damage per target the flying saw cuts
 
 // --- Manual Reload (chamber counter + gesture, VR Weapon Options toggle) ---
-// ON by default per project convention (ship features on; user is in VR and won't reach
-// console). Gates the whole XR_ManualReload mixin -- see zscript/engine/vr_manual_reload.zs.
-user bool vr_manual_reload = true;
+// OPT-IN: OFF by default. When off, A_XR_TryFire always returns true -> guns fire unlimited
+// (vanilla, no chamber gate, no reload required). Turn ON to enable the chamber counter + the
+// physical chest-pouch reload. Gates the whole XR_ManualReload mixin (zscript/engine/vr_manual_reload.zs).
+user bool vr_manual_reload = false;
 
 // --- Enemy Hitscans (VR Weapon Options toggle) ---
 // ON by default = vanilla behavior unchanged (instant, undodgeable hitscan trace for the three
@@ -232,6 +298,8 @@ user int   vr_whip_profile            = 0;     // 0=Leather(Indiana Jones model)
 // the rigged model looks wrong in-headset -- bone axis/rest-length are best-known values per
 // DriveModelBones()'s own comment, not yet confirmed against a real headset.
 user bool  vr_whip_model              = true;
+user bool  vr_whip_debug              = false; // [diag] throttled console spam from DriveModelBones -- confirms the WRITE side (whipModel valid, bones driven, sim non-straight). Pair with the native [WHIP_RENDER] probe (models.cpp) which confirms the READ side (pose reaches render). Off by default.
+user bool  vr_whip_bone_localframe    = true;  // [ACTIVE FIX] DriveModelBones authors bone aims in the model's RAW joint-local frame (Y<->Z relabel) to compensate the render's unconditional swapYZ -- the raw-world path (false) feeds the render a pre-swapped aim, which is why the leather whip renders wrong. ON by default; set 0 to A/B against the old behavior.
 user float vr_whip_crack_threshold    = 95.0;  // tip speed (map-units/tic) that triggers a crack
 user bool  vr_whip_two_hand_boost     = true;  // off-hand velocity feeds the chain for bigger cracks
 user bool  vr_whip_contextual_yank    = true;  // hold Fire while attached = deliberate reel-in

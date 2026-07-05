@@ -1,0 +1,30 @@
+{
+  "md3": "E:\\DoomXR-work\\DOOM_FRESH\\wadsrc\\static\\models\\weapons\\hud\\rpg\\RPG.md3",
+  "out": "E:\\DoomXR-work\\DOOM_FRESH\\wadsrc\\static\\models\\weapons\\hud\\rpg\\RPG.iqm",
+  "style": "pod",
+  "material": "RPG",
+  "hotspots": {
+    "hs_grip": [
+      0,
+      0,
+      0
+    ],
+    "hs_foregrip": [
+      -12.6,
+      -14.1,
+      14
+    ],
+    "hs_breech": [
+      19.1,
+      16.4,
+      2.9
+    ]
+  },
+  "axis": {
+    "long": "X",
+    "vert": "Z",
+    "lat": "Y",
+    "muzzle_at_max": false
+  },
+  "ready_frame": 5
+}

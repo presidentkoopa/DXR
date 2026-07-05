@@ -2098,6 +2098,8 @@ DEFINE_FIELD(AActor, waterdepth)
 DEFINE_FIELD(AActor, Score)
 DEFINE_FIELD(AActor, accuracy)
 DEFINE_FIELD(AActor, stamina)
+DEFINE_FIELD(AActor, LastHitZone)   // [XR] VR locational damage zone (0=torso 1=head 2=chest 3=legs)
+DEFINE_FIELD(AActor, LastHitHand)   // [XR] hand that landed the hit (0=main 1=offhand)
 DEFINE_FIELD(AActor, meleerange)
 DEFINE_FIELD(AActor, PainThreshold)
 DEFINE_FIELD(AActor, Gravity)
@@ -2334,6 +2336,74 @@ DEFINE_ACTION_FUNCTION(AActor, SetModelUseProceduralPose)
 	return 0;
 }
 
+// [XR] Read-only IQM hotspot (empty-bone) introspection exposed to ZScript. All FModel access lives in
+// p_actionfunctions.cpp (which has r_data/models.h); these thunks call plain-return wrappers by forward-decl,
+// so this file never needs the FModel class definition. Static bind data -- NEVER touch proceduralPose / the
+// whip write path (SetModelBonePose above).
+int  VR_WeaponBoneIndex(AActor* weapon, FName boneName);          // p_actionfunctions.cpp
+bool VR_WeaponBoneBindPosByIdx(AActor* weapon, int boneIndex, FVector3& out); // p_actionfunctions.cpp
+
+DEFINE_ACTION_FUNCTION(AActor, GetBoneIndex)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_NAME(boneName);
+	ACTION_RETURN_INT(VR_WeaponBoneIndex(self, boneName));   // -1 if none / not an IQM (case-insensitive)
+}
+
+DEFINE_ACTION_FUNCTION(AActor, GetBoneBindPos)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_INT(boneIndex);
+	FVector3 p(0.f, 0.f, 0.f);
+	VR_WeaponBoneBindPosByIdx(self, boneIndex, p);           // leaves p at (0,0,0) on failure
+	ACTION_RETURN_VEC3(DVector3(p.X, p.Y, p.Z));
+}
+
+// [XR weapon handling] Map a style name to player_t::EReloadStyle. Unknown -> RS_NONE (safe no-op).
+static int XR_ReloadStyleFromName(const char* s)
+{
+	if (s == nullptr)                 return 0; // RS_NONE
+	if (stricmp(s, "boxmag")   == 0)  return 1; // RS_BOXMAG
+	if (stricmp(s, "shell")    == 0)  return 2; // RS_SHELL
+	if (stricmp(s, "break")    == 0)  return 3; // RS_BREAK
+	if (stricmp(s, "internal") == 0)  return 4; // RS_INTERNAL
+	if (stricmp(s, "cylinder") == 0)  return 4; // RS_INTERNAL alias (revolver cylinder + speedloader)
+	if (stricmp(s, "pod")      == 0)  return 5; // RS_POD
+	if (stricmp(s, "canister") == 0)  return 6; // RS_CANISTER
+	if (stricmp(s, "heatvent") == 0)  return 6; // RS_CANISTER alias (energy heat-vent)
+	return 0; // RS_NONE
+}
+
+// [XR weapon handling] DATA-ONLY modder API -- the WHOLE ZScript surface. One line per weapon declares its
+// reload STYLE; the engine reads the hs_* bones itself. Records style into player->vr_weapon_handling and
+// invalidates the bone cache. Accepts the weapon actor (Owner is a player) OR a player pawn.
+DEFINE_ACTION_FUNCTION(AActor, AssignWeaponHandling)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_STRING(style);
+	player_t* player = (self != nullptr) ? self->player : nullptr;   // pawn case
+	// weapon-declares-own-handling case: Owner is a ZScript Inventory field, not a C++ AActor member, so
+	// read it by reflection (idiom from p_mobj.cpp:5571). Guard on IsKindOf(Inventory) so a non-inventory
+	// self can't mis-read the field.
+	if (player == nullptr && self != nullptr && self->IsKindOf(NAME_Inventory))
+	{
+		AActor* invOwner = self->PointerVar<AActor>(NAME_Owner);
+		if (invOwner != nullptr) player = invOwner->player;
+	}
+	if (player == nullptr) { ACTION_RETURN_INT(0); }
+
+	auto& wh = player->vr_weapon_handling;
+	wh.style    = XR_ReloadStyleFromName(style.GetChars());
+	wh.assigned = (wh.style != 0 /*RS_NONE*/);
+	wh.resolved      = false;   // force fresh bone resolve next per-tic pass
+	wh.resolvedClass = nullptr;
+	wh.resolvedModel = nullptr;
+	wh.boneForegrip  = -1;
+	wh.boneMagwell   = -1;
+	wh.boneRack      = -1;
+	ACTION_RETURN_INT(wh.style);
+}
+
 DEFINE_ACTION_FUNCTION(AActor, SetModelBonePose)
 {
 	PARAM_SELF_PROLOGUE(AActor);
@@ -2525,6 +2595,33 @@ DEFINE_ACTION_FUNCTION(AActor, GetGripValue)
 	const VRMode *vrmode = VRMode::GetVRModeCached(false);
 	double v = (vrmode != nullptr) ? (double)vrmode->GetGripValue(hand) : 0.0;
 	ACTION_RETURN_FLOAT(v);
+}
+
+// [XR haptics] Pulse one controller from ZScript. hand: 0=LEFT, 1=RIGHT (raw controller
+// index, same convention as GetGripValue). intensity 0..1 amplitude, duration in seconds
+// (capped at 1s so a bad script value can't pin a controller on -- ProcessHaptics clamps
+// amplitude but NOT duration). Calls Vibrate directly, bypassing VR_HapticEvent's int /100.
+DEFINE_ACTION_FUNCTION(AActor, VR_HapticPulse)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_INT(hand);
+	PARAM_FLOAT(intensity);
+	PARAM_FLOAT(duration);
+
+	const VRMode *vrmode = VRMode::GetVRModeCached(false);
+	if (vrmode == nullptr) return 0;
+
+	double a = intensity; if (a < 0.0) a = 0.0; if (a > 1.0) a = 1.0;
+	float amp = (float)a;
+	if (amp <= 0.0f) return 0;
+
+	double d = duration; if (d < 0.0) d = 0.0; if (d > 1.0) d = 1.0;
+	float dur = (float)d;
+	if (dur <= 0.0f) return 0;
+
+	int channel = (hand == 0) ? 0 : 1; // Vibrate CHANNEL: 0=Left, 1=Right
+	vrmode->Vibrate(dur, channel, amp);
+	return 0;
 }
 
 // [XR grip arbiter] Read the per-hand grip-ownership verdict (EGripOwner) that VR_ResolveGripOwner

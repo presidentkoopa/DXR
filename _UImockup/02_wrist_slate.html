@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DoomXR Wrist Slate — Arsenal UI</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#0A0C10;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Courier New',Courier,monospace;overflow:hidden}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* BACKDROP */
+.backdrop{
+  position:relative;
+  width:680px;height:460px;
+  background:#0A0C10;
+  overflow:hidden;
+  flex-shrink:0;
+}
+.backdrop::before{
+  content:'';position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 60% 60% at 0% 0%, rgba(0,0,0,0.72) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 60% at 100% 0%, rgba(0,0,0,0.65) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 50% at 0% 100%, rgba(0,0,0,0.70) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 50% at 100% 100%, rgba(0,0,0,0.70) 0%, transparent 60%);
+  pointer-events:none;z-index:1;
+}
+/* diagonal corridor vignette stripes */
+.backdrop::after{
+  content:'';position:absolute;inset:0;
+  background:
+    linear-gradient(138deg, rgba(0,0,0,0.45) 0%, transparent 42%, transparent 58%, rgba(0,0,0,0.45) 100%);
+  pointer-events:none;z-index:1;
+}
+
+/* SCENE WRAPPER — holds the tilted slate + focus card at same depth */
+.scene{
+  position:absolute;
+  left:22px;bottom:52px;
+  transform-style:preserve-3d;
+  perspective:900px;
+  z-index:2;
+}
+
+/* THE SLATE */
+.slate{
+  position:relative;
+  width:365px;height:152px;
+  background:rgba(10,14,20,0.55);
+  border-radius:18px;
+  border:1px solid rgba(56,230,255,0.28);
+  box-shadow:
+    0 0 18px rgba(56,230,255,0.10),
+    0 0 40px rgba(56,230,255,0.06),
+    inset 0 0 0 1px rgba(180,247,255,0.12);
+  transform: perspective(900px) rotateX(6deg) rotateZ(-8deg);
+  transform-origin:center center;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  grid-template-rows:1fr 1fr;
+  gap:10px;
+  padding:12px;
+  /* one-shot unfold: clip from left, then reveal */
+  clip-path:inset(0 100% 0 0 round 18px);
+  animation: slateUnfold 140ms ease-out 60ms forwards;
+}
+
+@keyframes slateUnfold{
+  0%{clip-path:inset(0 100% 0 0 round 18px); transform:perspective(900px) rotateX(6deg) rotateZ(-8deg) scale(0.96);}
+  100%{clip-path:inset(0 0% 0 0 round 18px); transform:perspective(900px) rotateX(6deg) rotateZ(-8deg) scale(1.0);}
+}
+
+/* WRIST BEZEL HINT */
+.slate::after{
+  content:'';
+  position:absolute;
+  left:-10px;bottom:-10px;
+  width:56px;height:56px;
+  border-radius:50%;
+  border:6px solid rgba(56,230,255,0.28);
+  pointer-events:none;
+  animation: bezelFlicker 2.0s ease-in-out infinite;
+}
+
+@keyframes bezelFlicker{
+  0%,100%{border-color:rgba(56,230,255,0.28);}
+  50%{border-color:rgba(56,230,255,0.22);}
+}
+
+/* CELLS */
+.cell{
+  position:relative;
+  border-radius:12px;
+  border:2px solid var(--accent,#38E6FF);
+  background:rgba(10,14,20,0.45);
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  overflow:hidden;
+  box-shadow:
+    0 0 6px var(--accent,#38E6FF),
+    0 0 16px rgba(56,230,255,0.18),
+    inset 0 0 1px rgba(180,247,255,0.25);
+  opacity:0;
+}
+/* staggered cell light-in */
+.cell:nth-child(1){animation: cellLit 120ms ease-out 200ms forwards;}
+.cell:nth-child(2){animation: cellLit 120ms ease-out 240ms forwards;}
+.cell:nth-child(3){animation: cellLit 120ms ease-out 280ms forwards;}
+.cell:nth-child(4){animation: cellLit 120ms ease-out 320ms forwards;}
+
+@keyframes cellLit{
+  0%{opacity:0;transform:scale(0.93);}
+  100%{opacity:1;transform:scale(1);}
+}
+
+/* SHOTGUN — smart-pick, orange */
+.cell-shotgun{
+  --accent:#FF7A1B;
+  box-shadow:
+    0 0 6px #FF7A1B,
+    0 0 18px rgba(255,122,27,0.35),
+    inset 0 0 1px rgba(255,200,140,0.3);
+  animation: cellLit 120ms ease-out 200ms forwards, shotgunPulse 1.18s ease-in-out 400ms infinite;
+}
+
+@keyframes shotgunPulse{
+  0%,100%{
+    border-color:#FF7A1B;
+    box-shadow:0 0 6px #FF7A1B, 0 0 18px rgba(255,122,27,0.35), inset 0 0 1px rgba(255,200,140,0.3);
+  }
+  50%{
+    border-color:#FFAA66;
+    box-shadow:0 0 10px #FF7A1B, 0 0 32px rgba(255,122,27,0.60), 0 0 48px rgba(255,122,27,0.22), inset 0 0 1px rgba(255,200,140,0.4);
+  }
+}
+
+/* pull highlight on smart-pick */
+.cell-shotgun::before{
+  content:'';
+  position:absolute;
+  width:80px;height:80px;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(255,122,27,0.22) 0%, transparent 70%);
+  animation: pullDrift 1.18s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes pullDrift{
+  0%,100%{transform:scale(1.1);opacity:0.5;}
+  50%{transform:scale(0.6);opacity:0.9;}
+}
+
+/* PLASMA — cyan */
+.cell-plasma{--accent:#38E6FF;}
+
+/* BFG — green, SELECTED */
+.cell-bfg{
+  --accent:#46FF7A;
+  border-color:#FFD000;
+  box-shadow:
+    0 0 8px #FFD000,
+    0 0 22px rgba(255,208,0,0.40),
+    0 0 40px rgba(70,255,122,0.18),
+    inset 0 0 1px rgba(255,240,140,0.3);
+  transform:translateY(-4px) scale(1.03);
+  animation: cellLit 120ms ease-out 280ms forwards, bfgHoverRing 2.4s ease-in-out 500ms infinite;
+  z-index:5;
+}
+
+@keyframes bfgHoverRing{
+  0%,100%{box-shadow:0 0 8px #FFD000, 0 0 22px rgba(255,208,0,0.40), 0 0 40px rgba(70,255,122,0.18), inset 0 0 1px rgba(255,240,140,0.3);}
+  50%{box-shadow:0 0 12px #FFD000, 0 0 32px rgba(255,208,0,0.55), 0 0 56px rgba(70,255,122,0.25), inset 0 0 1px rgba(255,240,140,0.4);}
+}
+
+/* ROCKET — unavailable */
+.cell-rocket{
+  --accent:#3A4048;
+  border-color:#3A4048;
+  box-shadow:none;
+  opacity:0;
+  animation: cellLit 120ms ease-out 320ms forwards;
+}
+.cell-rocket .glyph{opacity:0.30;filter:none;}
+.hatch{
+  position:absolute;inset:0;border-radius:10px;
+  background:repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 6px,
+    rgba(42,48,56,0.40) 6px,
+    rgba(42,48,56,0.40) 7px
+  );
+  pointer-events:none;
+}
+
+/* idle flicker on resting-cyan cells only */
+.cell-plasma,.cell-plasma .cell-border{
+  animation: cellLit 120ms ease-out 240ms forwards, idleFlicker 2.0s ease-in-out 500ms infinite;
+}
+
+@keyframes idleFlicker{
+  0%,100%{filter:brightness(1.0);}
+  25%{filter:brightness(0.96);}
+  50%{filter:brightness(1.04);}
+  75%{filter:brightness(0.97);}
+}
+
+/* AMMO BAR */
+.ammo-bar-wrap{
+  position:absolute;bottom:6px;left:8px;right:8px;
+  height:5px;
+  border-radius:3px;
+  background:#1A2028;
+  overflow:hidden;
+}
+.ammo-bar-fill{
+  height:100%;border-radius:3px;
+  background:var(--accent,#38E6FF);
+  position:relative;
+}
+/* plasma has visible two-segment split */
+.ammo-bar-fill.two-seg::after{
+  content:'';
+  position:absolute;
+  right:37%;top:0;bottom:0;
+  width:1px;
+  background:#BFF7FF;
+  opacity:0.7;
+}
+/* reserve segment (right portion) dimmer */
+.ammo-bar-fill.two-seg .reserve-dim{
+  position:absolute;
+  left:63%;top:0;bottom:0;right:0;
+  background:rgba(56,230,255,0.45);
+  border-radius:0 3px 3px 0;
+}
+
+/* SVG GLYPHS */
+.glyph{
+  flex:1;
+  display:flex;align-items:center;justify-content:center;
+  padding-bottom:14px;
+  pointer-events:none;
+}
+.glyph svg{
+  width:52px;height:32px;
+  filter:drop-shadow(0 0 4px var(--accent,#38E6FF)) drop-shadow(0 0 10px var(--accent,#38E6FF));
+}
+
+/* FOCUS CARD */
+.focus-card{
+  position:absolute;
+  left:310px;bottom:0px;
+  width:232px;height:212px;
+  background:rgba(10,14,20,0.75);
+  border-radius:14px;
+  border:1px solid rgba(56,230,255,0.32);
+  box-shadow:
+    0 0 16px rgba(56,230,255,0.12),
+    0 0 40px rgba(56,230,255,0.06),
+    inset 0 0 1px rgba(180,247,255,0.18);
+  padding:12px 13px 10px;
+  display:flex;flex-direction:column;gap:6px;
+  opacity:0;
+  animation: focusCardIn 180ms ease-out 450ms forwards;
+  z-index:6;
+}
+@keyframes focusCardIn{
+  0%{opacity:0;transform:translateY(6px) scale(0.97);}
+  100%{opacity:1;transform:translateY(0) scale(1);}
+}
+
+/* leader line — SVG overlay */
+.leader-svg{
+  position:absolute;
+  left:300px;bottom:60px;
+  width:30px;height:70px;
+  pointer-events:none;
+  opacity:0;
+  z-index:7;
+  animation: leaderIn 120ms ease-out 430ms forwards;
+}
+@keyframes leaderIn{
+  0%{opacity:0;}100%{opacity:1;}
+}
+
+/* MOTION STREAK */
+.motion-streak{
+  position:absolute;
+  left:440px;bottom:120px;
+  width:80px;height:2px;
+  background:linear-gradient(90deg, rgba(70,255,122,0.55) 0%, transparent 100%);
+  border-radius:1px;
+  transform:rotate(28deg);
+  box-shadow:0 0 6px rgba(70,255,122,0.3);
+  opacity:0;
+  z-index:8;
+  animation: streakFade 600ms ease-out 550ms forwards;
+}
+@keyframes streakFade{
+  0%{opacity:0.9;width:90px;}
+  100%{opacity:0;width:70px;}
+}
+
+/* FOCUS CARD INTERNALS */
+.fc-headline{
+  display:flex;align-items:baseline;gap:7px;
+  line-height:1;
+}
+.fc-title{
+  font-size:15px;font-weight:700;letter-spacing:0.04em;
+  color:#46FF7A;
+  text-shadow:0 0 4px #46FF7A, 0 0 10px rgba(70,255,122,0.50);
+  text-transform:uppercase;
+}
+.fc-slot{
+  font-size:10px;
+  color:#BFF7FF;
+  border:1px solid rgba(56,230,255,0.45);
+  border-radius:4px;
+  padding:1px 5px;
+  letter-spacing:0.05em;
+}
+
+.fc-reserve{
+  font-size:22px;font-weight:700;letter-spacing:0.06em;
+  color:#DFF9FF;
+  text-shadow:0 0 5px rgba(56,230,255,0.45), 0 0 12px rgba(56,230,255,0.25);
+  line-height:1;
+}
+.fc-reserve-label{
+  font-size:9px;letter-spacing:0.12em;
+  color:#7FBFCF;
+  text-transform:uppercase;
+  margin-bottom:1px;
+  display:block;
+}
+
+.fc-hands{
+  display:flex;align-items:center;gap:6px;
+}
+.hand-pip{
+  font-size:9px;letter-spacing:0.08em;
+  padding:2px 8px;
+  border-radius:10px;
+  text-transform:uppercase;
+  font-weight:700;
+}
+.hand-pip.lit{
+  background:#FFD000;
+  color:#0A0C10;
+  box-shadow:0 0 6px rgba(255,208,0,0.55);
+}
+.hand-pip.dim{
+  background:transparent;
+  color:#7FBFCF;
+  border:1px solid rgba(56,230,255,0.28);
+}
+.hand-note{
+  font-size:8px;color:#7FBFCF;letter-spacing:0.06em;
+}
+
+.fc-pills{
+  display:flex;flex-wrap:wrap;gap:4px;
+}
+.pill{
+  font-size:8px;letter-spacing:0.07em;
+  padding:2px 6px;
+  border-radius:8px;
+  background:rgba(56,230,255,0.08);
+  border:1px solid #38E6FF;
+  color:#BFF7FF;
+  white-space:nowrap;
+}
+.pill span.pv{color:#38E6FF;font-weight:700;}
+
+.fc-divider{
+  height:1px;
+  background:rgba(56,230,255,0.18);
+  border-radius:1px;
+  margin:1px 0;
+}
+</style>
+</head>
+<body>
+
+<div class="backdrop">
+  <h2 class="sr-only">DoomXR Wrist Slate UI mockup: a glance-tier 2x2 weapon grid on a forearm-mounted neon panel, with a dwell-focus detail card for the selected BFG 9000 showing reserve ammo, hand assignment, and weapon identity pills.</h2>
+
+  <div class="scene">
+
+    <!-- SLATE -->
+    <div class="slate" role="img" aria-label="Wrist slate weapon grid">
+
+      <!-- CELL 1: SHOTGUN — smart-pick, orange -->
+      <div class="cell cell-shotgun" aria-label="Shotgun, smart pick, 70 percent ammo">
+        <div class="glyph">
+          <svg viewBox="0 0 52 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- shotgun silhouette -->
+            <rect x="2" y="13" width="34" height="6" rx="2" fill="#FF7A1B" opacity="0.9"/>
+            <rect x="34" y="14" width="14" height="4" rx="1.5" fill="#FF7A1B" opacity="0.85"/>
+            <rect x="2" y="11" width="10" height="10" rx="2" fill="#FF7A1B" opacity="0.6"/>
+            <rect x="36" y="11" width="4" height="2" rx="1" fill="#FF7A1B" opacity="0.5"/>
+            <rect x="8" y="15" width="2" height="8" rx="1" fill="#FF7A1B" opacity="0.45"/>
+          </svg>
+        </div>
+        <div class="ammo-bar-wrap">
+          <div class="ammo-bar-fill" style="width:70%;background:#FF7A1B;box-shadow:0 0 4px #FF7A1B;"></div>
+        </div>
+      </div>
+
+      <!-- CELL 2: PLASMA — cyan -->
+      <div class="cell cell-plasma" aria-label="Plasma rifle, 40 percent ammo, chamber and reserve visible">
+        <div class="glyph">
+          <svg viewBox="0 0 52 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- plasma gun silhouette -->
+            <rect x="4" y="12" width="28" height="8" rx="2.5" fill="#38E6FF" opacity="0.9"/>
+            <rect x="30" y="13" width="16" height="6" rx="1.5" fill="#38E6FF" opacity="0.8"/>
+            <rect x="4" y="10" width="8" height="12" rx="2" fill="#38E6FF" opacity="0.55"/>
+            <ellipse cx="43" cy="16" rx="3" ry="3" fill="#38E6FF" opacity="0.6"/>
+            <rect x="10" y="10" width="14" height="3" rx="1.5" fill="#38E6FF" opacity="0.4"/>
+          </svg>
+        </div>
+        <div class="ammo-bar-wrap">
+          <!-- chamber (bright left) + reserve (dimmer right) -->
+          <div class="ammo-bar-fill two-seg" style="width:40%;background:#38E6FF;box-shadow:0 0 4px #38E6FF;">
+            <div class="reserve-dim"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CELL 3: BFG — green, SELECTED -->
+      <div class="cell cell-bfg" aria-label="BFG 9000, selected, 100 percent ammo">
+        <div class="glyph">
+          <svg viewBox="0 0 52 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- BFG silhouette — chunky barrel -->
+            <rect x="2" y="10" width="32" height="12" rx="3" fill="#46FF7A" opacity="0.9"/>
+            <rect x="32" y="11" width="16" height="10" rx="2" fill="#46FF7A" opacity="0.85"/>
+            <rect x="2" y="8" width="12" height="16" rx="3" fill="#46FF7A" opacity="0.6"/>
+            <ellipse cx="45" cy="16" rx="4" ry="4" fill="#46FF7A" opacity="0.55"/>
+            <ellipse cx="45" cy="16" rx="2" ry="2" fill="#46FF7A" opacity="0.9"/>
+            <rect x="16" y="8" width="10" height="3" rx="1.5" fill="#46FF7A" opacity="0.35"/>
+          </svg>
+        </div>
+        <div class="ammo-bar-wrap">
+          <div class="ammo-bar-fill" style="width:100%;background:#46FF7A;box-shadow:0 0 5px #46FF7A;"></div>
+        </div>
+      </div>
+
+      <!-- CELL 4: ROCKET — unavailable -->
+      <div class="cell cell-rocket" aria-label="Rocket launcher, unavailable, empty ammo">
+        <div class="hatch"></div>
+        <div class="glyph">
+          <svg viewBox="0 0 52 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- rocket launcher silhouette -->
+            <rect x="3" y="12" width="30" height="8" rx="3" fill="#3A4048" opacity="0.8"/>
+            <rect x="33" y="12" width="14" height="8" rx="2" fill="#3A4048" opacity="0.7"/>
+            <path d="M46 16 L50 12 L50 20 Z" fill="#3A4048" opacity="0.7"/>
+            <rect x="3" y="10" width="10" height="12" rx="2" fill="#3A4048" opacity="0.5"/>
+          </svg>
+        </div>
+        <div class="ammo-bar-wrap">
+          <div class="ammo-bar-fill" style="width:0%;background:#3A4048;"></div>
+        </div>
+      </div>
+
+    </div><!-- /.slate -->
+
+    <!-- LEADER LINE -->
+    <svg class="leader-svg" viewBox="0 0 30 70" xmlns="http://www.w3.org/2000/svg">
+      <path d="M 2 68 Q 8 40 26 4" stroke="#46FF7A" stroke-width="1" fill="none"
+        stroke-dasharray="4 3" opacity="0.55"
+        style="filter:drop-shadow(0 0 3px #46FF7A)"/>
+    </svg>
+
+    <!-- FOCUS CARD -->
+    <div class="focus-card" role="complementary" aria-label="BFG 9000 detail card">
+
+      <div class="fc-headline">
+        <span class="fc-title">BFG 9000</span>
+        <span class="fc-slot">[6]</span>
+      </div>
+
+      <div class="fc-divider"></div>
+
+      <div>
+        <span class="fc-reserve-label">Reserve</span>
+        <span class="fc-reserve">40</span>
+      </div>
+
+      <div class="fc-divider"></div>
+
+      <div class="fc-hands">
+        <span class="hand-pip lit">MAIN</span>
+        <span class="hand-pip dim">OFF</span>
+        <span class="hand-note">shared reserve</span>
+      </div>
+
+      <div class="fc-divider"></div>
+
+      <div class="fc-pills">
+        <span class="pill">class<span class="pv">:heavy</span></span>
+        <span class="pill">role<span class="pv">:power</span></span>
+        <span class="pill">dmg<span class="pv">:energy</span></span>
+        <span class="pill">fire<span class="pv">:charge</span></span>
+        <span class="pill">range<span class="pv">:long</span></span>
+        <span class="pill">handling<span class="pv">:heavy</span></span>
+      </div>
+
+    </div><!-- /.focus-card -->
+
+  </div><!-- /.scene -->
+
+  <!-- MOTION STREAK -->
+  <div class="motion-streak" aria-hidden="true"></div>
+
+</div><!-- /.backdrop -->
+
+</body>
+</html>

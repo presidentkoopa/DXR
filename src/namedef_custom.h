@@ -253,6 +253,12 @@ xx(ForbiddenToPlayerClass)
 
 // Weapon member fields that need direct access
 xx(Ammo1)
+xx(XRChamber)
+xx(XRMagSize)
+xx(XRReloading)
+xx(hs_foregrip)
+xx(hs_magwell)
+xx(hs_rack)
 xx(Ammo2)
 xx(AmmoType1)
 xx(AmmoType2)

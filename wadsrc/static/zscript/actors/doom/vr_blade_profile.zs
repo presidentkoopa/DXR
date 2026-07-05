@@ -33,7 +33,7 @@ class BladeProfile : Object
 	name BladeModel;          // MODELDEF entry, applied via A_ChangeModel
 	double BladeLength;       // map units -- drives reach
 	double BladeWidth;        // map units -- sweep/collision radius contribution
-	Color GlowColor;          // NO dynamic light (GITD hard constraint) -- glow spot / particle color only
+	Color GlowColor;          // NO dynamic light (RADIANCE hard constraint) -- glow spot / particle color only
 
 	// ---- Audio (SNDINFO by FULL path; MONO only -- stereo is silent on desktop) ----
 	string SndIdleHum;

@@ -7,8 +7,8 @@
 #include "info.h"
 
 EXTERN_CVAR(Bool, vr_weapon_shell)
-EXTERN_CVAR(Bool, vr_weapon_hands)
 EXTERN_CVAR(Bool, vr_weapon_dts)
+EXTERN_CVAR(Int, vr_weapon_model_format)
 
 enum class EVRWeaponArchetype {
     Unknown,
@@ -44,9 +44,14 @@ struct VRWeaponData {
     FString CustomReloadState;
 
     // Animation Synchronization Tracking
-    struct FState* Current3DState = nullptr;
-    int Current3DTics = 0;
-    int Max3DTics = 0;
+    struct FState* Current3DState = nullptr;   // 3D state currently displayed (the render hook reads this)
+    int Current3DTics = 0;                       // legacy 1:1 path: tics elapsed within Current3DState
+    int Max3DTics = 0;                            // total tic length of the mapped 3D state sequence
+
+    // Frame-perfect sync (DTS): time-scale the 3D animation onto the 2D action's exact duration.
+    struct FState* Anim3DStart = nullptr;        // label-anchor start of the mapped 3D sequence (re-walked each tic)
+    int Max2DTics = 0;                            // total tic length of the mapped 2D state sequence
+    int Elapsed2DTics = 0;                        // game tics since the 2D state sequence was entered
 };
 
 class FVRWeaponResolver {

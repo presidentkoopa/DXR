@@ -6,38 +6,56 @@
 
 class BFG9000 : DoomWeapon
 {
+	mixin XR_ManualReload;   // [XR] chamber gate + reload; native VR gesture FSM refills it (vr_new_weapon_handling)
 	Default
 	{
 		Height 20;
 		Weapon.SelectionOrder 2800;
+		Weapon.SlotNumber 7;   // [XR] slot 7 (matches DoomPlayer's Player.WeaponSlot 7)
 		Weapon.AmmoUse 40;
 		Weapon.AmmoGive 40;
 		Weapon.AmmoType "Cell";
 		+WEAPON.NOAUTOFIRE;
 		Inventory.PickupMessage "$GOTBFG9000";
 		Tag "$TAG_BFG9000";
-		Keywords "mass:120", "grab", "class:bfg", "dmg:energy", "dmg:siege", "style:artillery", "weight:boss", "range:long", "fire:charge", "handling:cumbersome", "role:room_clear";
+		Keywords "mass:120", "grab", "class:bfg", "grip:heavy", "dmg:energy", "dmg:siege", "style:artillery", "weight:boss", "range:long", "fire:charge", "handling:cumbersome", "role:room_clear", "vr_dualwield";
 	}
 	States
 	{
 	Ready:
-		BFGG A 1 A_WeaponReady;
+		BFGG A 0 { if (invoker.XRMagSize == 0) invoker.XR_InitChamber(1); }   // [XR] single-charge chamber
+		BFGG A 1 A_WeaponReady(WRF_ALLOWRELOAD);                              // on-demand reload button (classic fallback)
 		Loop;
 	Deselect:
 		BFGG A 1 A_Lower;
 		Loop;
 	Select:
-		BFGG A 1 A_Raise;
+		BFGG A 1
+		{
+			A_Raise();
+			// [XR] heat-vent (RS_CANISTER) by default per RELOAD_JUICE_SPEC (energy weapon); box-mag fallback when off.
+			CVar hv = CVar.FindCVar("vr_reload_heatvent");
+			AssignWeaponHandling((!hv || hv.GetBool()) ? "heatvent" : "boxmag");
+		}
 		Loop;
 	Fire:
+		TNT1 A 0 A_JumpIf(!A_XR_TryFire(), "Ready");   // [XR] chamber gate: dry-clicks when empty, before the charge
 		BFGG A 20 A_BFGsound;
 		BFGG B 10 A_GunFlash;
-		BFGG B 10 
+		BFGG B 10
 		{
 			A_FireBFG();
 			A_Recoil(8.0);
+			// [XR] heat-vent feed: native FSM (RS_CANISTER) vents on overheat; no-op for other styles.
+			CVar hvf = CVar.FindCVar("vr_reload_heatvent");
+			if (!hvf || hvf.GetBool()) self.VR_AddReloadHeat(CVar.FindCVar("vr_reload_heat_per_shot") ? CVar.FindCVar("vr_reload_heat_per_shot").GetInt() : 10);
 		}
 		BFGG B 20 A_ReFire;
+		Goto Ready;
+	Reload:
+		BFGG A 0 A_XR_EjectToPouch();   // VR: eject mag -> Ready (chest pouch reloads); flatscreen: falls through
+		BFGG A 30;
+		BFGG A 15 A_XR_RefillChamber();   // re-arm chamber from the reserve
 		Goto Ready;
 	Flash:
 		// VR: muzzle-flash sprite suppressed, muzzle light kept.

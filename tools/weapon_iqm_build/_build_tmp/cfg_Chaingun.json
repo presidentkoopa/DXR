@@ -1,0 +1,29 @@
+{
+  "md3": "E:\\DoomXR-work\\DOOM_FRESH\\wadsrc\\static\\models\\weapons\\hud\\chaingun\\Chaingun.md3",
+  "out": "E:\\DoomXR-work\\DOOM_FRESH\\wadsrc\\static\\models\\weapons\\hud\\chaingun\\Chaingun.iqm",
+  "style": "boxmag",
+  "material": "Chaingun",
+  "hotspots": {
+    "hs_grip": [
+      0,
+      0,
+      0
+    ],
+    "hs_foregrip": [
+      50.3853,
+      -0.4375,
+      -19.8281
+    ],
+    "hs_magwell": [
+      63.0625,
+      0.2285,
+      -38.875
+    ],
+    "hs_rack": [
+      74.0966,
+      -0.4375,
+      -11.1669
+    ]
+  },
+  "ready_frame": 4
+}

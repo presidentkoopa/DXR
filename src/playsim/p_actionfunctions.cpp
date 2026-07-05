@@ -5260,6 +5260,54 @@ FModel* VR_EnsureAvatarModelDataAndGetModel(AActor* mo)
 	return result;
 }
 
+// [XR weapon handling] Resolve a HELD WEAPON actor's modeldef Model 0 (the rigged IQM), returning the FModel*
+// whose joints hold the hs_foregrip/hs_magwell/hs_rack hotspots. Sibling of the avatar resolver above but for
+// ANY actor's active model, and READ-ONLY: does NOT allocate modelData (hotspots are static bind-pose reads;
+// no pose is written to the weapon). READY + GetJointCount()>0 gate: an un-migrated MD3 weapon returns null
+// (GetJointCount()==0), which is exactly how callers fall back to the geometric default / -1.
+FModel* VR_GetWeaponModel(AActor* weapon)
+{
+	if (weapon == nullptr) return nullptr;
+	FSpriteModelFrame* smf = FindModelFrame(weapon, weapon->sprite, weapon->frame, false, false);
+	if (smf == nullptr && BaseSpriteModelFrames.CheckKey(weapon->GetClass()))
+		smf = &BaseSpriteModelFrames[weapon->GetClass()];   // PSprite-swapped smf can be null; fall back to base frame
+	if (smf == nullptr) return nullptr;
+	for (unsigned i = 0; i < smf->modelIDs.Size(); i++)
+	{
+		int id = smf->modelIDs[i];
+		if (id < 0 || (unsigned)id >= Models.Size()) continue;
+		FModel* m = Models[id];
+		if (m != nullptr && m->GetLoadState() == FModel::READY && m->GetJointCount() > 0) return m; // first rigged IQM
+	}
+	return nullptr;   // MD3 / no joints => caller uses geometric default
+}
+
+// [XR weapon handling] All FModel-virtual access is confined to THIS file (it has r_data/models.h). The bone-
+// read thunks (vmthunks_actors.cpp) and the hotspot world helper (p_user.cpp) call these PLAIN-return wrappers
+// by forward-decl, so they never need the FModel class definition. Read-only; never touch proceduralPose.
+int VR_WeaponBoneIndex(AActor* weapon, FName boneName)
+{
+	FModel* m = VR_GetWeaponModel(weapon);
+	return (m != nullptr) ? m->FindJointByNameCI(boneName) : -1;
+}
+bool VR_WeaponBoneBindPosByIdx(AActor* weapon, int boneIndex, FVector3& out)
+{
+	out = FVector3(0.f, 0.f, 0.f);
+	FModel* m = VR_GetWeaponModel(weapon);
+	if (m == nullptr || boneIndex < 0) return false;
+	return m->GetJointBaseframePos(boneIndex, out);
+}
+// name -> bind-local position in one shot (used by VR_WeaponHotspotWorld). false = no model or no such bone.
+bool VR_WeaponBoneBindLocal(AActor* weapon, FName boneName, FVector3& out)
+{
+	out = FVector3(0.f, 0.f, 0.f);
+	FModel* m = VR_GetWeaponModel(weapon);
+	if (m == nullptr) return false;
+	int idx = m->FindJointByNameCI(boneName);
+	if (idx < 0) return false;
+	return m->GetJointBaseframePos(idx, out);
+}
+
 static void CleanupModelData(AActor * mobj)
 {
 	if ( !(mobj->flags9 & MF9_DECOUPLEDANIMATIONS)

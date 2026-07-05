@@ -1,0 +1,35 @@
+{
+  "md3": "E:\\DoomXR-work\\DOOM_FRESH\\wadsrc\\static\\models\\weapons\\Plasma_Gun\\Plasma.md3",
+  "out": "E:\\DoomXR-work\\DOOM_FRESH\\wadsrc\\static\\models\\weapons\\Plasma_Gun\\Plasma.iqm",
+  "style": "boxmag",
+  "material": "Plasma",
+  "hotspots": {
+    "hs_grip": [
+      0,
+      0,
+      0
+    ],
+    "hs_foregrip": [
+      45.64,
+      0.06,
+      -65.52
+    ],
+    "hs_magwell": [
+      23.67,
+      0,
+      -36.42
+    ],
+    "hs_rack": [
+      29.36,
+      0.06,
+      -17.52
+    ]
+  },
+  "axis": {
+    "long": "X",
+    "vert": "Z",
+    "lat": "Y",
+    "muzzle_at_max": true
+  },
+  "ready_frame": 4
+}

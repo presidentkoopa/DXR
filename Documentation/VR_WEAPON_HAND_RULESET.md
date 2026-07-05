@@ -55,7 +55,7 @@ weapon-vs-consumable-vs-prop router.
 
 ---
 
-## RULE 2 — Same weapon, second grab (akimbo)
+## RULE 2 — Same weapon, second grab (dual-wield)
 
 - **2.1 Same weapon into the SAME hand → just ammo.** **[WORKS]**
   Vanilla: `Weapon.HandlePickup` matches the class, grants ammo, returns. `MaxAmount`
@@ -132,7 +132,7 @@ Modder exposure: `vr_toss_backfill` is an engine-level CVAR (native-first rule: 
 | 1.2 | prop → hold / throw / shoot-in-flight | **WORKS** |
 | 1.3 | weapon → equip to grabbing hand | **NATIVE** — type branch @ `p_user.cpp:1837` → native `VR_EquipToHand` |
 | 2.1 | same weapon, same hand → ammo | **WORKS** |
-| 2.2 | same weapon, other hand → akimbo | **NATIVE** — lift one-instance cap + assign two distinct instances directly (not `MoveWeaponToHand`) |
+| 2.2 | same weapon, other hand → dual-wield | **NATIVE** — lift one-instance cap + assign two distinct instances directly (not `MoveWeaponToHand`) |
 | 3.1 | catch into empty hand → equip | **NATIVE** — wire catch → `VR_EquipToHand(weap, hand)` |
 | 3.2 | catch into occupied → swap + rotate | **NATIVE** — `VR_CatchWeaponIntoHand`, `SwitchWeaponHand`-first ordering |
 | 3.3 | both hands full → background (safe) | **WORKS** (world-drop variant = NEW) |
@@ -164,7 +164,7 @@ that already exist.
 
 ## Open decisions (need the user)
 
-1. **Akimbo MaxAmount approach** — raise the weapon's `MaxAmount` globally (also changes floor-pickup stacking) vs. bypass `HandlePickup` only on the catch/equip path. Both ZScript; different side effects.
+1. **Dual-wield MaxAmount approach** — raise the weapon's `MaxAmount` globally (also changes floor-pickup stacking) vs. bypass `HandlePickup` only on the catch/equip path. Both ZScript; different side effects.
 2. **Both-hands-full fallback** — background the displaced weapon into inventory (safe default, works today) vs. an actual world-drop (new work). Default assumed: background.
 
 ## Known landmines (from the prior spec pass, still true)

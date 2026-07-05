@@ -80,7 +80,35 @@ CVAR(Float, vr_body_yaw,   90.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 // planted. Fits any player, standing or seated, with no tuning. vr_body_scale is the manual fallback
 // when auto-fit is off.
 CVAR(Bool,  vr_body_autofit,  true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
-CVAR(Float, vr_body_headroom, 4.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_body_headroom, 0.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+// [XR] The NECK-STUMP height of the body model in its own bind pose (model units, measured from the
+// feet/origin). Auto-fit anchors THIS at the live HMD eye height (neck-stump -> HMD, feet -> floor),
+// NOT the Doom actor Height (which is a hitbox, not the mesh, and mis-sized the whole body so the arms
+// couldn't reach the controllers). marine_novr.iqm: bip_neck (joint 26) sits at accumulated bind model-Z
+// 63.64 (quaternion-accumulated up the parent chain: pelvis 38.15 -> spine_0 42.35 -> spine_1 46.55 ->
+// spine_2 50.74 -> spine_part05 54.94 -> neck_part01 60.32 -> bip_neck 63.64; bip_head 66.97; mesh Z bounds
+// [37.6, 66.22]). LEGS mesh removed, so the lowest geometry is the waist ~37.6 -- there are no feet; the body
+// is anchored at model origin Z=0, correct for a first-person body you don't see. Re-measure if the model
+// changes. Live-tunable so the standing height can be dialed in-headset.
+CVAR(Float, vr_body_neck_height, 63.64f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+
+// [XR] VR hand-model scale (RenderHUDModel, handSwapped path only). vhand.iqm is authored at ~0.02
+// MODEL-unit radius (a real ~20cm hand exported at 1/100 scale -- verified: skinned bind-pose radius
+// ~0.021). The generic weapon-model path multiplies by only 0.01 (tuned for ~200-unit MD3 guns), so the
+// hand ended up ~0.0002 map units across == sub-pixel == INVISIBLE. That single mis-scale -- NOT gating,
+// NOT bone upload (bones skin correctly to ~0.021) -- is why "no hands". This factor REPLACES that 0.01
+// for the hand: 0.021 * 280 * modeldefScale(1.0) * vr_weaponScale(~1.02) ~= 6 map-unit radius, a clearly
+// visible hand at the controller. Live-tunable in the console (no rebuild) so it can be dialed in-headset;
+// weapon models are untouched (they keep the 0.01 path). If a hand appears but is too big/small, change
+// this, not the model.
+CVAR(Float, vr_hand_scale, 280.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+// [XR] VR hand position nudge, in controller-local map units, applied BEFORE the hand scale so it is a
+// clean map-unit offset independent of vr_hand_scale. The large hand scale amplifies the hand model's
+// built-in origin offset and flings the hand up/away from the controller ("above my head"); these dial
+// it back onto the controller. Live-tunable (console or autoexec.cfg) -- no rebuild needed to position.
+CVAR(Float, vr_hand_offset_x, 0.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_hand_offset_y, 0.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_hand_offset_z, 0.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 
 // [XR] The live body-fit scale actually applied to the local avatar this frame (autofit smoothed
 // value, or the manual vr_body_scale when autofit is off). Published so the playsim arm-IK
@@ -89,6 +117,17 @@ CVAR(Float, vr_body_headroom, 4.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 // Written on the render thread, read on the playsim thread: a plain float, at worst one frame stale,
 // and the value is heavily smoothed, so no sync is needed.
 float g_xr_vrBodyRenderScale = 0.70f;
+
+// [XR] The EXACT finalized objectToWorldMatrix used to draw the local VR body this frame, published so
+// the playsim arm-IK (p_user.cpp VR_UpdateArmIK) can INVERT the renderer's OWN transform instead of
+// hand-rebuilding world->model-local math. baseframe-space -> GL-world is F = objectToWorldMatrix*swapYZ
+// (boneData==I at bind), so the IK does target_baseframe = swapYZ * objectToWorldMatrix^-1 * controller_GL.
+// This captures the drawn yaw (vr_body_facing/vr_body_yaw), vr_body_z, AND the Y/Z-swapped bodyScale
+// factors exactly, so the manual un-yaw/axis-remap/feet-subtract/scale-divide all become obsolete.
+// Written on the render thread, read on the playsim thread: at worst one frame stale, the pose is smooth,
+// same lock-free contract as g_xr_vrBodyRenderScale above. Valid flag guards the pre-first-render frame.
+VSMatrix g_xr_vrBodyObjectToWorld;
+bool     g_xr_vrBodyObjToWorldValid = false;
 
 extern TDeletingArray<FVoxel *> Voxels;
 extern TDeletingArray<FVoxelDef *> VoxelDefs;
@@ -123,8 +162,13 @@ void RenderModel(FModelRenderer *renderer, float x, float y, float z, FSpriteMod
 		{
 			// CenterEyePos.Z - actor->Z() == the live HMD eye height above the floor in map units
 			// (OpenXR floor-relative tracking, already * vr_vunits_per_meter). Smooth it so head-bob
-			// doesn't pulse the body -- only the slow standing height tracks. Then scale the marine so
-			// its head (~actor Height at scale 1) sits vr_body_headroom units below the eyes, feet planted.
+			// doesn't pulse the body -- only the slow standing height tracks. Then scale the marine so its
+			// NECK-STUMP (bip_neck, model-Z vr_body_neck_height) lands at the HMD eye height and the feet
+			// (model origin) stay on the floor -- a true neck->HMD / feet->floor fit. The whole body,
+			// arms included, scales by this SAME factor, so the scaled arm reach matches the player's real
+			// reach (up to the marine's own arm-to-height proportion; the arm-IK stretches the last bit).
+			// This replaces the old actor->Height reference, which is the Doom HITBOX (not the mesh) and
+			// mis-sized the body so the arms fell short of the controllers.
 			double eyeAboveFeet = r_viewpoint.CenterEyePos.Z - actor->Z();
 			static double smoothedEye = 0.0;
 			if (eyeAboveFeet > 1.0)
@@ -132,9 +176,9 @@ void RenderModel(FModelRenderer *renderer, float x, float y, float z, FSpriteMod
 				if (smoothedEye <= 0.0) smoothedEye = eyeAboveFeet;
 				else                    smoothedEye += (eyeAboveFeet - smoothedEye) * 0.03;
 			}
-			const double headH = (actor->Height > 1.0) ? actor->Height : 56.0;
+			const double neckH = (vr_body_neck_height > 1.0f) ? (double)vr_body_neck_height : 63.6;
 			if (smoothedEye > 1.0)
-				bodyScale = (float)clamp((smoothedEye - (double)vr_body_headroom) / headH, 0.25, 1.6);
+				bodyScale = (float)clamp((smoothedEye - (double)vr_body_headroom) / neckH, 0.25, 1.9);
 		}
 		// [XR] Publish the exact scale we're about to apply so the playsim arm-IK divides the hand
 		// target by the SAME factor (see g_xr_vrBodyRenderScale decl above). Do this even when the
@@ -277,6 +321,11 @@ void RenderModel(FModelRenderer *renderer, float x, float y, float z, FSpriteMod
 
 	float orientation = scaleFactorX * scaleFactorY * scaleFactorZ;
 
+	// [XR] Publish the finalized VR-body transform so the arm-IK can invert F = objectToWorldMatrix*swapYZ.
+	// This is the LAST mutation of objectToWorldMatrix (all translate/rotate/scale above are baked in), and
+	// it is exactly the matrix the GPU uses as the model matrix -- so its inverse is exact, no reconstruction.
+	if (isVRBody) { g_xr_vrBodyObjectToWorld = objectToWorldMatrix; g_xr_vrBodyObjToWorldValid = true; }
+
 	renderer->BeginDrawModel(actor->RenderStyle, smf_flags, objectToWorldMatrix, orientation < 0);
 	RenderFrameModels(renderer, actor->Level, smf, actor->state, actor->tics, translation, actor);
 	renderer->EndDrawModel(actor->RenderStyle, smf_flags);
@@ -360,9 +409,26 @@ void RenderHUDModel(FModelRenderer *renderer, DPSprite *psp, FVector3 translatio
 	int hand = (forceHand >= 0) ? forceHand : ((psp && psp->GetCaller() == playermo->player->OffhandWeapon) ? 1 : 0);
 	if (vrmode->GetWeaponTransform(&objectToWorldMatrix, hand))
 	{
-		float scale = 0.01f;
-		objectToWorldMatrix.scale(scale, scale, scale);
-		objectToWorldMatrix.translate(0, 5, 30);
+		if (handSwapped)
+		{
+			// [XR] THE FIX for "no hands": vhand.iqm is ~10000x smaller than the weapon MD3s this 0.01
+			// was tuned for, so the generic weapon scale made the (correctly-skinned) hand sub-pixel.
+			// Use the hand-specific scale and DROP the weapon translate(0,5,30) -- that offset is tuned
+			// for gun meshes and would shove the hand off the controller. The hand sits at the controller
+			// origin; overlap with a held weapon model is explicitly accepted. vr_hand_scale is live-tunable.
+			float hscale = vr_hand_scale;
+			if (hscale <= 0.f) hscale = 280.0f;   // guard: never collapse the hand to zero if mis-set
+			// [XR] position nudge FIRST (controller-local map units, independent of hscale), THEN scale --
+			// slides the scale-amplified hand back onto the controller. Dial vr_hand_offset_* in-headset.
+			objectToWorldMatrix.translate(vr_hand_offset_x, vr_hand_offset_y, vr_hand_offset_z);
+			objectToWorldMatrix.scale(hscale, hscale, hscale);
+		}
+		else
+		{
+			float scale = 0.01f;
+			objectToWorldMatrix.scale(scale, scale, scale);
+			objectToWorldMatrix.translate(0, 5, 30);
+		}
 	}
 	else if (vrmode->IsVR())
 	{
@@ -692,6 +758,27 @@ bool CalcModelOverrides(int i, const FSpriteModelFrame *smf, DActorModelData* da
 const TArray<VSMatrix> * ProcessModelFrame(FModel * animation, bool nextFrame, int i, const FSpriteModelFrame *smf, DActorModelData* modelData, const CalcModelFrameInfo &frameinfo, ModelDrawInfo &drawinfo, bool is_decoupled, double tic)
 {
 	const TArray<TRS>* animationData = nullptr;
+
+	// [XR][WHIP_RENDER] Whip-targeted procedural-pose probe. The physics-whip world actor
+	// (XRWhipModel) is bound via A_ChangeModel, so its modelData->modelDef == XRWhipRigged;
+	// the marine body avatar has modelDef == nullptr. Keying on that lets this probe fire ONLY
+	// for the whip, so it is NEVER starved by the every-tic marine-body renders that exhaust the
+	// shared [VRIK_RENDER] cap below. It runs BEFORE the branch and prints regardless of outcome,
+	// so we can see whether the whip reaches the procedural branch (useProc=1 poseSize=21) or falls
+	// through to bind ("clay vase"). Delete once the whip deform is confirmed in-headset.
+	if (modelData && modelData->modelDef && modelData->modelDef->TypeName == FName("XRWhipRigged"))
+	{
+		static int s_whipRenderDbg = 0;
+		if (s_whipRenderDbg < 60)
+		{
+			s_whipRenderDbg++;
+			Printf("[WHIP_RENDER] def=%s useProc=%d poseSize=%d is_decoupled=%d modelframe=%d modelid=%d\n",
+				modelData->modelDef->TypeName.GetChars(),
+				(int)modelData->useProceduralPose,
+				(int)modelData->proceduralPose.Size(),
+				(int)is_decoupled, drawinfo.modelframe, drawinfo.modelid);
+		}
+	}
 
 	if (modelData && modelData->useProceduralPose && modelData->proceduralPose.Size() > 0)
 	{

@@ -1,0 +1,9 @@
+{
+  "weapon": "Chainsaw",
+  "md3": "E:/DoomXR-work/DOOM_FRESH/wadsrc/static/models/weapons/hud/chainsaw/Chainsaw.md3",
+  "out": "E:/DoomXR-work/DOOM_FRESH/wadsrc/static/models/weapons/hud/chainsaw/Chainsaw.iqm",
+  "style": "none",
+  "material": "Chainsaw",
+  "hotspots": { "hs_grip": [0, 0, 0] },
+  "ready_frame": 5
+}

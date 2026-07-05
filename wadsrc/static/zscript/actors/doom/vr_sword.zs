@@ -56,7 +56,7 @@ class VRSword : Weapon
 		// to resolve via VR_CheckWeaponParry (hw_vrmodes.cpp:1194) -- native bullet/missile
 		// deflection, already fully built and default-ON (vr_allow_weapon_parrying=true),
 		// no ZScript deflection code needed. The rest are descriptive, not consumed by C++.
-		Keywords "class:vrsword", "dmg:blade", "dmg:slash", "style:melee", "range:touch", "role:offense_defense", "trait:parry", "vibe:steel_and_plasma";
+		Keywords "class:vrsword", "grip:hilt", "dmg:blade", "dmg:slash", "style:melee", "range:touch", "role:offense_defense", "trait:parry", "vibe:steel_and_plasma";
 		Inventory.PickupMessage "Picked up the VR Sword!";
 	}
 

@@ -57,7 +57,7 @@ HardwareShader Sprite SKEL { Shader "shaders/glsl/monster_neon.fp" }
 HardwareShader Sprite PAIN { Shader "shaders/glsl/monster_neon.fp" }
 HardwareShader Sprite VILE { Shader "shaders/glsl/monster_neon.fp" }
 
-// BloomBoostPre/Post moved to the Radiance Control Panel mod (shaders/radiance/gitd_bloomboost_*.fp
+// BloomBoostPre/Post moved to the Radiance Control Panel mod (shaders/radiance/radiance_bloomboost_*.fp
 // moved with them). Brightmaps below deliberately NOT moved -- vanilla monster-sprite fullbright
 // detail textures, not glow-in-the-dark effect content; moving them would change default
 // rendering even without the mod loaded.
@@ -67,9 +67,10 @@ HardwareShader Sprite VILE { Shader "shaders/glsl/monster_neon.fp" }
 #include "vox_gldefs.txt"
 
 // IceHook PBR material -- attaches normal/metallic/roughness/ao maps to the model's
-// albedo skin BY TEXTURE NAME (modeldef Skin 0 "icehook_skin.png"), so it applies
-// automatically wherever that skin renders. Maps live in models/icehook/.
-material "icehook_skin.png"
+// albedo skin. Must be keyed by the FULL LUMP PATH: GZDoom registers loose pk3 images by
+// their full path (models/icehook/icehook_skin.png), NOT the bare filename -- the bare name
+// caused "Material definition refers nonexistent texture 'icehook_skin.png'". Maps live in models/icehook/.
+material "models/icehook/icehook_skin.png"
 {
 	normal      "models/icehook/icehook_normal.png"
 	metallic    "models/icehook/icehook_metallic.png"

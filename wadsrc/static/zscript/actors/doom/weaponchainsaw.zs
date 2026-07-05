@@ -14,6 +14,7 @@ class Chainsaw : DoomWeapon
 	{
 		Weapon.Kickback 0;
 		Weapon.SelectionOrder 2200;
+		Weapon.SlotNumber 1;   // [XR] slot 1 (matches DoomPlayer's Player.WeaponSlot 1)
 		Weapon.UpSound "weapons/sawup";
 		Weapon.ReadySound "weapons/sawidle";
 		Inventory.PickupMessage "$GOTCHAINSAW";

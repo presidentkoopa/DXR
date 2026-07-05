@@ -1,7 +1,7 @@
 //
 //---------------------------------------------------------------------------
 //
-// [GITD-AIR] In-air glow panels.
+// [RADIANCE-AIR] In-air glow panels.
 //
 // Draws the billboard glow spots (FGlowSpot with gflags&1) published into
 // FLevelLocals::GlowSpots. Milestone 1: a flat, additive, camera-facing
@@ -41,7 +41,7 @@ void HWDrawInfo::DrawGlowBillboards(FRenderState &state)
 	TArray<FGlowSpot> &spots = Level->GlowSpots;
 	if (spots.Size() == 0) return;
 
-	// [GITD-AIR] We need main.fp (the material/textured path) to actually RUN on the panel,
+	// [RADIANCE-AIR] We need main.fp (the material/textured path) to actually RUN on the panel,
 	// because the wgType==13 7-seg digit branch lives in that fragment shader and is keyed off
 	// the interpolated vTexCoord. A textureless quad (EnableTexture(false)) skips the material
 	// path entirely, so vTexCoord is never populated and the digit code never executes — which is
@@ -50,7 +50,7 @@ void HWDrawInfo::DrawGlowBillboards(FRenderState &state)
 	// CONTENT is irrelevant, we only need a valid material so the shader runs and UVs interpolate.
 	// glstuff/mirror.png is an internal MiscPatch loaded at startup (same handle hw_walls.cpp uses
 	// for the mirror), so it is always present regardless of the current map's texture set.
-	// [GITD-AIR] Bind the SDF FONT ATLAS (textures/neonfont.png, 16x16 ASCII grid). The panel shader
+	// [RADIANCE-AIR] Bind the SDF FONT ATLAS (textures/neonfont.png, 16x16 ASCII grid). The panel shader
 	// samples it directly via texture(tex, glyphUV) to draw REAL-FONT glyphs as neon tubes. TM_STENCIL
 	// (below) only affects getTexel()'s base path; the direct sample reads the raw SDF regardless.
 	// Fall back to the mirror stencil if the atlas isn't loaded so panels still draw.
@@ -73,7 +73,7 @@ void HWDrawInfo::DrawGlowBillboards(FRenderState &state)
 	state.SetDepthFunc(DF_LEqual);
 	state.AlphaFunc(Alpha_GEqual, 0.f);
 	state.SetRenderStyle(STYLE_Add);
-	// [GITD-AIR] Bind the stencil material (NOT EnableTexture(false)) so the FULL material shader
+	// [RADIANCE-AIR] Bind the stencil material (NOT EnableTexture(false)) so the FULL material shader
 	// runs and vTexCoord reaches main.fp's wgType==13 digit branch. TM_STENCIL forces texel.rgb to
 	// white in getTexel(), so the panel's visible colour still comes entirely from the object colour
 	// + the additive wall-glow/digit output, exactly as the textureless path used to. CLAMP_XY_NOMIP
@@ -96,7 +96,7 @@ void HWDrawInfo::DrawGlowBillboards(FRenderState &state)
 		float cy = (float)s.zoff;
 		float cz = (float)s.center.Y;
 
-		// [GITD-AIR] Two orientation modes, chosen by the stored wipeDir (dirX,dirY game x,y):
+		// [RADIANCE-AIR] Two orientation modes, chosen by the stored wipeDir (dirX,dirY game x,y):
 		//   wipeDir == 0    -> CAMERA-FACING billboard (yaw-only): width always squares to the
 		//                      camera. Used by single readable panels (combo digit, etc).
 		//   wipeDir != 0    -> FIXED orientation: the panel's outward normal IS wipeDir, so it
@@ -144,7 +144,7 @@ void HWDrawInfo::DrawGlowBillboards(FRenderState &state)
 		float rX = rx * h, rZ = rz * h;
 		float uY = h;
 
-		// [GITD-AIR] Face normal (render coords) = the horizontal forward vector from the
+		// [RADIANCE-AIR] Face normal (render coords) = the horizontal forward vector from the
 		// panel to the camera. It is horizontal (y == 0) so the fragment shader's
 		// abs(vWorldNormal.y) < 0.5 "isWall" test is TRUE for the panel, routing it down the
 		// wall path where the wgType==13 digit branch lives. NormalModelMatrix is identity for
@@ -172,7 +172,7 @@ void HWDrawInfo::DrawGlowBillboards(FRenderState &state)
 		state.SetColorAlpha(s.color, 1.0f, 0);
 		state.SetColor(1.0f, 1.0f, 1.0f, 1.0f);   // fullbright tint
 
-		// [GITD-AIR] Drive the 7-seg digit through main.fp's wall-glow path. We bind a SINGLE
+		// [RADIANCE-AIR] Drive the 7-seg digit through main.fp's wall-glow path. We bind a SINGLE
 		// wgType==13 "panel" wall-glow spot scoped to JUST this quad (set here, restored after
 		// the loop), so real scene walls/flats — drawn in earlier passes with their own state —
 		// never see it. Packing mirrors hw_flats.cpp:385-387:
@@ -198,7 +198,7 @@ void HWDrawInfo::DrawGlowBillboards(FRenderState &state)
 		state.Draw(DT_TriangleStrip, vertexindex, 4);
 	}
 
-	// [GITD-AIR] Drop the panel wall-glow spot so following passes are untouched.
+	// [RADIANCE-AIR] Drop the panel wall-glow spot so following passes are untouched.
 	state.EnableWallGlow(false);
 
 	// Restore state for the passes that follow. We forced TM_STENCIL above, so put the texture

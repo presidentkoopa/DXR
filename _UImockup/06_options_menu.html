@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DoomXR VR Arsenal UI — Options Menu</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#05070D;
+  --cyan:#38E6FF;
+  --amber:#FFD000;
+  --green:#46FF7A;
+  --red:#FF3C3C;
+  --disabled:#3A4650;
+  --glass:rgba(10,14,20,0.55);
+  --title:#DFF9FF;
+  --body:#BFE9F5;
+  --secondary:#7FBFCF;
+  --panel-border:rgba(56,230,255,0.35);
+  --panel-border-bright:rgba(56,230,255,0.7);
+}
+html,body{
+  width:100%;height:100%;
+  background:var(--bg);
+  font-family:'Courier New',Courier,monospace;
+  color:var(--body);
+  overflow-x:hidden;
+}
+.sr-only{
+  position:absolute;width:1px;height:1px;padding:0;
+  margin:-1px;overflow:hidden;clip:rect(0,0,0,0);
+  white-space:nowrap;border:0;
+}
+
+/* ── Scanline + vignette overlay ── */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background:repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 3px,
+    rgba(0,0,0,0.18) 3px,
+    rgba(0,0,0,0.18) 4px
+  );
+  pointer-events:none;z-index:9999;
+}
+body::after{
+  content:'';
+  position:fixed;inset:0;
+  background:radial-gradient(ellipse at 50% 50%,transparent 55%,rgba(0,0,0,0.72) 100%);
+  pointer-events:none;z-index:9998;
+}
+
+/* ── Root layout ── */
+.screen{
+  width:1280px;min-height:760px;
+  margin:0 auto;
+  display:flex;
+  flex-direction:column;
+  padding:24px 32px 20px;
+  position:relative;
+}
+
+/* ── Global header bar ── */
+.global-header{
+  display:flex;align-items:center;gap:16px;
+  margin-bottom:18px;
+  padding-bottom:10px;
+  border-bottom:1px solid rgba(56,230,255,0.2);
+}
+.global-header .logo-mark{
+  font-size:11px;letter-spacing:0.25em;
+  color:var(--secondary);text-transform:uppercase;
+}
+.global-header .breadcrumb{
+  font-size:11px;color:var(--secondary);
+  display:flex;align-items:center;gap:6px;
+}
+.global-header .breadcrumb .sep{color:var(--disabled);}
+.global-header .breadcrumb .current{color:var(--cyan);}
+
+/* ── Two-panel container ── */
+.panels{
+  display:flex;gap:16px;flex:1;
+  align-items:stretch;
+}
+
+/* ── Shared panel styles ── */
+.panel{
+  background:var(--glass);
+  border:1px solid var(--panel-border);
+  border-radius:4px;
+  display:flex;flex-direction:column;
+  position:relative;
+  box-shadow:
+    0 0 6px rgba(56,230,255,0.12),
+    0 0 22px rgba(56,230,255,0.07),
+    inset 0 0 0 1px rgba(56,230,255,0.08);
+}
+.panel-left{flex:0 0 560px;}
+.panel-right{
+  flex:1;
+  opacity:0;
+  transform:translateX(48px);
+  animation:slideIn 0.45s cubic-bezier(0.16,1,0.3,1) 0.35s forwards;
+}
+
+@keyframes slideIn{
+  to{opacity:1;transform:translateX(0);}
+}
+
+/* ── Panel title ── */
+.panel-title{
+  padding:16px 20px 12px;
+  border-bottom:1px solid rgba(56,230,255,0.2);
+  position:relative;
+}
+.panel-title h3{
+  font-size:17px;
+  font-weight:700;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  color:var(--title);
+  text-shadow:
+    0 0 4px var(--cyan),
+    0 0 12px rgba(56,230,255,0.6),
+    0 0 28px rgba(56,230,255,0.3);
+  animation:titleFlicker 2.1s ease-in-out infinite;
+}
+.panel-title h3.amber-title{
+  color:#FFF3B0;
+  text-shadow:
+    0 0 4px var(--amber),
+    0 0 12px rgba(255,208,0,0.6),
+    0 0 28px rgba(255,208,0,0.25);
+  animation:titleFlickerAmber 2.4s ease-in-out infinite;
+}
+
+@keyframes titleFlicker{
+  0%,100%{opacity:1;}
+  48%{opacity:1;}
+  50%{opacity:0.94;}
+  52%{opacity:1;}
+  80%{opacity:0.96;}
+}
+@keyframes titleFlickerAmber{
+  0%,100%{opacity:1;}
+  55%{opacity:1;}
+  57%{opacity:0.92;}
+  59%{opacity:1;}
+}
+
+.panel-title .tag{
+  position:absolute;top:14px;right:16px;
+  font-size:9px;letter-spacing:0.18em;
+  text-transform:uppercase;
+  color:var(--secondary);
+  border:1px solid rgba(127,191,207,0.3);
+  padding:2px 7px;border-radius:2px;
+}
+
+/* ── Menu rows list ── */
+.menu-rows{
+  flex:1;
+  padding:6px 0;
+}
+
+/* Power-on stagger: rows appear top→bottom */
+.menu-row{
+  opacity:0;
+  animation:rowAppear 0.18s ease-out forwards;
+}
+.menu-row:nth-child(1){animation-delay:0.08s;}
+.menu-row:nth-child(2){animation-delay:0.11s;}
+.menu-row:nth-child(3){animation-delay:0.14s;}
+.menu-row:nth-child(4){animation-delay:0.17s;}
+.menu-row:nth-child(5){animation-delay:0.20s;}
+.menu-row:nth-child(6){animation-delay:0.23s;}
+.menu-row:nth-child(7){animation-delay:0.26s;}
+.menu-row:nth-child(8){animation-delay:0.29s;}
+.menu-row:nth-child(9){animation-delay:0.32s;}
+.menu-row:nth-child(10){animation-delay:0.35s;}
+
+@keyframes rowAppear{
+  from{opacity:0;transform:translateX(-6px);}
+  to{opacity:1;transform:translateX(0);}
+}
+
+.menu-row{
+  display:flex;align-items:center;
+  padding:9px 20px;
+  cursor:pointer;
+  position:relative;
+  border-left:3px solid transparent;
+  transition:background 0.12s, border-color 0.12s;
+  user-select:none;
+}
+.menu-row:hover:not(.selected):not(.disabled){
+  background:rgba(56,230,255,0.04);
+  border-left-color:rgba(56,230,255,0.25);
+}
+.menu-row.selected{
+  background:rgba(255,208,0,0.07);
+  border-left-color:var(--amber);
+  animation:selGlow 2.4s ease-in-out infinite;
+}
+@keyframes selGlow{
+  0%,100%{box-shadow:inset 0 0 0 0 transparent, -2px 0 14px -2px rgba(255,208,0,0.0);}
+  50%{box-shadow:inset 0 0 0 0 transparent, -2px 0 14px -2px rgba(255,208,0,0.22);}
+}
+.menu-row.disabled{
+  opacity:0.38;cursor:default;
+  pointer-events:none;
+}
+.menu-row.warn-row{
+  border-left-color:transparent;
+}
+.menu-row.warn-row:hover{
+  background:rgba(255,60,60,0.07);
+  border-left-color:rgba(255,60,60,0.5);
+}
+
+.row-label{
+  flex:1;
+  font-size:13px;
+  letter-spacing:0.06em;
+  color:var(--body);
+}
+.menu-row.selected .row-label{
+  color:var(--title);
+}
+.menu-row.warn-row .row-label{
+  color:rgba(255,100,100,0.85);
+}
+.menu-row.disabled .row-label{
+  color:var(--disabled);
+}
+
+/* lock annotation */
+.lock-note{
+  font-size:10px;
+  letter-spacing:0.06em;
+  color:var(--disabled);
+  margin-left:8px;
+  border:1px solid rgba(58,70,80,0.6);
+  padding:1px 6px;
+  border-radius:2px;
+}
+
+/* ── Drill-down row ── */
+.drilldown-arrow{
+  font-size:16px;
+  color:var(--amber);
+  text-shadow:0 0 8px rgba(255,208,0,0.7), 0 0 20px rgba(255,208,0,0.3);
+  margin-left:8px;
+}
+.menu-row.selected .drilldown-arrow{
+  animation:arrowPulse 1.2s ease-in-out infinite;
+}
+@keyframes arrowPulse{
+  0%,100%{text-shadow:0 0 8px rgba(255,208,0,0.7), 0 0 20px rgba(255,208,0,0.3);}
+  50%{text-shadow:0 0 12px rgba(255,208,0,1), 0 0 30px rgba(255,208,0,0.6);}
+}
+
+/* ── Toggle pill ── */
+.toggle-pill{
+  display:inline-flex;align-items:center;
+  padding:3px 12px;
+  border-radius:20px;
+  font-size:11px;
+  letter-spacing:0.1em;
+  font-weight:700;
+  text-transform:uppercase;
+  border:1px solid;
+  transition:all 0.12s;
+  min-width:56px;justify-content:center;
+}
+.toggle-pill.on{
+  color:#002A10;
+  background:var(--green);
+  border-color:var(--green);
+  box-shadow:0 0 6px rgba(70,255,122,0.5), 0 0 16px rgba(70,255,122,0.25);
+}
+.toggle-pill.off{
+  color:var(--secondary);
+  background:rgba(58,70,80,0.35);
+  border-color:rgba(58,70,80,0.7);
+  box-shadow:none;
+}
+
+/* ── Cycle value ── */
+.cycle-val{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:12px;letter-spacing:0.07em;
+  color:var(--cyan);
+  text-shadow:0 0 6px rgba(56,230,255,0.4);
+}
+.cycle-val .arrow{
+  color:rgba(56,230,255,0.5);font-size:11px;
+}
+.menu-row.disabled .cycle-val{
+  color:var(--disabled);
+  text-shadow:none;
+}
+
+/* ── Slider ── */
+.slider-wrap{
+  display:flex;align-items:center;gap:8px;
+  min-width:140px;
+}
+.slider-track{
+  position:relative;
+  width:110px;height:6px;
+  background:rgba(56,230,255,0.12);
+  border-radius:3px;
+  border:1px solid rgba(56,230,255,0.2);
+}
+.slider-fill{
+  position:absolute;left:0;top:0;bottom:0;
+  border-radius:3px;
+  background:var(--cyan);
+  box-shadow:0 0 6px rgba(56,230,255,0.6), 0 0 14px rgba(56,230,255,0.3);
+  transition:width 0.1s;
+}
+.slider-handle{
+  position:absolute;top:50%;
+  width:12px;height:12px;
+  background:var(--title);
+  border-radius:50%;
+  transform:translate(-50%,-50%);
+  box-shadow:0 0 4px var(--cyan), 0 0 12px rgba(56,230,255,0.7);
+  animation:handleShimmer 3s ease-in-out infinite;
+}
+@keyframes handleShimmer{
+  0%,100%{box-shadow:0 0 4px var(--cyan), 0 0 12px rgba(56,230,255,0.5);}
+  50%{box-shadow:0 0 6px var(--cyan), 0 0 18px rgba(56,230,255,0.9), 0 0 28px rgba(56,230,255,0.3);}
+}
+.slider-val{
+  font-size:11px;color:var(--secondary);
+  min-width:32px;text-align:right;
+  letter-spacing:0.05em;
+}
+
+/* ── Tooltip box ── */
+.tooltip-box{
+  margin:0 16px 14px;
+  padding:10px 14px;
+  background:rgba(5,8,16,0.75);
+  border:1px solid rgba(56,230,255,0.22);
+  border-radius:3px;
+  box-shadow:0 0 10px rgba(56,230,255,0.05);
+  min-height:62px;
+  position:relative;
+}
+.tooltip-box .tip-tag{
+  position:absolute;top:-8px;left:10px;
+  font-size:9px;letter-spacing:0.18em;text-transform:uppercase;
+  background:var(--bg);padding:0 6px;
+  color:var(--secondary);
+}
+.tooltip-box p{
+  font-size:12px;line-height:1.55;
+  color:var(--body);
+  letter-spacing:0.03em;
+}
+.tip-cyan{color:var(--cyan);text-shadow:0 0 6px rgba(56,230,255,0.5);}
+.tip-amber{color:var(--amber);text-shadow:0 0 6px rgba(255,208,0,0.5);}
+
+/* ── Separator ── */
+.menu-sep{
+  height:1px;
+  background:rgba(56,230,255,0.1);
+  margin:4px 16px;
+}
+
+/* ── Status bar ── */
+.status-bar{
+  display:flex;align-items:center;
+  padding:8px 0 0;
+  border-top:1px solid rgba(56,230,255,0.1);
+  gap:24px;
+}
+.status-bar .hint{
+  font-size:10px;letter-spacing:0.12em;text-transform:uppercase;
+  color:var(--secondary);
+  display:flex;align-items:center;gap:6px;
+}
+.status-bar .hint .key{
+  display:inline-block;
+  border:1px solid rgba(127,191,207,0.4);
+  padding:1px 6px;border-radius:2px;
+  font-size:10px;color:var(--title);
+}
+.status-bar .build-tag{
+  margin-left:auto;
+  font-size:10px;letter-spacing:0.1em;
+  color:rgba(56,230,255,0.3);
+}
+</style>
+</head>
+<body>
+
+<h2 class="sr-only">DoomXR VR Arsenal UI Options Menu mockup — two-panel neon settings screen showing beginner options on the left with tooltips, and an advanced drill-down on the right with a gate-greyed dependent row.</h2>
+
+<div class="screen">
+
+  <!-- Global header -->
+  <div class="global-header">
+    <span class="logo-mark">DoomXR</span>
+    <span style="color:var(--disabled);font-size:11px;">|</span>
+    <div class="breadcrumb">
+      <span>Main Menu</span>
+      <span class="sep">/</span>
+      <span>Options</span>
+      <span class="sep">/</span>
+      <span class="current">VR Arsenal UI</span>
+    </div>
+  </div>
+
+  <!-- Two panels -->
+  <div class="panels">
+
+    <!-- LEFT PANEL: BASICS -->
+    <div class="panel panel-left" id="panel-left">
+      <div class="panel-title">
+        <h3 id="left-title">VR Arsenal UI &mdash; Basics</h3>
+        <span class="tag">vr_arsenal_ui</span>
+      </div>
+
+      <div class="menu-rows" id="menu-rows-left">
+
+        <!-- Row 1: Wrist Slate -->
+        <div class="menu-row" data-row="0" tabindex="0"
+          data-tip="Snap the quick-swap widget to your wrist between swaps. Disable if you use the full radial wheel exclusively.">
+          <span class="row-label">Wrist Slate (quick swap)</span>
+          <span class="toggle-pill on" id="t-wrist">ON</span>
+        </div>
+
+        <!-- Row 2: Deep Menu Surface -->
+        <div class="menu-row" data-row="1" tabindex="0"
+          data-tip='Select how the backing surface of deep menus is revealed. <span class="tip-cyan">Seam Reveal</span> tears the world open on open; Fade materialises in-place; Warp distorts into view.'>
+          <span class="row-label">Deep Menu Surface</span>
+          <span class="cycle-val">
+            <span class="arrow">&#9664;</span>
+            Seam Reveal
+            <span class="arrow">&#9654;</span>
+          </span>
+        </div>
+
+        <!-- Row 3: Classic Weapon Wheel -->
+        <div class="menu-row" data-row="2" tabindex="0"
+          data-tip="Use the classic circular weapon wheel instead of the wrist slate. Both can coexist — this adds the radial as an alternate access path.">
+          <span class="row-label">Classic Weapon Wheel</span>
+          <span class="toggle-pill on" id="t-wheel">ON</span>
+        </div>
+
+        <!-- Row 4: Time Slow-Mo -->
+        <div class="menu-row" data-row="3" tabindex="0"
+          data-tip="How much real-time slows while the menu is open. 0% = full freeze; 100% = no slow. Tune to taste — higher values add urgency.">
+          <span class="row-label">Time Slow-Mo (menu open)</span>
+          <div class="slider-wrap">
+            <div class="slider-track">
+              <div class="slider-fill" style="width:15%;"></div>
+              <div class="slider-handle" style="left:15%;"></div>
+            </div>
+            <span class="slider-val">15%</span>
+          </div>
+        </div>
+
+        <!-- Row 5: Haptic Mass Feel -->
+        <div class="menu-row" data-row="4" tabindex="0"
+          data-tip="Haptic impulse magnitude when selecting a gun — simulates its mass. 100% = full thud. Reduce if controller rumble becomes fatiguing.">
+          <span class="row-label">Haptic Mass Feel</span>
+          <div class="slider-wrap">
+            <div class="slider-track">
+              <div class="slider-fill" style="width:100%;"></div>
+              <div class="slider-handle" style="left:100%;"></div>
+            </div>
+            <span class="slider-val">100%</span>
+          </div>
+        </div>
+
+        <!-- Row 6: Show 3D Weapon Models -->
+        <div class="menu-row" data-row="5" tabindex="0"
+          data-tip="Render live 3D weapon previews in weapon card slots. Disable for a leaner flat-sprite view on lower-end headsets.">
+          <span class="row-label">Show 3D Weapon Models</span>
+          <span class="toggle-pill on" id="t-models">ON</span>
+        </div>
+
+        <!-- Row 7: Muscle-Memory Quick-Draw -->
+        <div class="menu-row" data-row="6" tabindex="0"
+          data-tip='Enables spatial memory slots — always-pull the last-held gun from the same world-space pocket. <span class="tip-cyan">Recommended off</span> until you have 10+ hours of VR playtime.'>
+          <span class="row-label">Muscle-Memory Quick-Draw</span>
+          <span class="toggle-pill off" id="t-quickdraw">OFF</span>
+        </div>
+
+        <div class="menu-sep"></div>
+
+        <!-- Row 8: Advanced Options (selected) -->
+        <div class="menu-row selected" data-row="7" tabindex="0" id="row-advanced"
+          data-tip='Open the deep per-surface knobs &mdash; anchor points, gesture modes, card layout, neon FX. <span class="tip-cyan">For power users.</span>'>
+          <span class="row-label">Advanced Options</span>
+          <span class="drilldown-arrow">&#9654;</span>
+        </div>
+
+        <div class="menu-sep"></div>
+
+        <!-- Row 9: Reset -->
+        <div class="menu-row warn-row" data-row="8" tabindex="0"
+          data-tip="Restore every VR Arsenal UI cvar to its shipped default. This cannot be undone in-session.">
+          <span class="row-label">Reset to Defaults</span>
+        </div>
+
+      </div><!-- /menu-rows -->
+
+      <!-- Tooltip box -->
+      <div class="tooltip-box" id="tooltip-left">
+        <span class="tip-tag">TFLV Tooltip</span>
+        <p id="tooltip-text-left">Open the deep per-surface knobs &mdash; anchor points, gesture modes, card layout, neon FX. <span class="tip-cyan">For power users.</span></p>
+      </div>
+    </div><!-- /panel-left -->
+
+    <!-- RIGHT PANEL: ADVANCED -->
+    <div class="panel panel-right" id="panel-right">
+      <div class="panel-title">
+        <h3 class="amber-title">Seam Reveal &mdash; Advanced</h3>
+        <span class="tag">vr_seam_reveal.*</span>
+      </div>
+
+      <div class="menu-rows" id="menu-rows-right">
+
+        <!-- Row 1: Seam Anchor -->
+        <div class="menu-row" data-row="r0" tabindex="0"
+          data-tip-right='World-space anchor for the seam opening origin. <span class="tip-amber">Belly</span> = chest-centre pull; Hip = gun-side hip holster zone; Shoulder = over-the-back reach.'>
+          <span class="row-label">Seam Anchor</span>
+          <span class="cycle-val">
+            <span class="arrow">&#9664;</span>
+            Belly
+            <span class="arrow">&#9654;</span>
+          </span>
+        </div>
+
+        <!-- Row 2: Role -->
+        <div class="menu-row" data-row="r1" tabindex="0"
+          data-tip-right='What the seam is used for. Showpiece Only = opens for dramatic effect, not functional swapping. Functional = primary swap surface. Hybrid = showpiece that can also grab.'>
+          <span class="row-label">Role</span>
+          <span class="cycle-val">
+            <span class="arrow">&#9664;</span>
+            Showpiece Only
+            <span class="arrow">&#9654;</span>
+          </span>
+        </div>
+
+        <!-- Row 3: Grab Mode -->
+        <div class="menu-row" data-row="r2" tabindex="0"
+          data-tip-right='How a gun is extracted from the seam. Pull-Back = reach in and pull toward you. Pinch = two-finger pinch and lift. Yank = rapid flick-out.'>
+          <span class="row-label">Grab Mode</span>
+          <span class="cycle-val">
+            <span class="arrow">&#9664;</span>
+            Pull-Back
+            <span class="arrow">&#9654;</span>
+          </span>
+        </div>
+
+        <!-- Row 4: Card Detail -->
+        <div class="menu-row" data-row="r3" tabindex="0"
+          data-tip-right='How much stat detail a weapon card reveals. Dwell-Expand = compact by default, expands on gaze-dwell. Full = always shows all stats. Minimal = icon + ammo only.'>
+          <span class="row-label">Card Detail</span>
+          <span class="cycle-val">
+            <span class="arrow">&#9664;</span>
+            Dwell-Expand
+            <span class="arrow">&#9654;</span>
+          </span>
+        </div>
+
+        <!-- Row 5: Time Slow -->
+        <div class="menu-row" data-row="r4" tabindex="0"
+          data-tip-right='Per-surface time slow override for the seam reveal. Overrides the Basics value when you enter this surface specifically.'>
+          <span class="row-label">Time Slow</span>
+          <div class="slider-wrap">
+            <div class="slider-track">
+              <div class="slider-fill" style="width:15%;"></div>
+              <div class="slider-handle" style="left:15%;"></div>
+            </div>
+            <span class="slider-val">15%</span>
+          </div>
+        </div>
+
+        <!-- Row 6: Show Unowned Guns -->
+        <div class="menu-row" data-row="r5" tabindex="0"
+          data-tip-right='How guns you have not yet picked up appear in the seam. Ghost = translucent silhouette. Hidden = absent. Locked = visible but crossed-out.'>
+          <span class="row-label">Show Unowned Guns</span>
+          <span class="cycle-val">
+            <span class="arrow">&#9664;</span>
+            Ghost
+            <span class="arrow">&#9654;</span>
+          </span>
+        </div>
+
+        <!-- Row 7: Dual-Wield Pair-Pull -->
+        <div class="menu-row" data-row="r6" tabindex="0"
+          data-tip-right='When pulling from the seam with both hands simultaneously, automatically pair matched dual-wield siblings. Requires vr_dual_wield ON.'>
+          <span class="row-label">Dual-Wield Pair-Pull</span>
+          <span class="toggle-pill on">ON</span>
+        </div>
+
+        <div class="menu-sep"></div>
+
+        <!-- Row 8: Neon Seam FX — GREYED (gate-cvar demo) -->
+        <div class="menu-row disabled" data-row="r7" tabindex="-1"
+          data-tip-right='Neon seam FX requires the GITD / MSDF subsystem to be active. Load GlowInTheDark_2.0.pk3 and ensure vr_gitd_enabled 1.'>
+          <span class="row-label">Neon Seam FX</span>
+          <span class="lock-note">requires GITD / MSDF subsystem</span>
+        </div>
+
+      </div><!-- /menu-rows-right -->
+
+      <!-- Tooltip box right -->
+      <div class="tooltip-box" id="tooltip-right">
+        <span class="tip-tag">TFLV Tooltip</span>
+        <p id="tooltip-text-right">The two-handed chest-rip vault. <span class="tip-amber">Only opens when you earn it &mdash; never gorilla-arms your everyday swaps.</span></p>
+      </div>
+
+    </div><!-- /panel-right -->
+
+  </div><!-- /panels -->
+
+  <!-- Status bar -->
+  <div class="status-bar">
+    <div class="hint"><span class="key">A / D</span> Select</div>
+    <div class="hint"><span class="key">Enter</span> Confirm</div>
+    <div class="hint"><span class="key">Backspace</span> Back</div>
+    <div class="hint"><span class="key">Trigger</span> Activate in VR</div>
+    <div class="build-tag">DoomXR 4.14 &mdash; vr_arsenal_ui_version 1</div>
+  </div>
+
+</div><!-- /screen -->
+
+<script>
+(function(){
+  var rows = document.querySelectorAll('#panel-left .menu-row');
+  var tooltipEl = document.getElementById('tooltip-text-left');
+
+  function selectRow(index){
+    rows.forEach(function(r,i){
+      r.classList.toggle('selected', i === index);
+    });
+    var tip = rows[index] ? rows[index].getAttribute('data-tip') : '';
+    if(tip) tooltipEl.innerHTML = tip;
+  }
+
+  rows.forEach(function(row,i){
+    row.addEventListener('mouseenter', function(){
+      selectRow(i);
+    });
+    row.addEventListener('click', function(){
+      selectRow(i);
+    });
+    row.addEventListener('keydown', function(e){
+      if(e.key === 'Enter' || e.key === ' ') selectRow(i);
+    });
+  });
+
+  var rowsRight = document.querySelectorAll('#panel-right .menu-row:not(.disabled)');
+  var tooltipREl = document.getElementById('tooltip-text-right');
+
+  rowsRight.forEach(function(row){
+    row.addEventListener('mouseenter', function(){
+      var tip = row.getAttribute('data-tip-right');
+      if(tip) tooltipREl.innerHTML = tip;
+    });
+  });
+
+  // Toggle pills on left panel
+  var toggles = {
+    't-wrist':   true,
+    't-wheel':   true,
+    't-models':  true,
+    't-quickdraw': false
+  };
+  Object.keys(toggles).forEach(function(id){
+    var el = document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('click', function(e){
+      e.stopPropagation();
+      toggles[id] = !toggles[id];
+      el.textContent = toggles[id] ? 'ON' : 'OFF';
+      el.className = 'toggle-pill ' + (toggles[id] ? 'on' : 'off');
+    });
+  });
+
+})();
+</script>
+</body>
+</html>

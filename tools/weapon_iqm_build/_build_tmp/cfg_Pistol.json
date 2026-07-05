@@ -1,0 +1,29 @@
+{
+  "md3": "E:\\DoomXR-work\\DOOM_FRESH\\wadsrc\\static\\models\\weapons\\pistol\\Pistol.md3",
+  "out": "E:\\DoomXR-work\\DOOM_FRESH\\wadsrc\\static\\models\\weapons\\pistol\\Pistol.iqm",
+  "style": "boxmag",
+  "material": "Pistol",
+  "hotspots": {
+    "hs_grip": [
+      0,
+      0,
+      0
+    ],
+    "hs_foregrip": [
+      11.5,
+      0,
+      -24.281
+    ],
+    "hs_magwell": [
+      30.133,
+      0,
+      -29.391
+    ],
+    "hs_rack": [
+      22.704,
+      0,
+      -16.466
+    ]
+  },
+  "ready_frame": 2
+}

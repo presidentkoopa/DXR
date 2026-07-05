@@ -495,6 +495,16 @@ public:
 	int vr_hand_state[2] = { 0, 0 }; // 0: Idle, 1: Grip, 2: Climb, 3: Point
 	bool vr_two_hand_stabilized = false;
 
+	// ---- VR hand-world collision (native, per-tic; see VR_UpdateHandCollision in p_user.cpp) ----
+	// TRANSIENT runtime-only state, POD like vr_climb_start_pos above -- not serialized.
+	DVector3 vr_hand_collision_last_pos[2] = {};
+	bool     vr_hand_collision_last_valid[2] = { false, false };
+	bool     vr_hand_touching_wall[2] = { false, false };
+	// The hand position VR_UpdateArmIK should target instead of the raw controller pose when
+	// vr_hand_touching_wall is true -- pulled back to sit at the real contact radius from the wall
+	// surface so the rendered hand can't push through geometry. Mirrors the raw hand pos otherwise.
+	DVector3 vr_hand_collision_clamp_pos[2] = {};
+
 	// ---- VR HARDPOINT MOUNTS (native, per-tic; see VR_UpdateHardpoints in p_user.cpp) ----
 	// Per-player runtime hardpoint state. Fixed array (parity with vr_climbing_lines[2][10] above);
 	// TObjPtr<AActor*> for the stowed weapon mirrors the vr_held_items GC pattern (line 473).
@@ -515,6 +525,54 @@ public:
 	int  vr_hardpoint_count = 0;
 	bool vr_hardpoint_was_grip[2] = { false, false }; // OWN grip latch; does not fight vr_was_grip_pressed above
 	bool vr_hardpoints_initialized = false;           // lazy one-shot seed from FVRConfig::Hardpoints on first VR_UpdateHardpoints tic
+
+	// ================= ENGINE-LEVEL VR WEAPON HANDLING (native; hotspots + reload FSM + foregrip) =================
+	// SINGLE runtime cache for the ACTIVE ReadyWeapon. ZScript declares style once (AssignWeaponHandling); the
+	// per-tic C++ reads this. ALL fields below are TRANSIENT CLIENT-PRESENTATION STATE (local hand transform +
+	// model bind pose) -- EXCLUDED from the player_t serialize path by OMISSION (no << list; same rule as
+	// vr_ik_pose / vr_grip_owner). POD + one TObjPtr only (no FString/complex -> no AActor-defaults clobber).
+	enum EReloadStyle { RS_NONE = 0, RS_BOXMAG, RS_SHELL, RS_BREAK, RS_INTERNAL, RS_POD, RS_CANISTER };
+	enum EVReloadState { VRRL_READY = 0, VRRL_EMPTY, VRRL_MAG_OUT, VRRL_MAG_IN, VRRL_RACKED };
+
+	struct VRWeaponHandlingRuntime
+	{
+		int  style        = RS_NONE;   // EReloadStyle from AssignWeaponHandling
+		bool assigned     = false;     // a weapon declared handling this session (else legacy/no-op)
+		int  boneForegrip = -1;        // hs_foregrip (two-hand handguard grab point); -1 => absent
+		int  boneMagwell  = -1;        // hs_magwell  (mag seat point)
+		int  boneRack     = -1;        // hs_rack     (charging-handle grab point)
+		const PClass* resolvedClass = nullptr;
+		const void*   resolvedModel = nullptr; // FModel* (opaque; identity compare only)
+		bool  resolved     = false;
+	};
+	VRWeaponHandlingRuntime vr_weapon_handling;   // single-slot: the active ReadyWeapon
+
+	// ---- VR MANUAL-RELOAD FSM RUNTIME (native; VR_UpdateWeaponReload in p_user.cpp). All transient. ----
+	int   vr_reload_state      = 0;              // EVReloadState node for the ReadyWeapon
+	int   vr_reload_rounds     = 0;              // rounds seated in the mag (display + gate)
+	bool  vr_reload_mag_seated = false;          // fresh mag seated at hs_magwell (pre-rack)
+	bool  vr_reload_chambered  = false;          // live round chambered (post-rack) -> READY
+	TObjPtr<AActor*> vr_reload_weapon = MakeObjPtr<AActor*>(nullptr); // weapon this runtime tracks; reset on switch
+	int   vr_reload_rack_hand  = -1;             // physical hand gripping hs_rack (-1 none)
+	double vr_reload_rack_travel = 0.0;          // accumulated pull along -barrel since grab
+	DVector3 vr_reload_rack_anchor = {};         // hs_rack world pos at rack grab (travel base)
+	bool  vr_reload_mag_grip_prev[2]  = { false, false }; // per-hand seat-gesture grip latch
+	bool  vr_reload_rack_grip_prev[2] = { false, false }; // per-hand rack-grab grip latch
+
+	// ---- [XR reload juice] extra-style + perfect-timing + tactical RUNTIME (native; VR_UpdateWeaponReload). All transient. ----
+	// APPENDED at the end of the reload block so the FSerializer-omission rule above still covers them (no << list touched).
+	int   vr_reload_heat       = 0;              // RS_CANISTER heat 0..100; overheat forces a vent cycle
+	bool  vr_reload_overheated = false;          // heat hit the ceiling -> must rack the hot canister then seat a cold one
+	bool  vr_reload_cylinder_open = false;       // RS_INTERNAL: cylinder swung out (speedloader may seat)
+	int   vr_reload_start_tic  = 0;              // gametic the eject/empty window opened (perfect-timing base; 0 = closed)
+	bool  vr_reload_perfect    = false;          // last refill landed inside the perfect window (cleared on read / timeout)
+	int   vr_reload_perfect_tic = 0;             // gametic vr_reload_perfect was raised (auto-clear guard)
+	bool  vr_reload_tactical   = false;          // tactical eject in progress: keep 1 chambered, forfeit the partial mag
+
+	// ---- ARTICULATED TWO-HAND FOREGRIP (native; VR_CalculateTwoHanding upgrade). Transient. ----
+	bool  vr_foregrip_engaged = false;           // off-hand foregripping the main weapon's hs_foregrip this tic
+	float vr_foregrip_world[3] = { 0.f, 0.f, 0.f }; // hs_foregrip world point for the aim pivot / vhand swap
+	// ============================================================================================================
 
 	// ---- ARM IK SOLVED POSE (native; written by VR_UpdateArmIK in p_user.cpp, read by the model-render path) ----
 	// One parent-local TRS per whole skeleton so the render path can point proceduralPose straight at it

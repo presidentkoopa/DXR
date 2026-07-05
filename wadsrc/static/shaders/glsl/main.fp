@@ -8,8 +8,6 @@ layout(location = 4) in vec3 gradientdist;
 layout(location = 5) in vec4 vWorldNormal;
 layout(location = 6) in vec4 vEyeNormal;
 layout(location = 9) in vec3 vLightmap;
-// PS1 affine-warp companion to vTexCoord -- see the matching declaration in main.vp.
-layout(location = 10) noperspective in vec4 vTexCoordAffine;
 
 #ifdef NO_CLIPDISTANCE_SUPPORT
 layout(location = 7) in vec4 ClipDistanceA;
@@ -56,22 +54,15 @@ const int TEXF_ClampY = 0x80000;
 //
 //===========================================================================
 
-vec3 hsv2rgb(vec3 c)
-{
-    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
-    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-}
-
 vec3 rgb2hsv(vec3 c)
 {
-    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
-    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
-    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+	vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+	vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
 
-    float d = q.x - min(q.w, q.y);
-    float e = 1.0e-10;
-    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+	float d = q.x - min(q.w, q.y);
+	float e = 1.0e-10;
+	return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
 }
 
 //===========================================================================
@@ -668,20 +659,6 @@ vec3 ApplyNormalMap(vec2 texcoord)
 
 //===========================================================================
 //
-// PS1 affine texture warp: when enabled, the primary diffuse sample uses the
-// noperspective-interpolated coordinate instead of the perspective-correct one. uAffineWarp
-// lives in the shared viewpoint uniform block (already used by main.vp), so it needs no
-// additional C++ plumbing to read here.
-//
-//===========================================================================
-
-vec2 GetAffineTexCoord(vec2 perspCoord)
-{
-	return (uAffineWarp != 0) ? vTexCoordAffine.st : perspCoord;
-}
-
-//===========================================================================
-//
 // Sets the common material properties.
 //
 //===========================================================================
@@ -729,18 +706,6 @@ void SetMaterialProps(inout Material material, vec2 texCoord)
 //
 //===========================================================================
 
-// ============ GITD NOISE HELPERS (kept for applyOmniFog vortex mode) ============
-// The neon/glow-spot display helpers + the entire wall/floor glow-spot cascade and
-// applyVisualRegime() were MOVED to Radiance Control Panel's main.fp override (loads
-// last, wins). Engine renders plainly when Radiance is absent. gitd_hash/gitd_vnoise
-// stay here because applyOmniFog() below still uses them.
-float gitd_hash(float n){ return fract(sin(n) * 43758.5453123); }
-float gitd_vnoise(float x){
-	float i = floor(x), f = fract(x);
-	f = f * f * (3.0 - 2.0 * f);
-	return mix(gitd_hash(i), gitd_hash(i + 1.0), f);
-}
-// ==============================================================================
 vec4 getLightColor(Material material, float fogdist, float fogfactor)
 {
 	vec4 color = vColor;
@@ -776,6 +741,341 @@ vec4 getLightColor(Material material, float fogdist, float fogfactor)
 		color.rgb += desaturate(uGlowBottomColor * (1.0 - glowdist.y / uGlowBottomColor.a)).rgb;
 	}
 
+	//
+	// [RADIANCE] up to MAX_WALL_GLOW_SPOTS localized glow pools on floors/ceilings.
+	// uWallGlowSpots[i] = vec4(center.x, center.z(world), packedRGB, radius). Compile-time loop
+	// bound (GLES2-legal); uWallGlowSpotCount is the dynamic early-out.
+	//
+	for (int wgIdx = 0; wgIdx < MAX_WALL_GLOW_SPOTS; wgIdx++)
+	{
+		if (wgIdx >= uWallGlowSpotCount) break;
+		vec4 wgSp = uWallGlowSpots[wgIdx];
+		if (wgSp.w > 0.0)
+		{
+			float wgDist = length(pixelpos.xz - wgSp.xy);
+			if (wgDist < wgSp.w)
+			{
+				float wgPk = wgSp.z;
+				vec3 wgCol = vec3(floor(wgPk / 65536.0), floor(mod(wgPk, 65536.0) / 256.0), mod(wgPk, 256.0)) / 255.0;
+				vec4 wgMask = uWallGlowMask[wgIdx];
+				float wgTypeRaw = wgMask.x;
+				float wallPat = floor(wgTypeRaw / 100.0);
+				float wgType = wgTypeRaw - wallPat * 100.0;
+				vec3 wgAdd = vec3(0.0);
+				bool isWall = abs(vWorldNormal.y) < 0.5;
+				if (isWall)
+				{
+					float col = clamp(1.0 - wgDist / wgSp.w, 0.0, 1.0);
+					float yy = pixelpos.y;
+					float prog = clamp(wgMask.y, 0.0, 1.0);
+					float wx = pixelpos.x + pixelpos.z;
+					if (wallPat < 0.5)
+					{
+						float core = col;
+						float halo = sqrt(col) * 0.55;
+						float breathe = 0.84 + 0.16 * sin(timer * 1.1 + wgSp.x * 0.13);
+						float shimmer = 0.92 + 0.08 * sin(yy * 0.05 + timer * 0.7);
+						wgAdd = wgCol * ((core * 0.65 + halo) * breathe * shimmer);
+					}
+					else if (wallPat < 1.5)
+					{
+						float c2 = col * col;
+						float band = abs(fract(yy * 0.035 - prog * 1.6) - 0.5) * 2.0;
+						float sl = smoothstep(0.55, 0.95, band);
+						wgAdd = (wgCol + vec3(0.08)) * (c2 * (0.25 + 0.75 * sl));
+					}
+					else if (wallPat < 2.5)
+					{
+						vec2 gp = vec2(wx, yy) * 0.04;
+						vec2 cid = floor(gp);
+						vec2 cell = fract(gp) - 0.5;
+						float phase = fract(sin(dot(cid, vec2(12.9898, 78.233))) * 43758.5453);
+						float ang = timer * 1.6 + phase * 6.2831;
+						float ca = cos(ang), sa = sin(ang);
+						vec2 rc = mat2(ca, -sa, sa, ca) * cell;
+						float sq = max(abs(rc.x), abs(rc.y));
+						float block = 1.0 - smoothstep(0.24, 0.34, sq);
+						float edge = smoothstep(0.20, 0.30, sq) * (1.0 - smoothstep(0.34, 0.42, sq));
+						wgAdd = wgCol * (col * (block * 0.5 + edge));
+					}
+					else if (wallPat < 3.5)
+					{
+						float seed = fract(sin(floor(wx * 0.12) * 12.9898 + wgSp.x) * 43758.5453);
+						float dr = fract(yy * 0.02 + seed * 2.3 + prog * 0.9);
+						float trail = smoothstep(0.0, 0.45, dr) * (1.0 - smoothstep(0.45, 1.0, dr));
+						wgAdd = wgCol * (col * trail * 0.9) + vec3(0.5, 0.02, 0.015) * (col * trail * 0.5);
+					}
+					else if (wallPat < 4.5)
+					{
+						float seed = fract(sin(floor(wx * 0.12) * 12.9898 + wgSp.x) * 43758.5453);
+						float rs = fract(yy * 0.02 - seed * 2.3 - prog * 0.9);
+						float trail = smoothstep(0.0, 0.45, rs) * (1.0 - smoothstep(0.45, 1.0, rs));
+						wgAdd = (wgCol + vec3(0.25, 0.10, 0.0)) * (col * trail * 0.95);
+					}
+					else
+					{
+						float barf = (wgDist / wgSp.w) * 7.0;
+						float bar = floor(barf);
+						float seed = fract(sin(bar * 7.31 + wgSp.x) * 43758.5453);
+						float t1 = fract(timer * 0.9 + seed);
+						float env = exp(-t1 * 3.2);
+						float pulse = 0.32 + 0.68 * env;
+						float band = 1.0 - smoothstep(0.36, 0.50, abs(fract(barf) - 0.5));
+						wgAdd = wgCol * (col * pulse * (0.3 + 0.7 * band));
+					}
+					float wdith = (mod(gl_FragCoord.x, 2.0) * 0.5 + mod(gl_FragCoord.y, 2.0) * 0.25 - 0.375) * (1.7 / 255.0);
+					wgAdd += vec3(wdith);
+				}
+				else
+				{
+				if (wgType > 12.5)
+				{
+					vec2 nrel = pixelpos.xz - wgSp.xy;
+					float nasp = max(length(wgMask.zw), 0.001);
+					vec2 nudir = wgMask.zw / nasp;
+					float nhH = wgSp.w / sqrt(1.0 + nasp * nasp);
+					float nhW = nasp * nhH;
+					float nAX = dot(nrel, nudir);
+					float nAY = dot(nrel, vec2(-nudir.y, nudir.x));
+					float nProg = max(wgMask.y, 0.05);
+					float nBox = length(vec2(abs(nAX) / nhW, abs(nAY) / (nProg * nhH)));
+					float nborder = smoothstep(0.80, 0.93, nBox) * (1.0 - smoothstep(0.99, 1.12, nBox));
+					float nfill = (1.0 - smoothstep(0.88, 1.00, nBox));
+					float nenc = wgPk;
+					float nnum = mod(nenc, 131072.0);
+					float ncidx = floor(nenc / 131072.0);
+					vec3 nbc = (ncidx < 0.5) ? vec3(0.0, 0.8, 1.0) : (ncidx < 1.5) ? vec3(1.0, 0.78, 0.16) : (ncidx < 2.5) ? vec3(1.0, 0.22, 0.16) : vec3(0.55, 1.0, 0.5);
+					wgAdd = nbc * (nfill * 0.55 + nborder * 0.6);
+					if (nProg > 0.55)
+					{
+						float nlen = (nnum < 10.0) ? 1.0 : (nnum < 100.0) ? 2.0 : (nnum < 1000.0) ? 3.0 : (nnum < 10000.0) ? 4.0 : 5.0;
+						float nx = nAX / (nhW * 0.82);
+						float ny = nAY / (nhH * 0.60);
+						if (abs(nx) < 1.0 && abs(ny) < 1.0)
+						{
+							float u = (nx * 0.5 + 0.5) * nlen;
+							float di = clamp(floor(u), 0.0, nlen - 1.0);
+							float dx = (u - di) * 2.0 - 1.0;
+							float dy = ny;
+							float dv = mod(floor(nnum / pow(10.0, nlen - 1.0 - di)), 10.0);
+							float m; if (dv < 0.5) m = 63.0; else if (dv < 1.5) m = 6.0; else if (dv < 2.5) m = 91.0; else if (dv < 3.5) m = 79.0; else if (dv < 4.5) m = 102.0; else if (dv < 5.5) m = 109.0; else if (dv < 6.5) m = 125.0; else if (dv < 7.5) m = 7.0; else if (dv < 8.5) m = 127.0; else m = 111.0;
+							float th = 0.17, sl = 0.55;
+							float lit = 0.0;
+							lit = max(lit, mod(floor(m / 1.0),  2.0) * step(abs(dy - 0.72), th) * step(abs(dx), sl));
+							lit = max(lit, mod(floor(m / 8.0),  2.0) * step(abs(dy + 0.72), th) * step(abs(dx), sl));
+							lit = max(lit, mod(floor(m / 64.0), 2.0) * step(abs(dy), th) * step(abs(dx), sl));
+							lit = max(lit, mod(floor(m / 32.0), 2.0) * step(abs(dx + 0.52), th) * step(abs(dy - 0.36), 0.36 + th));
+							lit = max(lit, mod(floor(m / 2.0),  2.0) * step(abs(dx - 0.52), th) * step(abs(dy - 0.36), 0.36 + th));
+							lit = max(lit, mod(floor(m / 16.0), 2.0) * step(abs(dx + 0.52), th) * step(abs(dy + 0.36), 0.36 + th));
+							lit = max(lit, mod(floor(m / 4.0),  2.0) * step(abs(dx - 0.52), th) * step(abs(dy + 0.36), 0.36 + th));
+							wgAdd = mix(wgAdd, vec3(0.0), lit * nfill);
+						}
+					}
+				}
+				else if (wgType > 11.5)
+				{
+					vec2 lrel = pixelpos.xz - wgSp.xy;
+					float lasp = max(length(wgMask.zw), 0.001);
+					vec2 ludir = wgMask.zw / lasp;
+					float lhH = wgSp.w / sqrt(1.0 + lasp * lasp);
+					float lhW = lasp * lhH;
+					float lAX = abs(dot(lrel, ludir));
+					float lAY = abs(dot(lrel, vec2(-ludir.y, ludir.x)));
+					float lProg = max(wgMask.y, 0.05);
+					float lBox = max(lAX / lhW, lAY / (lProg * lhH));
+					float fillv = smoothstep(1.00, 0.90, lBox);
+					float lborder = smoothstep(0.80, 0.94, lBox) * (1.0 - smoothstep(0.97, 1.06, lBox));
+					wgAdd = wgCol * (fillv * 0.45) + (wgCol + vec3(0.35)) * lborder;
+				}
+				else if (wgType > 10.5)
+				{
+					float strg = clamp(wgMask.y, 0.0, 1.0);
+					vec3 inv = clamp(vec3(1.0) - color.rgb, 0.0, 1.0);
+					float core = 1.0 - smoothstep(wgSp.w * 0.60, wgSp.w * 0.90, wgDist);
+					color.rgb = mix(color.rgb, inv, core * strg);
+					float rim = 1.0 - smoothstep(0.0, wgSp.w * 0.08, abs(wgDist - wgSp.w * 0.84));
+					color.rgb += inv * (rim * strg * 0.7);
+				}
+				else if (wgType > 9.5)
+				{
+					vec2 rel = pixelpos.xz - wgSp.xy;
+					float cellS = wgSp.w * 0.18;
+					vec2 g = rel / cellS;
+					vec2 gc = floor(g);
+					vec2 gf = fract(g) - 0.5;
+					float cellDist = length(gc * cellS);
+					float wave = wgMask.y * wgSp.w * 1.3;
+					float fp = (wave - cellDist) / (wgSp.w * 0.25);
+					if (fp > 0.0)
+					{
+						float checker = mod(gc.x + gc.y, 2.0);
+						float cell = 1.0 - smoothstep(0.35, 0.48, max(abs(gf.x), abs(gf.y)));
+						float fl = max(0.0, 1.0 - abs(clamp(fp, 0.0, 1.0) - 0.5) * 2.0);
+						float a = min(1.0, fp * 0.9);
+						wgAdd = (wgCol * (cell * (0.25 + 0.5 * checker)) + vec3(fl * 0.5) * cell) * a;
+					}
+				}
+				else if (wgType > 8.5)
+				{
+					vec2 rel = (pixelpos.xz - wgSp.xy) / wgSp.w;
+					float prog = wgMask.y;
+					float r = length(rel);
+					float front = prog * 1.1;
+					if (r < front && r > 0.02)
+					{
+						float ang = atan(rel.y, rel.x) + prog * 1.2;
+						float spk = abs(fract(ang / 6.2831853 * 12.0) - 0.5) * 2.0;
+						float sm = smoothstep(0.6, 0.95, spk);
+						float fade = (1.0 - smoothstep(front - 0.1, front, r)) * (1.0 - r * 0.3);
+						float a = (prog < 0.8) ? 1.0 : (1.0 - (prog - 0.8) / 0.2);
+						wgAdd = (wgCol + vec3(0.15)) * (sm * fade * a);
+					}
+				}
+				else if (wgType > 7.5)
+				{
+					vec2 rel = (pixelpos.xz - wgSp.xy) / wgSp.w;
+					float prog = wgMask.y;
+					float r = length(rel) / max(prog * 1.1, 0.05);
+					float ang = atan(rel.y, rel.x) + prog * 0.8;
+					float sr = 0.55 + 0.45 * cos(ang * 5.0);
+					float a = (prog < 0.85) ? 1.0 : (1.0 - (prog - 0.85) / 0.15);
+					if (r < sr)
+					{
+						float fill = 1.0 - smoothstep(sr - 0.12, sr, r);
+						float core = 1.0 - smoothstep(0.0, sr * 0.5, r);
+						wgAdd = (wgCol * fill + vec3(core * 0.4)) * a;
+					}
+				}
+				else if (wgType > 6.5)
+				{
+					vec2 rel = (pixelpos.xz - wgSp.xy) / wgSp.w;
+					float prog = wgMask.y;
+					float ca = cos(prog * 0.8), sa = sin(prog * 0.8);
+					rel = mat2(ca, -sa, sa, ca) * rel;
+					float sd = max(abs(rel.x), abs(rel.y));
+					float front = prog * 1.15;
+					if (sd < front)
+					{
+						float rings = abs(fract(sd * 7.0 - prog * 9.0) - 0.5) * 2.0;
+						float rm = smoothstep(0.78, 1.0, rings);
+						float fade = 1.0 - smoothstep(front - 0.12, front, sd);
+						float a = (prog < 0.8) ? 1.0 : (1.0 - (prog - 0.8) / 0.2);
+						wgAdd = (wgCol + vec3(0.15)) * (rm * fade * a);
+					}
+				}
+				else if (wgType > 5.5)
+				{
+					vec2 rel = (pixelpos.xz - wgSp.xy) / wgSp.w;
+					float rr = length(rel);
+					float prog = wgMask.y;
+					float front = prog * 1.1;
+					if (rr < front)
+					{
+						float th = atan(rel.y, rel.x) / 6.2831853;
+						float spiral = fract(th * 2.0 + rr * 4.0 - prog * 3.0);
+						float arm = smoothstep(0.14, 0.0, min(spiral, 1.0 - spiral));
+						float fadeS = 1.0 - smoothstep(front - 0.12, front, rr);
+						float aS = (prog < 0.8) ? 1.0 : (1.0 - (prog - 0.8) / 0.2);
+						wgAdd = (wgCol + vec3(0.18)) * (arm * fadeS * aS);
+					}
+				}
+				else if (wgType > 4.5)
+				{
+					vec2 rel = (pixelpos.xz - wgSp.xy) / wgSp.w;
+					float prog = wgMask.y;
+					float ca = cos(prog * 1.5), sa = sin(prog * 1.5);
+					rel = mat2(ca, -sa, sa, ca) * rel;
+					float hd = max(dot(abs(rel), vec2(0.8660254, 0.5)), abs(rel).x);
+					float front = prog * 1.15;
+					if (hd < front)
+					{
+						float rings = abs(fract(hd * 7.0 - prog * 9.0) - 0.5) * 2.0;
+						float ringMask = smoothstep(0.78, 1.0, rings);
+						float fadeR = 1.0 - smoothstep(front - 0.12, front, hd);
+						float aR = (prog < 0.8) ? 1.0 : (1.0 - (prog - 0.8) / 0.2);
+						wgAdd = (wgCol + vec3(0.15)) * (ringMask * fadeR * aR);
+					}
+				}
+				else if (wgType > 3.5)
+				{
+					vec2 rel = pixelpos.xz - wgSp.xy;
+					float cellS = wgSp.w * 0.16;
+					vec2 hp = rel / cellS;
+					vec2 hgs = vec2(1.0, 1.7320508);
+					vec4 hC = floor(vec4(hp, hp - vec2(0.5, 1.0)) / hgs.xyxy) + 0.5;
+					vec4 hh = vec4(hp - hC.xy * hgs, hp - (hC.zw + vec2(0.5)) * hgs);
+					bool firstH = dot(hh.xy, hh.xy) < dot(hh.zw, hh.zw);
+					vec2 lp = firstH ? hh.xy : hh.zw;
+					vec2 cid = firstH ? hC.xy : hC.zw + vec2(0.5);
+					float cellDist = length(cid * hgs * cellS);
+					float wave = wgMask.y * wgSp.w * 1.25;
+					float fp = (wave - cellDist) / (wgSp.w * 0.22);
+					if (fp > 0.0)
+					{
+						float flip = clamp(fp, 0.0, 1.0);
+						float squash = max(0.12, abs(cos(flip * 3.14159265)));
+						vec2 sp2 = vec2(lp.x, lp.y / squash);
+						float hd = max(dot(abs(sp2), vec2(0.8660254, 0.5)), abs(sp2).x);
+						float fill = 1.0 - smoothstep(0.34, 0.46, hd);
+						float edge = smoothstep(0.30, 0.46, hd) * (1.0 - smoothstep(0.46, 0.54, hd));
+						float flashH = 1.0 - abs(flip - 0.5) * 2.0;
+						float aH = min(1.0, fp * 0.9);
+						wgAdd = (wgCol * (fill * 0.35) + (wgCol * 0.6 + vec3(flashH * 0.8)) * edge) * aH;
+					}
+				}
+				else if (wgType > 2.5)
+				{
+					float ringR = wgMask.y * wgSp.w;
+					float thick = wgSp.w * 0.10;
+					wgAdd = wgCol * (1.0 - smoothstep(0.0, thick, abs(wgDist - ringR)));
+				}
+				else if (wgType > 1.5)
+				{
+					vec2 wgRel = pixelpos.xz - wgSp.xy;
+					float along = dot(wgRel, wgMask.zw);
+					float perpS = dot(wgRel, vec2(-wgMask.w, wgMask.z));
+					float halfLen = max(wgMask.y, 0.001) * wgSp.w;
+					float onB = step(abs(along), halfLen);
+					float anB = clamp(abs(along) / halfLen, 0.0, 1.0);
+					float taper = 1.0 - anB * anB;
+					float sdB = along * 0.045 + wgSp.x * 0.01;
+					float siB = floor(sdB), sfB = fract(sdB);
+					float h0 = fract(sin(siB * 12.9898) * 43758.5453);
+					float h1 = fract(sin((siB + 1.0) * 12.9898) * 43758.5453);
+					float wob = mix(h0, h1, sfB * sfB * (3.0 - 2.0 * sfB)) - 0.5;
+					float jag = fract(sin(along * 0.9 + wgSp.y) * 43758.5453) - 0.5;
+					float wHalf = wgSp.w * 0.06 * taper + 0.001;
+					float centerB = wob * wHalf * 1.6;
+					float wj = max(wHalf * (0.7 + 0.55 * jag), 0.001);
+					float pj = abs(perpS - centerB);
+					float bodyB = (1.0 - smoothstep(wj * 0.45, wj, pj)) * onB;
+					float coreB = (1.0 - smoothstep(0.0, wj * 0.4, pj)) * onB;
+					float scratch = 0.55 + 0.45 * smoothstep(0.1, 0.4, fract(sin(floor(along * 0.3) * 7.31 + wgSp.x) * 43758.5453));
+					float haloB = (1.0 - smoothstep(wj, wj * 2.8, pj)) * onB;
+					haloB *= (0.35 + 0.65 * fract(sin(along * 1.27 + wgSp.y * 2.3) * 43758.5453));
+					float bleedB = max(haloB - bodyB, 0.0);
+					wgAdd = (wgCol * bodyB + vec3(coreB * 0.7)) * scratch + vec3(0.5, 0.02, 0.015) * (bleedB * 0.85);
+				}
+				else if (wgType > 0.5)
+				{
+					vec2 wgRel = pixelpos.xz - wgSp.xy;
+					float wgAX = abs(dot(wgRel, wgMask.zw));
+					float wgAY = abs(dot(wgRel, vec2(-wgMask.w, wgMask.z)));
+					float wgHHalf = wgSp.w * 0.62;
+					float wgWHalf = wgSp.w * 0.30;
+					float wgProg = max(wgMask.y, 0.05);
+					float wgBox = max(wgAX / wgHHalf, wgAY / (wgProg * wgWHalf));
+					wgAdd = wgCol * smoothstep(1.00, 0.94, wgBox);
+				}
+				else
+				{
+					wgAdd = wgCol * (1.0 - wgDist / wgSp.w);
+				}
+				}
+				color.rgb += desaturate(vec4(wgAdd, 1.0)).rgb;
+			}
+		}
+	}
 #endif
 	color = min(color, 1.0);
 
@@ -879,58 +1179,6 @@ vec4 ApplyFadeColor(vec4 frag)
 	return frag;
 }
 
-// ======================== GITD OMNI-FOG & REGIMES ===========================
-// These uniforms now live in the StreamData UBO (see hw_renderstate.h + vk_shader.cpp),
-// fed globally per-frame. Vulkan forbids non-opaque uniforms outside a block, so the
-// loose declarations were removed; the names still resolve via #defines in the prelude
-// (u_vr_blueprint_col / u_gitd_last_impact_pos are vec4 there, swizzled to .rgb / .xyz).
-
-vec4 applyOmniFog(vec4 frag, float fogdist)
-{
-	if (u_gitd_fog_mode <= 0) return applyFog(frag, exp2(uFogDensity * fogdist));
-	
-	float density = u_gitd_fog_density * 0.01;
-	float fogfactor = exp(-fogdist * density);
-	vec3 fogColor = uFogColor.rgb;
-	
-	// Light-Link: Fog matches the room's glow color
-	if (u_gitd_fog_lightlink > 0) fogColor = mix(fogColor, vColor.rgb, 0.5);
-
-	// Mode 1: Ground-Mist (Height Fog)
-	if (u_gitd_fog_mode == 1)
-	{
-		float h = clamp((pixelpos.y - u_gitd_fog_height) / -32.0, 0.0, 1.0);
-		fogfactor = mix(1.0, fogfactor, h);
-	}
-	// Mode 2: Spectral Silhouette (Tactical Rim)
-	else if (u_gitd_fog_mode == 2)
-	{
-		float rim = 1.0 - clamp(dot(normalize(vEyeNormal.xyz), vec3(0,0,1)), 0.0, 1.0);
-		rim = pow(rim, u_gitd_fog_rim_power);
-		fogColor = mix(fogColor, vec3(0.0, 1.0, 0.8), rim * (1.0 - fogfactor));
-	}
-	// Mode 3: Bit-Crush (Data Degradation)
-	else if (u_gitd_fog_mode == 3)
-	{
-		float q = mix(255.0, u_gitd_fog_quantize, 1.0 - fogfactor);
-		frag.rgb = floor(frag.rgb * q) / q;
-	}
-	// Mode 4: Vortex (Noise Swirl)
-	else if (u_gitd_fog_mode == 4)
-	{
-		float swirl = gitd_vnoise(pixelpos.x * 0.01 + timer * u_gitd_fog_speed) 
-		            * gitd_vnoise(pixelpos.z * 0.01 - timer * u_gitd_fog_speed);
-		fogfactor *= (0.7 + 0.3 * swirl);
-	}
-
-	return vec4(mix(fogColor, frag.rgb, clamp(fogfactor, 0.0, 1.0)), frag.a);
-}
-
-vec4 applyVisualRegime(vec4 frag, vec3 worldPos)
-{
-	return frag;   // [GITD] full-screen render regimes moved to Radiance Control Panel's main.fp override.
-}
-
 //===========================================================================
 //
 // Main shader routine
@@ -942,11 +1190,6 @@ void main()
 #ifdef NO_CLIPDISTANCE_SUPPORT
 	if (ClipDistanceA.x < 0.0 || ClipDistanceA.y < 0.0 || ClipDistanceA.z < 0.0 || ClipDistanceA.w < 0.0 || ClipDistanceB.x < 0.0) discard;
 #endif
-
-	// Distorted world-position for applyVisualRegime() below (regime sampling only; SetupMaterial's
-	// own texture lookups are unaffected). Declared here, ahead of the LEGACY_USER_SHADER branch,
-	// so it's always in scope at the call site regardless of which Material path compiles.
-	vec3 regimeWorldPos = pixelpos.xyz;
 
 #ifndef LEGACY_USER_SHADER
 	Material material;
@@ -961,29 +1204,6 @@ void main()
 	material.Metallic = 0.0;
 	material.Roughness = 0.0;
 	material.AO = 0.0;
-
-	// --- Reactive Impact Ripples (Global Coordinate Distortion) ---
-	// 'pixelpos' is a shader INPUT -- Vulkan/SPIR-V forbids writing to it (older GL compilers
-	// silently tolerated this) -- so the distortion is written into regimeWorldPos instead.
-	if (u_vr_ripples_enabled > 0)
-	{
-		float rippleLife = timer - u_gitd_last_impact_time;
-		if (rippleLife < 1.0) // 1 second ripple life
-		{
-			float distToImpact = length(pixelpos.xyz - u_gitd_last_impact_pos);
-			float wavePos = rippleLife * 2048.0; // Wave expansion speed
-			float ripple = smoothstep(128.0, 0.0, abs(distToImpact - wavePos));
-			ripple *= (1.0 - rippleLife); // Fade over time
-
-			// Distort world-space lookup for regimes.
-			// Note: we only distort for the 'fancy' regimes to avoid nausea on basic textures.
-			if (u_vr_visual_regime > 0)
-			{
-				regimeWorldPos = pixelpos.xyz + normalize(pixelpos.xyz - u_gitd_last_impact_pos) * ripple * 32.0 * u_vr_ripple_scale;
-			}
-		}
-	}
-
 	SetupMaterial(material);
 #else
 	Material material = ProcessMaterial();
@@ -1022,15 +1242,14 @@ void main()
 		if ((uTextureMode & 0xffff) != 7)
 		{
 			frag = getLightColor(material, fogdist, fogfactor);
-			// [GITD] Only run omni-fog when a GITD fog mode is explicitly enabled. Otherwise fall
-			// back to STOCK behaviour (verified vs main.fp.old_bak): apply fog ONLY for coloured
-			// fog (uFogEnabled < 0). Positive uFogEnabled is Doom light-diminishing whose uFogColor
-			// is BLACK for ordinary sectors -- applyOmniFog's unconditional fallback mixed every
-			// surface toward that black, which is the black-world bug.
-			if (u_gitd_fog_mode > 0)
-				frag = applyOmniFog(frag, fogdist);
-			else if (uFogEnabled < 0)
+
+			//
+			// colored fog
+			//
+			if (uFogEnabled < 0) 
+			{
 				frag = applyFog(frag, fogfactor);
+			}
 		}
 		else
 		{
@@ -1051,7 +1270,6 @@ void main()
 		frag.rgb = frag.rgb + uFogColor.rgb;
 	}
 	
-	frag = applyVisualRegime(frag, regimeWorldPos);
 	FragColor = frag;
 
 #ifdef DITHERTRANS

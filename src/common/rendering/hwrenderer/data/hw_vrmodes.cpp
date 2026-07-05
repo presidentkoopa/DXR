@@ -390,6 +390,10 @@ CVAR(Float, vr_scale_meters_to_units, 40.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_grab_debug, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_grab_debug_cone, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_grab_debug_sphere, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+// [XR] hardpoint/holster mount markers -- wireframe (+solid glow, reuses vr_grab_debug_sphere_solid)
+// spheres drawn at every enabled slot's resolved world position. Colored by anchor type
+// (body vs wrist), never per-hand, so the same slot always reads the same color.
+CVAR(Bool, vr_debug_hardpoints, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_locational_damage, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_physics_explosions, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_physics_keys, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
@@ -399,7 +403,14 @@ CVAR(Bool, vr_physics_keys, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 // exactly -- see P_RadiusAttack, p_map.cpp.
 CVAR(Bool, vr_physics_powerups, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Float, vr_locational_head_mult, 2.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_locational_chest_mult, 1.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)   // [XR] new zone; 1.0 = neutral hook
 CVAR(Float, vr_locational_leg_mult, 0.5f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+// [XR] Zone boundaries as a fraction of monster height (0=feet, 1=top). Moved to native CVAR (were server
+// floats in CVARINFO) so the native P_DamageMobj zone logic reads them directly. head>=0.8, chest>=0.6,
+// legs<0.3, torso = the band between. Same defaults as before -> no behavior change; chest is the new band.
+CVAR(Float, vr_locational_head_threshold, 0.8f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_locational_chest_threshold, 0.6f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_locational_leg_threshold, 0.3f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Float, vr_crit_chance, 0.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Float, vr_crit_mult, 2.5f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 // default conversion between (vertical) DOOM units and meters
@@ -497,8 +508,17 @@ CVAR(Float, vr_twohand_radius, 2.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 // grip points will supersede this later. 30u ~= 0.9m at vr_vunits_per_meter=34 covers a pump shotgun's reach.
 CVAR(Float, vr_twohand_length, 30.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_twohand_whitelist_only, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
-CVAR(Bool, vr_show_hands, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+// [XR] Default OFF: the separate controller-pinned vhand.iqm duplicates the marine_novr.iqm
+// body-avatar hand (already IK-posed onto the wrist bone, see modeldef.txt DoomPlayer block),
+// rendering a second hand pinned to the raw controller transform alongside the IK-posed one.
+CVAR(Bool, vr_show_hands, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Float, vr_throw_force, 1.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+// Throw your EQUIPPED weapon: grip-fling-release with nothing else claiming the grip
+// (not climb/whip/grab) flings your live gun into the world (catchable/re-grabbable).
+CVAR(Bool, vr_throw_equip, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+// Minimum smoothed hand speed (map u/tic) required to throw an equipped weapon, so a
+// gentle free-grip release never chucks your gun. Tunable feel value.
+CVAR(Float, vr_throw_equip_min_speed, 6.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_throw_sensory_hooks, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Float, vr_grab_cone_angle, 30.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 // Gravity gloves are deliberately SHORT range (close-quarters grab) -- the whip (vr_whip.zs
@@ -525,6 +545,75 @@ CVAR(Bool, vr_autoequip, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Float, vr_climb_radius, 10.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Float, vr_climb_speed_mult, 1.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 
+// [XR hand-world collision] VR hands get physically blocked by solid walls (VR_UpdateHandCollision,
+// p_user.cpp) instead of passing through geometry as pure unclipped poses. A wall-glow spot (native
+// GlowSpots registry, ZERO dynamic lights) grows as the hand approaches and brightens on contact.
+CVAR(Bool,  vr_hand_collision,        true,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // master enable
+CVAR(Float, vr_hand_collision_radius, 6.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // hand probe radius, map units
+CVAR(Bool,  vr_hand_collision_glow,   true,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // draw the touch glow
+CVAR(Float, vr_hand_glow_range,       24.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // distance (map units) glow starts to appear
+CVAR(Float, vr_hand_glow_min_radius,  4.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // glow radius at first approach
+CVAR(Float, vr_hand_glow_max_radius,  28.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // glow radius at full contact
+CVAR(Color, vr_hand_glow_color,       0x40C0FF, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // touch glow tint (plain solid wall)
+// Not every solid wall is climb-tagged (KEYWORDS.json / "climb:<tex>") -- players can't tell a grabbable
+// surface from a merely-solid one by eye. A distinct glow color on climbable lines answers "can I climb
+// this?" before they commit a grip.
+CVAR(Color, vr_hand_glow_climb_color, 0x40FF60, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // touch glow tint (climbable surface)
+// Toggle-able clamp: when a hand is touching a wall (vr_hand_touching_wall), pin the arm-IK hand
+// target to the wall surface instead of letting the rendered hand clip through it. See
+// VR_UpdateArmIK (p_user.cpp) -- a single minimal override right after the real controller pose is
+// read, nothing else in that (fragile, exact-inverse) solve is touched.
+CVAR(Bool,  vr_hand_ik_clamp,         true,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+
+// [XR interaction glows] Same glow-spot QoL pattern as hand-collision above, extended to every other
+// hand/grab subsystem: catch, throw preview, grab-target, two-hand stabilize, hardpoints, reload.
+// Each gets its own enable + color (+ radius where relevant), all reusing VR_PushWorldGlow (p_user.cpp).
+// Gated on the EXISTING vr_catch_spark toggle (VRCombatOptions "Catch Visual Effect") -- no new
+// enable cvar needed, this just fixes what that toggle already promised (was P_SpawnParticle,
+// invisible in VR per dxr-particles-invisible-in-vr).
+CVAR(Float, vr_catch_glow_radius,     10.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Color, vr_catch_glow_color,      0x40FF60, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // green, matches catch debug-sphere
+
+CVAR(Bool,  vr_throw_arc_glow_enable, true,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_throw_arc_glow_radius, 3.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Color, vr_throw_arc_glow_color,  0xFFC040, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+
+CVAR(Bool,  vr_grab_highlight_enable, true,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_grab_highlight_radius, 8.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Color, vr_grab_highlight_color,  0xFFFFFF, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+
+CVAR(Bool,  vr_twohand_glow_enable,   true,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_twohand_glow_radius,   6.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Color, vr_twohand_glow_color,    0xFFFF40, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // yellow, matches two-hand debug-sphere
+
+CVAR(Bool,  vr_hardpoint_glow_enable, true,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_hardpoint_glow_range,  16.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_hardpoint_glow_min_radius, 3.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_hardpoint_glow_max_radius, 14.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Color, vr_hardpoint_glow_color_body,  0xFF40FF, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // magenta, matches body-hardpoint debug color
+CVAR(Color, vr_hardpoint_glow_color_wrist, 0xC040FF, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // violet, matches wrist-hardpoint debug color
+
+CVAR(Bool,  vr_reload_glow_enable,    true,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_reload_glow_radius,    5.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Color, vr_reload_glow_color,     0x40FFFF, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // cyan
+
+// [XR grab intent weights] Backing CVars for the VRGrabOptions "Distance/Alignment/Mass Penalty Weight"
+// sliders (menudef.txt) -- those sliders existed with NO real cvar behind them anywhere (dead UI).
+// Defaults reproduce today's scoring formula exactly (VR_UpdateGravityGloves, p_user.cpp): align=1.0
+// and dist=1.0 collapse each lerp to the old term, mass=0.0 collapses the penalty to 1.0 (no-op).
+CVAR(Float, vr_grab_weight_dist,  1.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_grab_weight_align, 1.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_grab_weight_mass,  0.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+
+// [XR grapple-point preview] Whip + IceHook (pure ZScript, read via CVar.FindCVar) -- glow where the
+// tool would actually latch onto if fired right now, so aiming isn't a guess.
+CVAR(Bool,  vr_whip_preview_enable,    true,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Color, vr_whip_preview_color,     0x40FF60, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_whip_preview_radius,    6.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Bool,  vr_icehook_preview_enable, true,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Color, vr_icehook_preview_color,  0x40C0FF, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_icehook_preview_radius, 6.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+
 // --- Central grip-intent arbiter (VR_ResolveGripOwner in p_user.cpp; EXTERN_CVAR'd there) ---
 // All defaults chosen so the arbiter reproduces today's behavior tic-for-tic EXCEPT vr_whip_grip_pump.
 CVAR(Bool,  vr_grip_arbiter,             true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // master; 0 = legacy per-consumer path (rollout escape hatch)
@@ -549,9 +638,49 @@ int VR_PhysicalHandForSlot(int slot)
 CVAR(Float, vr_hardpoint_radius,   12.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)  // default reach when slot.radius<=0
 CVAR(Bool,  vr_hardpoint_enable,   true,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)  // gates VR_UpdateHardpoints
 CVAR(Bool,  vr_ik_enable,          true,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)  // gates VR_UpdateArmIK
+
+// ================= ENGINE-LEVEL VR WEAPON HANDLING =================
+// MASTER escape hatch, default ON: engine-level VR weapon handling (IQM hotspot bones + native reload +
+// hotspot two-hand). Set to 0 to reproduce the legacy behavior. Same rollout pattern as vr_grip_arbiter.
+CVAR(Bool,  vr_new_weapon_handling,   true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_weapon_hotspot_radius, 2.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // default hotspot grip radius
+CVAR(Float, vr_foregrip_radius,       2.5f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // TINY foregrip engage radius (grip-gated)
+CVAR(Float, vr_reload_assist,         0.5f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // magnetic-assist 0=hardcore .. 1=snap
+CVAR(Float, vr_reload_magwell_radius, 6.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // seat radius to hs_magwell
+CVAR(Float, vr_reload_rack_radius,    5.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // grab radius to hs_rack
+CVAR(Float, vr_reload_rack_travel,    6.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // pull travel to chamber
+CVAR(Bool,  vr_reload_chamber,        true,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // must-rack vs auto-chamber on seat
+// [XR reload juice] extra-style + perfect-timing tunables (read by VR_UpdateWeaponReload in p_user.cpp)
+CVAR(Int,   vr_reload_perfect_window,  10,    CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // tics after the window opens that still counts as a PERFECT
+CVAR(Int,   vr_reload_perfect_life,    35,    CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // tics the vr_reload_perfect flag survives if never read
+CVAR(Int,   vr_reload_heat_per_shot,   10,    CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // RS_CANISTER heat added per shot (ZScript adds; native vents)
+CVAR(Int,   vr_reload_heat_max,        100,   CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // RS_CANISTER overheat ceiling
+CVAR(Bool,  vr_reload_toss_catch,      true,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // allow the inverted-gun toss-catch seat path (always perfect)
+// ==================================================================
 CVAR(Float, vr_ik_shoulder_width,  7.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)  // half body width, collar offset from head
 CVAR(Float, vr_ik_upperarm_len,    0.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)  // 0 => read from model bind pose
 CVAR(Float, vr_ik_forearm_len,     0.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)  // 0 => read from model bind pose
+// [XR] Palm-facing offset for the IK wrist/hand bone. The bind hand's palm axis vs the
+// controller's forward differ by a fixed local rotation; these three cvars are that
+// correction in DEGREES (applied on the model-space side of the hand rotation, so they
+// rotate the whole hand about its own axes). All 0 => hand takes the raw controller
+// orientation. Dial in-headset: vr_ik_hand_roll usually does the "palm faces the right way"
+// twist; the other two nudge if the wrist is pitched/yawed off. GLOBALCONFIG so they persist.
+CVAR(Bool,  vr_ik_hand_rot,        true,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)  // master enable for wrist-follows-controller
+CVAR(Float, vr_ik_hand_pitch,      0.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)  // palm offset, deg about hand local X (lateral)
+CVAR(Float, vr_ik_hand_yaw,        0.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)  // palm offset, deg about hand local Y (forward)
+CVAR(Float, vr_ik_hand_roll,       0.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)  // palm offset, deg about hand local Z (up)
+// [XR] Wrist orientation smoothing. Per-tic follow amount toward the raw controller orientation:
+// 1.0 = instant/raw (no smoothing, jittery), lower = smoother but laggier. Routed through SLerp,
+// which also enforces quaternion sign-continuity, so the renderer never interpolates the wrist
+// "the long way" between tics (the main cause of the violent jitter). 0.5 is a good default.
+CVAR(Float, vr_ik_hand_smooth,     0.5f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)  // 1=raw, lower=smoother
+// [XR] Wrist rotation RATE LIMIT (degrees per game tic). The euler round-trip produces INSTANTANEOUS
+// gimbal-lock jumps that a real wrist physically cannot; this caps how far the wrist may rotate per tic,
+// so violent spikes are clamped to human speed (and then smoothed away) while normal motion passes
+// through. 30 deg/tic ~= 1050 deg/s -- faster than a real flick, tighter than a gimbal spike. Raise it
+// if fast real flicks feel clipped; lower it for even more stability. 0 disables the cap.
+CVAR(Float, vr_ik_hand_maxstep,    30.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)  // deg/tic cap; 0 = off
 
 CVAR(Bool, vr_momentum, false, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // Only used in player.zs
 CVAR(Float, vr_momentum_threshold, 1.f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
@@ -619,6 +748,7 @@ void VR_InitPortableHudBinding()
 
 CVARD(Bool, vr_override_weap_pos, false, 0, "Only used for testing VR environment on PC");
 CVARD(Bool, vr_aim_through_tic, false, CVAR_ARCHIVE, "net-sanitize WIP: sample VR weapon firing aim at the game-tic rate (35Hz) instead of the render rate");
+CVARD(Bool, vr_openxr_late_latch, false, CVAR_ARCHIVE, "OpenXR: re-latch held-weapon/forearm render pose after xrLocateViews (fresher hands, no effect on firing origin)");
 CVARD(Bool, vr_render_weap_in_scene, false, 0, "Only used for testing VR environment on PC");
 
 EXTERN_CVAR(Bool, puristmode);
@@ -1024,14 +1154,18 @@ void VR_HapticEvent(const char* event, int position, int intensity, float angle,
 
 	float duration = 0.05f;
 
+	// POSITION convention: 1=Left, 2=Right, 0=Both. Vibrate() takes a CHANNEL where
+	// 0=Left, 1=Right, so map position->channel here (pos1->ch0, pos2->ch1). Previously
+	// position was forwarded raw and Vibrate clamped 2->1, so the LEFT hand never fired
+	// and "both" (0) double-hit the right.
 	if (position == 0)
 	{
-		vrmode->Vibrate(duration, 1, vibIntensity);
-		vrmode->Vibrate(duration, 2, vibIntensity);
+		vrmode->Vibrate(duration, 0, vibIntensity); // left
+		vrmode->Vibrate(duration, 1, vibIntensity); // right
 	}
 	else
 	{
-		vrmode->Vibrate(duration, position, vibIntensity);
+		vrmode->Vibrate(duration, position - 1, vibIntensity); // 1->ch0(L), 2->ch1(R)
 	}
 }
 bool VRMode::GetWeaponTransform(VSMatrix* out, int hand_weapon) const
@@ -1300,7 +1434,17 @@ bool VR_CheckWeaponParry(player_t* player, AActor* inflictor, int* outHand, Keyw
 		float py = profile->parry_extent_y * vr_parry_radius_mult;
 		float pz = profile->parry_extent_z * vr_parry_radius_mult;
 
-		if (fabs(lx) < px && fabs(ly) < py && fabs(lz) < pz)
+		// OVOID parry volume: an ellipsoid hugs a blade/barrel far tighter than an
+		// axis-aligned box (no stick-out corners), so a bullet only parries when it's
+		// actually near the weapon's shape. Reuses the same per-weapon parry_extent
+		// values as the ellipsoid's semi-axes -- long thin egg ~= sword, flat wide egg
+		// ~= ShieldSaw disc. Matches the rounded proximity-volume style already used for
+		// the two-hand grip. Guard a zero semi-axis (a weapon may set one extent to 0)
+		// against divide-by-zero.
+		const float nx = (px > 0.f) ? (lx / px) : 0.f;
+		const float ny = (py > 0.f) ? (ly / py) : 0.f;
+		const float nz = (pz > 0.f) ? (lz / pz) : 0.f;
+		if ((nx * nx + ny * ny + nz * nz) < 1.0f)
 		{
 			if (outHand) *outHand = i;
 			if (outProfile) *outProfile = profile;

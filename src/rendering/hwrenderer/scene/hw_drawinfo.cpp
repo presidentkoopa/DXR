@@ -49,7 +49,7 @@ EXTERN_CVAR(Bool, vr_affine_warp)
 // Storage for the once-per-scene monster-neon-outline cache (declared extern in hw_renderstate.h).
 FNeonOutlineState GNeonOutlineState;
 
-// Storage for the once-per-scene visual-regime/GITD-fog cache (declared extern in hw_renderstate.h).
+// Storage for the once-per-scene visual-regime/RADIANCE-fog cache (declared extern in hw_renderstate.h).
 FVisualRegimeState GVisualRegimeState;
 
 #include "flatvertices.h"
@@ -230,7 +230,7 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 			GNeonOutlineState.NeonColorA = getColor("vr_neon_color_a", FVector4(0.f, 1.f, 1.f, 1.f));
 			GNeonOutlineState.NeonColorB = getColor("vr_neon_color_b", FVector4(1.f, 0.f, 1.f, 1.f));
 
-			// [XR] Visual regimes & GITD fog: same once-per-scene cache idiom as the neon outlines
+			// [XR] Visual regimes & RADIANCE fog: same once-per-scene cache idiom as the neon outlines
 			// just above. RegimeSelect is the one native C++ cvar in this group (already mirrored
 			// into VPUniforms.mVisualRegime above) -- read directly, no FindCVar needed. Everything
 			// else here is CVARINFO user-side tuning. PlayerSpeed is computed live from the
@@ -238,13 +238,13 @@ void HWDrawInfo::StartScene(FRenderViewpoint &parentvp, HWViewpointUniforms *uni
 			// event-tracker wired yet, so they stay at GVisualRegimeState's defaults (0) -- the
 			// regime shader code treats them as reactive polish, never as a gate on the base effect.
 			GVisualRegimeState.RegimeSelect = (float)vr_visual_regime;
-			GVisualRegimeState.FogMode = getFloat("gitd_fog_mode", 0.0f);
-			GVisualRegimeState.FogDensity = getFloat("gitd_fog_density", 0.5f);
-			GVisualRegimeState.FogHeight = getFloat("gitd_fog_height", 0.0f);
-			GVisualRegimeState.FogQuantize = getFloat("gitd_fog_quantize", 32.0f);
-			GVisualRegimeState.FogRimPower = getFloat("gitd_fog_rim_power", 2.0f);
-			GVisualRegimeState.FogSpeed = getFloat("gitd_fog_speed", 1.0f);
-			GVisualRegimeState.FogLightLink = getBool("gitd_fog_lightlink", false);
+			GVisualRegimeState.FogMode = getFloat("radiance_fog_mode", 0.0f);
+			GVisualRegimeState.FogDensity = getFloat("radiance_fog_density", 0.5f);
+			GVisualRegimeState.FogHeight = getFloat("radiance_fog_height", 0.0f);
+			GVisualRegimeState.FogQuantize = getFloat("radiance_fog_quantize", 32.0f);
+			GVisualRegimeState.FogRimPower = getFloat("radiance_fog_rim_power", 2.0f);
+			GVisualRegimeState.FogSpeed = getFloat("radiance_fog_speed", 1.0f);
+			GVisualRegimeState.FogLightLink = getBool("radiance_fog_lightlink", false);
 			GVisualRegimeState.RegimeParam1 = getFloat("vr_regime_param1", 1.0f);
 			GVisualRegimeState.RegimeParam2 = getFloat("vr_regime_param2", 1.0f);
 			GVisualRegimeState.RegimeSpeed = getFloat("vr_regime_speed", 1.0f);
@@ -1293,7 +1293,7 @@ void HWDrawInfo::DrawScene(int drawmode)
 	portalState.EndFrame(this, RenderState);
 	recursion--;
 
-	// [GITD-AIR] in-air glow panels: drawn after opaque geometry (so world
+	// [RADIANCE-AIR] in-air glow panels: drawn after opaque geometry (so world
 	// depth occludes them) and before translucent sorting. Runs once per eye.
 	DrawGlowBillboards(RenderState);
 

@@ -38,7 +38,7 @@
 //
 // RENDERING: the rope is drawn with in-world glow panels (level.AddGlowPanel,
 // the same neon-billboard path PlasmaBeam uses) -- zero sprite assets, fits
-// the GITD aesthetic. The rigged leather IQM model is the Tier-2 upgrade
+// the RADIANCE aesthetic. The rigged leather IQM model is the Tier-2 upgrade
 // (procedural bones, see Desktop\Documentation\DoomXR_Whip_IQM_Rigging_Patch_Spec.md);
 // this file is the playable Tier-1 that needs no engine patch.
 //
@@ -336,7 +336,7 @@ class XRWhip : Weapon
 		+WEAPON.NOALERT
 		+WEAPON.MELEEWEAPON
 		Tag "Whip";
-		Keywords "class:xrwhip", "dmg:whip", "style:melee", "style:grapple";
+		Keywords "class:xrwhip", "grip:none", "dmg:whip", "style:melee", "style:grapple";
 		Inventory.PickupMessage "Picked up the XR Whip!";
 	}
 
@@ -473,6 +473,31 @@ class XRWhip : Weapon
 				b.pos = b.pos - delta * (diff * (b.invMass / wsum));
 			}
 			nodes[0].pos = handPos;
+		}
+
+		// [XR] FLOOR COLLISION -- so the whip DRAGS on the ground instead of sinking through it.
+		// Without this the gravity-loaded rope just falls through the floor forever (never rests,
+		// never drags). Clamp every free node's Z to the sector floor under the player, and bleed
+		// its horizontal speed with friction so a grounded length of whip is DRAGGED along by the
+		// hand (piles/scuffs) rather than sliding frictionlessly. owner.floorz is the flat-ground
+		// MVP (a per-node sector trace is the upgrade for whipping across height changes).
+		if (owner)
+		{
+			double floorZ = owner.floorz;
+			double fric = CVF("vr_whip_floor_friction", 0.5);
+			for (int i = 1; i <= last; i++)
+			{
+				XRWhipNode n = nodes[i];
+				double minZ = floorZ + n.radius;
+				if (n.pos.z < minZ)
+				{
+					vector3 v = n.pos - n.prev;          // implicit Verlet velocity
+					n.pos.z = minZ;
+					n.prev.x = n.pos.x - v.x * (1.0 - fric);   // ground drag on X/Y
+					n.prev.y = n.pos.y - v.y * (1.0 - fric);
+					n.prev.z = n.pos.z;                        // kill downward accumulation at rest
+				}
+			}
 		}
 	}
 
@@ -623,6 +648,28 @@ class XRWhip : Weapon
 	{
 		if (whipModel == null || nodes.Size() < 2) return;
 
+		// [diag] WRITE-side probe (vr_whip_debug, throttled ~1/sec). Pairs with the native
+		// [WHIP_RENDER] probe (models.cpp), which reports the READ side. If RENDER shows
+		// poseSize=21/useProc=1 yet the mesh is still straight, the pose reaches the render but the
+		// coordinate frame emitted below is wrong; if RENDER shows poseSize=0, this write isn't
+		// landing on the rendered actor's modelData. sag>1 confirms the sim is genuinely bent, so
+		// bone1.localRot SHOULD be well off identity (0,0,0,1).
+		bool dbg = CVB("vr_whip_debug", false) && (level.maptime % 35 == 0);
+		Quat dbgBone1 = QuatStruct.FromAngles(0, 0, 0);
+
+		// [ACTIVE FIX] vr_whip_bone_localframe (ON by default): author bone aims in the model's RAW
+		// joint-local frame instead of raw world space. The render's CalculateBonesIQM (models_iqm.cpp)
+		// applies swapYZ to EVERY joint unconditionally, so feeding it a raw-WORLD aim renders pre-swapped
+		// (wrong) -- the marine avatar's working IK (VR_UpdateArmIK / IK_WorldToModelLocal, p_user.cpp) proves
+		// the pose must be pre-converted: (1) undo the model actor's drawn yaw, (2) Y<->Z relabel. This is the
+		// swapYZ compensation, so ON is the correct default. If it STILL bends in the wrong PLANE in-headset,
+		// swap which of (segDir.z / ly) lands on local Y vs Z below; wrong direction = flip the un-yaw sign.
+		// whipModel.angle is 0 in practice (spawned, never rotated), so the un-yaw is ~identity today -- kept
+		// so a future rotated carrier stays correct. Set the cvar 0 to A/B against the raw-world behavior.
+		bool localFrame = CVB("vr_whip_bone_localframe", true);
+		double whipYaw  = whipModel ? whipModel.angle : 0.0;
+		double wcos = cos(whipYaw), wsin = sin(whipYaw);
+
 		Quat parentWorldRot = QuatStruct.FromAngles(0, 0, 0);
 		for (int i = 0; i < MDL_BONES; i++)
 		{
@@ -634,8 +681,16 @@ class XRWhip : Weapon
 			if (seg.Length() < 0.001) seg = (0.0, 0.0, -1.0);
 			vector3 segDir = seg.Unit();
 
+			if (localFrame)
+			{
+				double lx =  segDir.x * wcos + segDir.y * wsin;   // un-yaw by -whipYaw
+				double ly = -segDir.x * wsin + segDir.y * wcos;
+				segDir = (lx, segDir.z, ly);                      // Y<->Z relabel (compensates render swapYZ)
+			}
+
 			Quat worldRot = QuatFromTo((0.0, 1.0, 0.0), segDir);
 			Quat localRot = parentWorldRot.Conjugate() * worldRot;
+			if (i == 1) dbgBone1 = localRot;
 
 			// parent-local translation = the PARENT bone's bind length (root->handle, rest->seg)
 			double transLen = (i == 0) ? 0.0 : MDL_SEG_LEN;
@@ -643,6 +698,26 @@ class XRWhip : Weapon
 				localRot.x, localRot.y, localRot.z, localRot.w);
 
 			parentWorldRot = worldRot;
+		}
+
+		if (dbg)
+		{
+			// perpendicular deviation of the rope midpoint from the straight handle->tip chord
+			vector3 handle = nodes[0].pos;
+			vector3 tip    = nodes[nodes.Size() - 1].pos;
+			vector3 mid    = SampleChain(0.5);
+			vector3 chord  = tip - handle;
+			double  cl     = chord.Length();
+			double  sag    = 0.0;
+			if (cl > 0.001)
+			{
+				vector3 cu   = chord / cl;
+				vector3 rel  = mid - handle;
+				vector3 alng = cu * (rel dot cu);
+				sag = (rel - alng).Length();
+			}
+			Console.Printf("[WHIP_BONES] nodes=%d chord=%.1f sag=%.1f bone1.localRot=(%.3f,%.3f,%.3f,%.3f)",
+				nodes.Size(), cl, sag, dbgBone1.x, dbgBone1.y, dbgBone1.z, dbgBone1.w);
 		}
 	}
 
@@ -1023,9 +1098,167 @@ class XRWhip : Weapon
 							owner.DamageMobj(self, owner, int(CVF("vr_whip_catch_damage_amount", 5.0)), 'None');
 					}
 				}
+				// [XR whip-yank ammo -> reload] Additive second catch path. A grabprop (barrel) still
+				// takes the branch above unchanged; ONLY if it wasn't a grabprop do we consider whether
+				// the yanked object is ammo-relevant (an Ammo pickup, an xr_mag magazine, or a dropped
+				// weapon). If it matches your READY weapon it insta-reloads; otherwise you just collect
+				// it. Gated behind vr_whip_ammo_catch (default true), read live via CVar.FindCVar.
+				else if (CVB("vr_whip_ammo_catch", true))
+				{
+					TryAmmoCatch(grappleVictim, hand);
+				}
 				EndGrapple();
 			}
 		}
+	}
+
+	// ---- [XR whip-yank ammo -> instant reload] ---------------------------------------------
+	// The whip cracked/grappled some object, yanked it in, and it just LANDED (d < 40). If it's
+	// ammo-relevant for the player's READY weapon, seat it as an instant reload; otherwise just
+	// collect it into inventory. Purely additive to the existing grabprop catch -- monsters and
+	// non-ammo actors never reach here (grabprops took the branch above; everything else that
+	// isn't ammo/mag/dropped-weapon falls through and lands loose exactly as before).
+	//
+	// AMMO-RELEVANT = one of:
+	//   * an Ammo inventory item (Clip / Shell / RocketAmmo / Cell / ...), including a dropped one,
+	//   * an xr_mag magazine actor (XRReloadMag family or the ejected XRSpentMag: keyword "xr_mag"),
+	//   * a dropped weapon (bDropped) -- its Ammo1 pickup amount is the "ammo" it carries.
+	private void TryAmmoCatch(Actor victim, int hand)
+	{
+		if (victim == null || victim.bDestroyed) return;
+
+		let pmo = PlayerPawn(owner);
+		if (!pmo || !pmo.player) return;
+		Weapon rw = pmo.player.ReadyWeapon;
+
+		bool isMag  = (victim.Keywords.IndexOf("xr_mag") != -1);   // XRReloadMag / XRSpentMag / per-ammo mags
+		let  ammo   = Ammo(victim);                                // non-null iff the caught thing is an Ammo pickup
+		let  wpn    = Weapon(victim);                              // non-null iff it's a (dropped) weapon
+		bool isDroppedWeapon = (wpn != null && victim.bDropped);
+
+		// Nothing we know how to handle -> leave it loose (the grabprop branch already handled props).
+		if (!isMag && ammo == null && !isDroppedWeapon) return;
+
+		// ---- Decide MATCH against the ready weapon -----------------------------------------
+		// Match = the caught ammo tops the ready weapon's Ammo1 pool. For an xr_mag we can't read a
+		// generic field to know its ammo class (ZScript has no reflective field reader), so an xr_mag
+		// is treated as a match whenever a ready weapon exists -- it IS a magazine, and the native FSM
+		// already only accepts the ready weapon's own mag, so "the right gun" is implied.
+		bool matches = false;
+		class<Ammo> reserveType = rw ? rw.AmmoType1 : null;
+
+		if (rw)
+		{
+			if (isMag)
+			{
+				matches = true;
+			}
+			else if (ammo != null && reserveType != null)
+			{
+				// Compare against the canonical parent ammo class so a dropped/derived Clip still
+				// resolves to the base Clip the weapon feeds from (GetParentAmmo, ammo.zs).
+				class<Ammo> caughtType = ammo.GetParentAmmo();
+				matches = (caughtType == reserveType);
+			}
+			else if (isDroppedWeapon && reserveType != null)
+			{
+				// A dropped weapon of the SAME class carries a mag of the ready weapon's ammo.
+				matches = (wpn.AmmoType1 == reserveType);
+			}
+		}
+
+		// ---- Give the ammo either way (match or not) ----------------------------------------
+		// COLLECT: fold the caught round(s) into the player's reserve. For a real Ammo pickup we hand
+		// the actual item to inventory (native stacking/backpack caps apply). For an xr_mag / dropped
+		// weapon (no Ammo instance to give) we top the ready weapon's Ammo1 pool directly by a mag's
+		// worth so the reload actually has rounds behind it.
+		if (ammo != null)
+		{
+			// CallTryPickup routes through the normal Inventory pickup (respects max amount, backpack).
+			// It returns (bool success, Actor toucher); we only need the success flag. On refusal
+			// (reserve already capped) we still fall through to the chamber-refill below on a match so
+			// a "full reserve but empty chamber" catch still tops the chamber.
+			bool taken;
+			Actor newToucher;
+			[taken, newToucher] = ammo.CallTryPickup(pmo);
+		}
+		else if (rw && rw.Ammo1 != null)
+		{
+			// xr_mag / dropped-weapon: no Ammo instance -> credit reserve directly. One mag's worth,
+			// clamped to the reserve's own MaxAmount so we never exceed the native ammo cap.
+			int give = ChamberCapacityFor(rw);
+			if (give <= 0) give = 10;
+			int cap  = rw.Ammo1.MaxAmount;
+			rw.Ammo1.Amount = min(cap, rw.Ammo1.Amount + give);
+		}
+
+		// ---- If it matched: INSTANT RELOAD (top reserve already done; now re-arm the chamber) ----
+		if (matches && rw)
+		{
+			InstantRefillChamber(rw);
+
+			// Glow + haptic cue so the insta-reload reads in the dark and in the hand.
+			vector3 fx = victim.pos;
+			Level.AddGlowPanel(Color(255, 120, 255, 120), 20.0, fx.x, fx.y, fx.z, 15, 1.0, 0.0, 0.0, 0);
+			double hap = 0.6;
+			CVar rh = CVar.FindCVar("vr_reload_haptic");
+			if (rh) hap *= rh.GetFloat();
+			owner.VR_HapticPulse(hand, hap, 0.07);
+		}
+
+		// The magazine / dropped-weapon actor was only a carrier -- its "ammo" is now in the reserve,
+		// so remove the physical prop. A real Ammo item consumed via CallTryPickup is already gone
+		// (or still owned if refused); destroying it here would double-handle, so only clean carriers.
+		if (isMag || isDroppedWeapon)
+		{
+			if (victim && !victim.bDestroyed) victim.Destroy();
+		}
+	}
+
+	// The rounds a full mag of this weapon holds = its XRMagSize (manual-reload mixin). ZScript has no
+	// reflective field reader (IntVar is C++-only and crashes), so we read it through a concrete cast
+	// per reloadable class. Returns 0 for weapons without the mixin.
+	private int ChamberCapacityFor(Weapon w)
+	{
+		if (w == null) return 0;
+		if (w is "Pistol")           return Pistol(w).XRMagSize;
+		if (w is "Rifle")            return Rifle(w).XRMagSize;
+		if (w is "SMG")              return SMG(w).XRMagSize;
+		if (w is "Revolver")         return Revolver(w).XRMagSize;
+		if (w is "Chaingun")         return Chaingun(w).XRMagSize;
+		if (w is "PlasmaRifle")      return PlasmaRifle(w).XRMagSize;
+		if (w is "Shotgun")          return Shotgun(w).XRMagSize;
+		if (w is "SuperShotgun")     return SuperShotgun(w).XRMagSize;
+		if (w is "RocketLauncher")   return RocketLauncher(w).XRMagSize;
+		if (w is "BFG9000")          return BFG9000(w).XRMagSize;
+		if (w is "ID24Incinerator")  return ID24Incinerator(w).XRMagSize;
+		if (w is "ID24CalamityBlade")return ID24CalamityBlade(w).XRMagSize;
+		if (w is "Flamethrower")     return Flamethrower(w).XRMagSize;
+		if (w is "M79")              return M79(w).XRMagSize;
+		return 0;
+	}
+
+	// Re-arm the ready weapon's chamber to a full mag from the reserve. Concrete-cast per class (NO
+	// IntVar). Mirrors XR_ManualReload.A_XR_RefillChamber's math (min(magSize, rounds you still have))
+	// but callable from here without touching vr_manual_reload.zs. Weapons without the mixin no-op.
+	private void InstantRefillChamber(Weapon w)
+	{
+		if (w == null) return;
+		int avail = w.Ammo1 ? w.Ammo1.Amount : 0;
+		if (w is "Pistol")            { let x = Pistol(w);           x.XRChamber = min(x.XRMagSize, avail); x.XRReloading = false; }
+		else if (w is "Rifle")        { let x = Rifle(w);            x.XRChamber = min(x.XRMagSize, avail); x.XRReloading = false; }
+		else if (w is "SMG")          { let x = SMG(w);              x.XRChamber = min(x.XRMagSize, avail); x.XRReloading = false; }
+		else if (w is "Revolver")     { let x = Revolver(w);         x.XRChamber = min(x.XRMagSize, avail); x.XRReloading = false; }
+		else if (w is "Chaingun")     { let x = Chaingun(w);         x.XRChamber = min(x.XRMagSize, avail); x.XRReloading = false; }
+		else if (w is "PlasmaRifle")  { let x = PlasmaRifle(w);      x.XRChamber = min(x.XRMagSize, avail); x.XRReloading = false; }
+		else if (w is "Shotgun")      { let x = Shotgun(w);          x.XRChamber = min(x.XRMagSize, avail); x.XRReloading = false; }
+		else if (w is "SuperShotgun") { let x = SuperShotgun(w);     x.XRChamber = min(x.XRMagSize, avail); x.XRReloading = false; }
+		else if (w is "RocketLauncher"){ let x = RocketLauncher(w);  x.XRChamber = min(x.XRMagSize, avail); x.XRReloading = false; }
+		else if (w is "BFG9000")      { let x = BFG9000(w);          x.XRChamber = min(x.XRMagSize, avail); x.XRReloading = false; }
+		else if (w is "ID24Incinerator"){ let x = ID24Incinerator(w);x.XRChamber = min(x.XRMagSize, avail); x.XRReloading = false; }
+		else if (w is "ID24CalamityBlade"){ let x = ID24CalamityBlade(w); x.XRChamber = min(x.XRMagSize, avail); x.XRReloading = false; }
+		else if (w is "Flamethrower") { let x = Flamethrower(w);     x.XRChamber = min(x.XRMagSize, avail); x.XRReloading = false; }
+		else if (w is "M79")          { let x = M79(w);              x.XRChamber = min(x.XRMagSize, avail); x.XRReloading = false; }
 	}
 
 	// Angular-momentum-conserving rope-length change: v_new = v_old * (L_old / L_new). Shortening
@@ -1202,6 +1435,27 @@ class XRWhip : Weapon
 			return;
 		}
 
+		// [XR grapple-point preview] Not grappling right now -- show where StartGrappleFromAim
+		// WOULD attach if fired this instant. Mirrors that function's own trace exactly (same
+		// hand/angle/pitch source, same Reach), so the preview can never promise a catch the real
+		// fire wouldn't also land. Pure ZScript, no native trace needed -- Level.AddGlowPanel is
+		// the same billboard glow every other QoL glow feature in this pass uses.
+		{
+			CVar pe = CVar.FindCVar("vr_whip_preview_enable");
+			if ((!pe || pe.GetBool()) && ActiveWhip != null)
+			{
+				double hz = handPos.z - owner.pos.z;
+				FLineTraceData lt;
+				bool hit = owner.LineTrace(ang, ActiveWhip.Reach, pit, 0, hz, 0.0, 0.0, lt);
+				if (hit && lt.HitType != TRACE_HitNone)
+				{
+					double radius = 6.0; { CVar r = CVar.FindCVar("vr_whip_preview_radius"); if (r) radius = r.GetFloat(); }
+					int color = 0x40FF60; { CVar c = CVar.FindCVar("vr_whip_preview_color"); if (c) color = c.GetInt(); }
+					Level.AddGlowPanel(color, radius, lt.HitLocation.x, lt.HitLocation.y, lt.HitLocation.z, 0, 0.0, 0.0, 0.0, 0);
+				}
+			}
+		}
+
 		if (!simReady || nodes.Size() == 0)
 			InitRope(handPos, dir);
 
@@ -1228,6 +1482,13 @@ class XRWhip : Weapon
 			if (whipModel != null)
 			{
 				whipModel.SetOrigin(handPos, true);
+				// Re-assert the procedural-pose flag every tic instead of relying solely on the
+				// XRWhipModel Spawn-state's NoDelay action to have set it. This removes any dependence
+				// on spawn/thinker-order timing (the flag is guaranteed true at render as long as the
+				// model actor is alive) and is idempotent + cheap. Cross-actor call is the same proven
+				// path SetModelBonePose already uses on whipModel below. If the render still shows the
+				// bind pose with this in place, the flag was never the problem -- see [WHIP_RENDER].
+				whipModel.SetModelUseProceduralPose(true);
 				DriveModelBones();
 			}
 		}

@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" width="1200" height="760" role="img" aria-label="DoomXR Arsenal Tarot - infinite-resolution vector proof with weapon stats panel">
+<title>DoomXR Arsenal Tarot — vector/SDF proof, Plasma Rifle stat card</title>
+<desc>A pure-vector neon weapon card showing the Plasma Rifle: name, slot, spinning-model area, a 12-segment ammo gauge with chamber and reserve, dual-hand row, identity pills, and a parry badge — all as scalable SVG that stays crisp at any resolution.</desc>
+
+<defs>
+  <!-- neon bloom: soft outer halo behind a crisp core -->
+  <filter id="glowS" x="-60%" y="-60%" width="220%" height="220%">
+    <feGaussianBlur stdDeviation="2.4" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="glowM" x="-80%" y="-80%" width="260%" height="260%">
+    <feGaussianBlur stdDeviation="5" result="b1"/>
+    <feGaussianBlur stdDeviation="12" result="b2"/>
+    <feMerge><feMergeNode in="b2"/><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="glowBig" x="-120%" y="-120%" width="340%" height="340%">
+    <feGaussianBlur stdDeviation="22" result="b"/>
+  </filter>
+  <radialGradient id="pool" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#3C78FF" stop-opacity="0.42"/>
+    <stop offset="100%" stop-color="#3C78FF" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="vig" cx="50%" cy="42%" r="75%">
+    <stop offset="0%" stop-color="#0A0E1A"/>
+    <stop offset="100%" stop-color="#05070D"/>
+  </radialGradient>
+  <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#A0C8FF" stop-opacity="0.10"/>
+    <stop offset="100%" stop-color="#A0C8FF" stop-opacity="0.03"/>
+  </linearGradient>
+  <linearGradient id="halo" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#9FE8FF" stop-opacity="0.9"/>
+    <stop offset="100%" stop-color="#3C78FF" stop-opacity="0.9"/>
+  </linearGradient>
+  <!-- reusable plasma-rifle vector silhouette -->
+  <g id="plasmaGun">
+    <path d="M-70 6 L40 6 L40 -6 L64 -6 L64 2 L78 2 L78 -14 L58 -14 L58 -22 L34 -22 L34 -10 L-58 -10 Q-78 -10 -78 4 Q-78 12 -62 12 L-70 12 Z"
+      fill="none" stroke="#6FA8FF" stroke-width="2.4" stroke-linejoin="round"/>
+    <circle cx="10" cy="-2" r="9" fill="none" stroke="#9FE8FF" stroke-width="2"/>
+    <path d="M-40 6 L-40 22 L-24 22 L-24 6" fill="none" stroke="#6FA8FF" stroke-width="2.4"/>
+  </g>
+  <!-- L corner bracket -->
+  <g id="brk"><path d="M0 26 L0 0 L26 0" fill="none" stroke-linecap="round"/></g>
+</defs>
+
+<!-- backdrop -->
+<rect width="1200" height="760" fill="url(#vig)"/>
+<ellipse cx="600" cy="640" rx="520" ry="90" fill="url(#pool)" filter="url(#glowBig)"/>
+<!-- faint frozen-battlefield hint -->
+<g opacity="0.06" fill="#8FB4E8">
+  <rect x="120" y="470" width="90" height="150"/><rect x="250" y="520" width="60" height="100"/>
+  <rect x="900" y="500" width="120" height="120"/><rect x="1050" y="540" width="70" height="80"/>
+</g>
+
+<!-- two dim RESTING cards (context of the fan) -->
+<g transform="translate(250 400) rotate(-16)" opacity="0.82">
+  <rect x="-95" y="-140" width="190" height="280" rx="14" fill="url(#glass)" stroke="#3C78FF" stroke-width="1.5" opacity="0.5"/>
+  <g stroke="#3C78FF" stroke-width="2.5" filter="url(#glowS)"><use href="#brk" x="-95" y="-140"/><use href="#brk" x="95" y="-140" transform="scale(-1,1)"/><use href="#brk" x="-95" y="140" transform="scale(1,-1)"/><use href="#brk" x="95" y="140" transform="scale(-1,-1)"/></g>
+  <g transform="translate(0 -40) scale(0.7)" opacity="0.5"><use href="#plasmaGun"/></g>
+  <text x="0" y="105" font-family="Consolas,monospace" font-size="58" font-weight="700" text-anchor="middle" fill="#FF3C3C" filter="url(#glowM)">18</text>
+</g>
+<g transform="translate(950 400) rotate(16)" opacity="0.82">
+  <rect x="-95" y="-140" width="190" height="280" rx="14" fill="url(#glass)" stroke="#3C78FF" stroke-width="1.5" opacity="0.5"/>
+  <g stroke="#3C78FF" stroke-width="2.5" filter="url(#glowS)"><use href="#brk" x="-95" y="-140"/><use href="#brk" x="95" y="-140" transform="scale(-1,1)"/><use href="#brk" x="-95" y="140" transform="scale(1,-1)"/><use href="#brk" x="95" y="140" transform="scale(-1,-1)"/></g>
+  <g transform="translate(0 -40) scale(0.7)" opacity="0.5"><use href="#plasmaGun"/></g>
+  <text x="0" y="105" font-family="Consolas,monospace" font-size="58" font-weight="700" text-anchor="middle" fill="#FF7A1B" filter="url(#glowM)">96</text>
+</g>
+
+<!-- HERO bloomed card: full weapon-stats panel -->
+<g transform="translate(600 380)">
+  <ellipse cx="0" cy="0" rx="270" ry="360" fill="#9FE8FF" opacity="0.10" filter="url(#glowBig)"/>
+  <rect x="-215" y="-330" width="430" height="660" rx="20" fill="url(#glass)"/>
+  <rect x="-215" y="-330" width="430" height="660" rx="20" fill="none" stroke="#3C78FF" stroke-width="2" opacity="0.35"/>
+  <!-- corner brackets, brighter -->
+  <g stroke="#9FE8FF" stroke-width="4" filter="url(#glowM)">
+    <use href="#brk" x="-215" y="-330"/><use href="#brk" x="215" y="-330" transform="scale(-1,1)"/>
+    <use href="#brk" x="-215" y="330" transform="scale(1,-1)"/><use href="#brk" x="215" y="330" transform="scale(-1,-1)"/>
+  </g>
+
+  <!-- HEADER -->
+  <rect x="-160" y="-306" width="52" height="40" rx="6" fill="none" stroke="#3C78FF" stroke-width="2" filter="url(#glowS)"/>
+  <text x="-134" y="-278" font-family="Consolas,monospace" font-size="26" font-weight="700" text-anchor="middle" fill="#DFF3FF" filter="url(#glowS)">6</text>
+  <text x="-92" y="-284" font-family="'Segoe UI',Arial,sans-serif" font-size="38" font-weight="700" fill="#EAF6FF" letter-spacing="1" filter="url(#glowM)">PLASMA RIFLE</text>
+  <line x1="-160" y1="-256" x2="160" y2="-256" stroke="#3C78FF" stroke-width="1.5" opacity="0.5"/>
+
+  <!-- MODEL bay -->
+  <g transform="translate(0 -180) scale(1.5)"><use href="#plasmaGun"/></g>
+  <text x="0" y="-92" font-family="'Segoe UI',Arial" font-size="13" text-anchor="middle" fill="#6FA8FF" letter-spacing="3" opacity="0.7">— LIVE 3D MODEL —</text>
+
+  <!-- STATS PANEL: ammo -->
+  <rect x="-176" y="-70" width="352" height="120" rx="12" fill="#05070D" fill-opacity="0.6" stroke="#3C78FF" stroke-width="1.2" opacity="0.9"/>
+  <text x="-162" y="-44" font-family="'Segoe UI',Arial" font-size="14" fill="#7FBFCF" letter-spacing="2">CHAMBER</text>
+  <text x="60" y="-30" font-family="Consolas,monospace" font-size="46" font-weight="700" text-anchor="end" fill="#FF7A1B" filter="url(#glowM)">32</text>
+  <text x="66" y="-30" font-family="Consolas,monospace" font-size="26" font-weight="700" fill="#7FBFCF">/ 40</text>
+  <!-- 12-segment gauge -->
+  <g>
+    <!-- lit -->
+    <g fill="#FF7A1B" filter="url(#glowS)">
+      <rect x="-162" y="-10" width="20" height="18" rx="3"/><rect x="-137" y="-10" width="20" height="18" rx="3"/>
+      <rect x="-112" y="-10" width="20" height="18" rx="3"/><rect x="-87" y="-10" width="20" height="18" rx="3"/>
+      <rect x="-62" y="-10" width="20" height="18" rx="3"/><rect x="-37" y="-10" width="20" height="18" rx="3"/>
+      <rect x="-12" y="-10" width="20" height="18" rx="3"/><rect x="13" y="-10" width="20" height="18" rx="3"/>
+      <rect x="38" y="-10" width="20" height="18" rx="3"/>
+    </g>
+    <!-- partial -->
+    <rect x="63" y="-10" width="10" height="18" rx="3" fill="#FFC24D" filter="url(#glowS)"/>
+    <rect x="73" y="-10" width="10" height="18" rx="3" fill="#2A3444"/>
+    <!-- dim -->
+    <g fill="#2A3444"><rect x="88" y="-10" width="20" height="18" rx="3"/><rect x="113" y="-10" width="20" height="18" rx="3"/></g>
+  </g>
+  <text x="-162" y="38" font-family="'Segoe UI',Arial" font-size="14" fill="#7FBFCF" letter-spacing="2">RESERVE</text>
+  <text x="150" y="40" font-family="Consolas,monospace" font-size="28" font-weight="700" text-anchor="end" fill="#DFF3FF" filter="url(#glowS)">187</text>
+
+  <!-- HANDS row -->
+  <g transform="translate(0 92)">
+    <rect x="-176" y="-22" width="150" height="44" rx="22" fill="#3C78FF" fill-opacity="0.16" stroke="#3C78FF" stroke-width="1.6" filter="url(#glowS)"/>
+    <text x="-101" y="6" font-family="'Segoe UI',Arial" font-size="18" font-weight="700" text-anchor="middle" fill="#BFE9F5">MAIN HAND</text>
+    <rect x="26" y="-22" width="150" height="44" rx="22" fill="none" stroke="#3A4650" stroke-width="1.6" stroke-dasharray="4 4"/>
+    <text x="101" y="6" font-family="'Segoe UI',Arial" font-size="18" font-weight="700" text-anchor="middle" fill="#5A6A78">OFF HAND</text>
+    <text x="0" y="46" font-family="'Segoe UI',Arial" font-size="12" text-anchor="middle" fill="#6FA8FF" opacity="0.7">shared reserve pool</text>
+  </g>
+
+  <!-- IDENTITY pills -->
+  <g transform="translate(0 176)" font-family="'Segoe UI',Arial" font-size="15" font-weight="600" text-anchor="middle">
+    <g><rect x="-176" y="-16" width="82" height="32" rx="16" fill="#3C78FF" fill-opacity="0.12" stroke="#3C78FF" stroke-width="1.3"/><text x="-135" y="5" fill="#9FD0FF">class:rifle</text></g>
+    <g><rect x="-86" y="-16" width="82" height="32" rx="16" fill="#3C78FF" fill-opacity="0.12" stroke="#3C78FF" stroke-width="1.3"/><text x="-45" y="5" fill="#9FD0FF">role:heavy</text></g>
+    <g><rect x="4" y="-16" width="96" height="32" rx="16" fill="#B428FF" fill-opacity="0.14" stroke="#B428FF" stroke-width="1.3"/><text x="52" y="5" fill="#DDA6FF">dmg:energy</text></g>
+    <g><rect x="108" y="-16" width="70" height="32" rx="16" fill="#FF7A1B" fill-opacity="0.14" stroke="#FF7A1B" stroke-width="1.3"/><text x="143" y="5" fill="#FFC79A">fire:auto</text></g>
+  </g>
+
+  <!-- footer note: no parry (Plasma has none) -->
+  <text x="0" y="234" font-family="'Segoe UI',Arial" font-size="13" text-anchor="middle" fill="#4A5A68" letter-spacing="1">no parry — energy weapon</text>
+  <text x="0" y="300" font-family="'Segoe UI',Arial" font-size="12" text-anchor="middle" fill="#3C78FF" opacity="0.55" letter-spacing="2">VRWeaponCard · live data · vector→SDF, crisp at any scale</text>
+</g>
+
+<!-- title -->
+<text x="40" y="56" font-family="'Segoe UI',Arial" font-size="20" font-weight="700" fill="#38E6FF" filter="url(#glowS)" letter-spacing="1">ARSENAL TAROT — vector proof</text>
+<text x="40" y="80" font-family="'Segoe UI',Arial" font-size="13" fill="#6FA8FF" opacity="0.75">pure SVG · zoom to any size, zero pixelation · this is the source that bakes to the in-engine SDF atlas</text>
+</svg>

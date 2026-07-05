@@ -2602,6 +2602,143 @@ class PlayerPawn : Actor
 		BringUpWeapon();
 	}
 
+	// Throw the EQUIPPED weapon out of `hand` (0=main, 1=off) into the world with the
+	// given velocity. Called from the native grip-fling-release trigger (VR_UpdateGravityGloves).
+	// The native layer decided this throw should happen and supplies the velocity; here we do
+	// the inventory + PSprite surgery: turn the weapon into a world pickup, bare the hand, fling it.
+	virtual void VR_ThrowEquippedWeapon(int hand, double vx, double vy, double vz)
+	{
+		if (player == null || player.playerstate != PST_LIVE)
+		{
+			return;
+		}
+
+		Weapon w = hand == 1 ? player.OffhandWeapon : player.ReadyWeapon;
+		if (w == null)
+		{
+			return;
+		}
+		// Some weapons refuse to be dropped/tossed (e.g. the base fist). Leave them equipped.
+		if (w.bUndroppable || w.bUntossable)
+		{
+			return;
+		}
+
+		// Turn the equipped weapon into a world pickup actor (CreateTossable -> BecomePickup
+		// for a single instance). Returns null if it declines to drop -> keep it equipped.
+		let tossed = w.CreateTossable();
+		if (tossed == null)
+		{
+			return;
+		}
+
+		// Bare the hand: clear its weapon pointer and tear down its PSprite layer -- the exact
+		// teardown BringUpWeapon uses when a two-hander claims a hand (SetPsprite(layer, null)).
+		if (hand == 1)
+		{
+			if (player.OffhandWeapon == w) player.OffhandWeapon = null;
+			player.SetPsprite(PSP_OFFHANDWEAPON, null);
+		}
+		else
+		{
+			if (player.ReadyWeapon == w) player.ReadyWeapon = null;
+			if (player.PendingWeapon == w) player.PendingWeapon = WP_NOCHANGE;
+			player.SetPsprite(PSP_WEAPON, null);
+		}
+
+		// Fling it and keep it a valid, re-grabbable pickup (Rule 1.3 grab->equip can recatch
+		// it; its ammo/condition ride the same actor, so a caught gun keeps its state). CreateTossable
+		// already set DropTime, giving a short delay before it can be walked over.
+		tossed.bSpecial = true;
+		tossed.bSolid = false;
+		tossed.bDropped = true;
+		tossed.Vel = (vx, vy, vz);
+	}
+
+	// Dual-wield: create a SECOND, distinct instance of weapon class `wcls` and equip it to an
+	// EMPTY hand -- a real gun in each hand. Returns true if a second instance was created (the
+	// caller then treats the triggering pickup as consumed); false to fall through to normal
+	// pickup (ammo only) -- returned when the class is already held twice (max two) or spawn failed.
+	//
+	// Deliberately does NOT use MoveWeaponToHand: that helper collapses same-class into a hand
+	// SWAP (WeaponsMatch compares by class), which would move the existing gun instead of placing
+	// a distinct second one. Here we set the hand slot + bOffhandWeapon directly and let the
+	// engine's own BringUpWeapon raise it into that hand.
+	bool VR_GiveDualWield(class<Weapon> wcls)
+	{
+		if (wcls == null || player == null || player.playerstate != PST_LIVE)
+		{
+			return false;
+		}
+
+		// Resolve the DISTINCT variant class (base name + "_2"). A separate class is what lets the
+		// engine tell two of the same gun apart -- weapon selection is by class, so the variant is
+		// independently selectable AND hand-assignable (WeaponsMatch(base, variant) is false, so
+		// MoveWeaponToHand no longer collapses them).
+		// Require a REAL distinct variant: bail if none exists. This covers two cases at once --
+		// (a) a base weapon keyworded vr_dualwield but with no "_2" class yet, and (b) wcls is
+		// ITSELF a variant (Shotgun_2 -> no Shotgun_2_2), which is how a thrown+re-grabbed variant
+		// would otherwise miscount its family and spawn a THIRD same-class instance past the cap.
+		// In both cases fall through to the vanilla ammo pickup instead of minting an indistinct gun.
+		class<Weapon> vcls = (class<Weapon>)("" .. wcls.GetClassName() .. "_2");
+		if (vcls == null) return false;
+
+		// Count instances of the base AND its variant -- two total is the cap (one per hand).
+		int owned = 0;
+		for (Inventory it = Inv; it != null; it = it.Inv)
+		{
+			if (it is "Weapon" && (it.GetClass() == wcls || it.GetClass() == vcls)) owned++;
+		}
+		if (owned != 1)
+		{
+			// 0 = first pickup (handled by the normal equip path); >=2 = pair already held
+			// (cap reached) -> let the caller give ammo only.
+			return false;
+		}
+
+		// Spawn the distinct variant instance (not yet attached).
+		let w2 = Weapon(Spawn(vcls));
+		if (w2 == null)
+		{
+			return false;
+		}
+		// A two-handed weapon can't occupy one hand per copy (BringUpWeapon nulls the other hand
+		// for a two-hander), so it can't be dual-wielded -- decline and let the caller give ammo.
+		if (w2.bTwoHanded)
+		{
+			w2.Destroy();
+			return false;
+		}
+
+		// Attach it (AttachToOwner -> AddInventory links it into the inventory chain and grants its
+		// own ammo; it shares the reserve pool since the variant does not redeclare AmmoType).
+		w2.bDropped = false;
+		w2.AttachToOwner(self);   // sets PendingWeapon = w2 by default; we choose the hand below
+
+		if (player.ReadyWeapon == null)
+		{
+			w2.bOffhandWeapon = false;
+			player.PendingWeapon = w2;
+			BringUpWeapon();
+		}
+		else if (player.OffhandWeapon == null)
+		{
+			w2.bOffhandWeapon = true;
+			player.PendingWeapon = w2;
+			BringUpWeapon();
+		}
+		else
+		{
+			// Both hands full: BANK the variant. Because it is a DISTINCT class it sits in its own
+			// weapon slot and stays selectable (wheel / next-weapon), so it genuinely waits until a
+			// hand frees -- no orphan, no lost ammo. This is exactly what the variant approach buys
+			// that a same-class instance could not. Cancel AttachToOwner's auto-switch so the banked
+			// gun does not yank a currently-held weapon out of a hand.
+			if (player.PendingWeapon == w2) player.PendingWeapon = WP_NOCHANGE;
+		}
+		return true;
+	}
+
 	//===========================================================================
 	//
 	// FindMostRecentWeapon

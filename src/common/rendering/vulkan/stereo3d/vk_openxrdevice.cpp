@@ -17,6 +17,7 @@
 #include "QzDoom/VrCommon.h"
 #include "d_player.h"
 #include "g_game.h"
+#include "doomstat.h"   // [net-sanitize] gametic, for the per-tic aim latch
 #include "g_levellocals.h"
 #include "doomdef.h"
 #include "c_console.h"
@@ -95,6 +96,8 @@ EXTERN_CVAR(Bool, vr_teleport);
 EXTERN_CVAR(Float, vr_weaponRotate);
 EXTERN_CVAR(Float, vr_weaponScale);
 EXTERN_CVAR(Bool, vr_enable_haptics);
+EXTERN_CVAR(Bool, vr_aim_through_tic);   // [net-sanitize] latch firing aim per game-tic (default off)
+EXTERN_CVAR(Bool, vr_openxr_late_latch); // [B1] re-latch held-object render pose after xrLocateViews (default off)
 EXTERN_CVAR(Float, vr_2dweaponScale);
 EXTERN_CVAR(Float, vr_2dweaponOffsetX);
 EXTERN_CVAR(Float, vr_2dweaponOffsetY);
@@ -3068,6 +3071,79 @@ void VKOpenXRDeviceMode::updateHmdPose(FRenderViewpoint& vp) const
 	}
 }
 
+// [B1] Late re-latch of held-object render poses. Runs inside BeginXRFrame AFTER xrWaitFrame
+// (fresh xrFrameState.predictedDisplayTime) and updateHmdPose (fresh hmdPosition/hmdorientation),
+// which is strictly AFTER SetUp()->UpdateControllerState() already latched AttackPos/OffhandPos.
+// Therefore it re-derives ONLY weaponoffset/weaponangles/offhandoffset/offhandangles (+ two-hand
+// stabilized override) -- the globals GetHandTransform/GetWeaponTransform read for render matrices --
+// and NEVER writes AttackPos, OffhandPos, xrHandPoseValid, or the velocity history. Keep in sync
+// with updateHandPose's pose math (this is a deliberate velocity-free duplicate).
+void VKOpenXRDeviceMode::RelocateHandPoses() const
+{
+	if (xrSession == XR_NULL_HANDLE || xrSpace == XR_NULL_HANDLE)
+		return;
+	if (!isSessionRunning)
+		return;
+	if (xrFrameState.predictedDisplayTime == 0)
+		return;
+
+	const int mainHand = GetMainHandIndex();
+	const int offHand = GetOffHandIndex();
+
+	auto relatchHand = [&](int hand, float* offset, float* angles) -> bool
+	{
+		if (xrHandSpaces[hand] == XR_NULL_HANDLE)
+			return false;
+		XrSpaceLocation location{ XR_TYPE_SPACE_LOCATION };
+		if (XR_FAILED(xrLocateSpace(xrHandSpaces[hand], xrSpace, xrFrameState.predictedDisplayTime, &location)))
+			return false;
+
+		const bool valid = (location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0 &&
+			(location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0;
+		if (!valid)
+			return false;
+
+		xrHandPoses[hand] = location.pose;
+
+		offset[0] = location.pose.position.x - hmdPosition[0];
+		offset[1] = location.pose.position.y - hmdPosition[1];
+		offset[2] = location.pose.position.z - hmdPosition[2];
+
+		const float yawRotation = GetViewpointYaw() - hmdorientation[1];
+		DVector2 rotated = DVector2(offset[0], offset[2]).Rotated(-yawRotation);
+		offset[0] = rotated.Y;
+		offset[2] = rotated.X;
+
+		const XrVector3f euler = OpenVREulerAnglesFromQuaternion(location.pose.orientation);
+		angles[YAW] = (float)(euler.x * (180.0 / M_PI));
+		constexpr float openxrWeaponPitchBiasDeg = -40.0f;
+		angles[PITCH] = -(float)(euler.y * (180.0 / M_PI)) - (vr_weaponRotate * 2.0f) + openxrWeaponPitchBiasDeg;
+		angles[ROLL] = (float)NormalizeAngle(-(float)(euler.z * (180.0 / M_PI)));
+		return true;
+	};
+
+	const bool mainHandValid = relatchHand(mainHand, weaponoffset, weaponangles);
+	const bool offHandValid = relatchHand(offHand, offhandoffset, offhandangles);
+
+	// Re-apply the two-hand stabilized override against the fresh poses (weaponangles only).
+	if (mainHandValid && offHandValid && players[consoleplayer].vr_two_hand_stabilized)
+	{
+		const float dx = xrHandPoses[mainHand].position.x - xrHandPoses[offHand].position.x;
+		const float dy = xrHandPoses[mainHand].position.y - xrHandPoses[offHand].position.y;
+		const float dz = xrHandPoses[mainHand].position.z - xrHandPoses[offHand].position.z;
+		const float distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+		const float z = xrHandPoses[offHand].position.z - xrHandPoses[mainHand].position.z;
+		const float x = xrHandPoses[offHand].position.x - xrHandPoses[mainHand].position.x;
+		const float y = xrHandPoses[offHand].position.y - xrHandPoses[mainHand].position.y;
+		const float zxDist = std::sqrt(x * x + z * z);
+		if (zxDist > 0.05f && distance > 0.05f)
+		{
+			weaponangles[0] = -(float)(atanf(y / zxDist) * (180.0 / M_PI));
+			weaponangles[1] = -(float)(atan2f(x, -z) * (180.0 / M_PI));
+		}
+	}
+}
+
 void VKOpenXRDeviceMode::UpdateControllerState() const
 {
 	if (xrSession == XR_NULL_HANDLE || xrSpace == XR_NULL_HANDLE || xrActionSet == XR_NULL_HANDLE)
@@ -3775,6 +3851,16 @@ void VKOpenXRDeviceMode::UpdateControllerState() const
 				player->Uncrouch();
 			}
 
+			// [net-sanitize] STEP 1 (OpenXR path): mirror the mono/OpenVR gate -- latch the firing
+			// origin (AttackPos/OffhandPos) at the 35Hz game-tic rate instead of every render frame
+			// when vr_aim_through_tic is on. Default OFF => runs every frame, behavior unchanged.
+			// This is the shot ORIGIN only; the visual weapon pose still updates per-frame via
+			// GetHandTransform, so smoothness is untouched.
+			static int s_lastAimTicXR = -1;
+			if (!vr_aim_through_tic || gametic != s_lastAimTicXR)
+			{
+			if (vr_aim_through_tic) s_lastAimTicXR = gametic;
+
 			LSMatrix44 mat;
 			if (GetWeaponTransform(&mat, VR_MAINHAND))
 			{
@@ -3800,6 +3886,7 @@ void VKOpenXRDeviceMode::UpdateControllerState() const
 				player->mo->OffhandAngle = DAngle::fromDeg(-90 + GetViewpointYaw() + (offhandangles[YAW] - hmdorientation[YAW]));
 				player->mo->OffhandRoll = DAngle::fromDeg(offhandangles[ROLL]);
 			}
+			} // [net-sanitize] end per-tic aim latch (OpenXR)
 
 			if (vr_teleport && player->mo->health > 0)
 			{
@@ -4051,6 +4138,12 @@ bool VKOpenXRDeviceMode::BeginXRFrame() const
 	}
 
 	updateHmdPose(r_viewpoint);
+	// [B1] Optional late re-latch: re-query the hands at THIS frame's fresh predictedDisplayTime so
+	// held weapons/forearms track the just-relatched head instead of trailing it by ~1 frame. Runs
+	// after SetUp()->UpdateControllerState() has already written AttackPos, so it only affects the
+	// visual render pose -- never the authoritative firing origin. Gated + default OFF.
+	if (vr_openxr_late_latch)
+		RelocateHandPoses();
 	xrVirtualScreenVisible = false;
 	xrVirtualScreenBackdropVisible = false;
 	xrVirtualScreenImageIndex = -1;

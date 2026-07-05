@@ -1,0 +1,30 @@
+{
+  "md3": "E:\\DoomXR-work\\DOOM_FRESH\\wadsrc\\static\\models\\weapons\\hud\\revolver\\rev.md3",
+  "out": "E:\\DoomXR-work\\DOOM_FRESH\\wadsrc\\static\\models\\weapons\\hud\\revolver\\rev.iqm",
+  "style": "break",
+  "material": "Revolver",
+  "hotspots": {
+    "hs_grip": [
+      0,
+      0,
+      0
+    ],
+    "hs_foregrip": [
+      31.2494,
+      0,
+      -7.2188
+    ],
+    "hs_breech": [
+      23.7594,
+      0,
+      -7.2188
+    ]
+  },
+  "axis": {
+    "long": "X",
+    "vert": "Z",
+    "lat": "Y",
+    "muzzle_at_max": true
+  },
+  "ready_frame": 0
+}

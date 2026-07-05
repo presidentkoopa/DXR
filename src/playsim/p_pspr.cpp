@@ -503,20 +503,47 @@ void DPSprite::NewTick()
 							FState* archState = weapon->vr_weapon_data->Current3DState;
 							if (archState->GetTics() != -1) // Not infinite
 							{
-								// Basic time scalar math: if DTS is enabled, we could scale.
-								// For now, advance by 1 tic.
-								int ticAdvance = 1;
-								if (vr_weapon_dts && weapon->vr_weapon_data->Max3DTics > 0 && pspr->GetState())
+								auto vwd = weapon->vr_weapon_data;
+								if (vr_weapon_dts && vwd->Anim3DStart && vwd->Max2DTics > 0 && vwd->Max3DTics > 0)
 								{
-									// Simple scalar: advance proportional to 2D state vs 3D state
-									// This can be expanded into a proper float scalar.
-								}
+									// FRAME-PERFECT (DTS): drive the 3D animation position from how far
+									// through the 2D action's total duration we are, so the 3D sequence
+									// finishes in lockstep with the 2D state (reload / alt-fire / fire) no
+									// matter how their frame counts differ. Re-derived from the sequence
+									// start every tic, so it can never drift.
+									if (vwd->Elapsed2DTics < vwd->Max2DTics) vwd->Elapsed2DTics++;
 
-								weapon->vr_weapon_data->Current3DTics += ticAdvance;
-								if (weapon->vr_weapon_data->Current3DTics >= archState->GetTics() && archState->GetTics() > 0)
+									double progress = (double)vwd->Elapsed2DTics / (double)vwd->Max2DTics;
+									int target3DTic = (int)(progress * vwd->Max3DTics);
+									if (target3DTic >= vwd->Max3DTics) target3DTic = vwd->Max3DTics - 1;
+									if (target3DTic < 0) target3DTic = 0;
+
+									// Walk the 3D sequence from its start to the state holding target3DTic.
+									FState* s = vwd->Anim3DStart;
+									int acc = 0;
+									int guard = 0;
+									while (s && s->GetTics() != -1 && guard++ < 256)
+									{
+										int t = s->GetTics();
+										if (t <= 0) t = 1;
+										if (acc + t > target3DTic) break;
+										acc += t;
+										FState* nxt = s->GetNextState();
+										if (!nxt || nxt == s || nxt == vwd->Anim3DStart) break;
+										s = nxt;
+									}
+									if (s) vwd->Current3DState = s;
+								}
+								else
 								{
-									weapon->vr_weapon_data->Current3DState = archState->GetNextState();
-									weapon->vr_weapon_data->Current3DTics = 0;
+									// Legacy 1:1 advance (DTS off): the 3D animation runs at one frame-tic
+									// per game tic on its own schedule, independent of the 2D state length.
+									vwd->Current3DTics += 1;
+									if (vwd->Current3DTics >= archState->GetTics() && archState->GetTics() > 0)
+									{
+										vwd->Current3DState = archState->GetNextState();
+										vwd->Current3DTics = 0;
+									}
 								}
 							}
 						}
@@ -527,6 +554,42 @@ void DPSprite::NewTick()
 			}
 		}
 	}
+}
+
+//---------------------------------------------------------------------------
+//
+// VR weapon shell: total tic length of a state "block" beginning at a label anchor.
+// Walks the chain until it ends (-1 tics), self-loops, or crosses into another label's
+// anchor (e.g. Fire -> Ready). Used to time-scale the 3D weapon-shell animation onto the
+// matching 2D action so reloads / alt-fires stay frame-locked despite differing frame counts.
+//
+//---------------------------------------------------------------------------
+
+static int SumStateBlockTics(PClass *cls, FState *start)
+{
+	if (start == nullptr) return 0;
+	// GetStateLabels() is a PClassActor member, not PClass; weapon state blocks are always actor classes.
+	FStateLabels *labels = cls ? static_cast<PClassActor*>(cls)->GetStateLabels() : nullptr;
+	int total = 0;
+	FState *s = start;
+	int guard = 0;
+	while (s != nullptr && s->GetTics() != -1 && guard++ < 256)
+	{
+		total += s->GetTics();
+		FState *next = s->GetNextState();
+		if (next == nullptr || next == s) break;            // sequence end / self-loop
+		bool nextIsAnchor = false;
+		if (labels != nullptr)
+		{
+			for (int i = 0; i < labels->NumLabels; i++)
+			{
+				if (labels->Labels[i].State == next) { nextIsAnchor = true; break; }
+			}
+		}
+		if (nextIsAnchor) break;                             // crossed into another action block
+		s = next;
+	}
+	return total;
 }
 
 //---------------------------------------------------------------------------
@@ -717,29 +780,23 @@ void DPSprite::SetState(FState *newstate, bool pending)
 
 					if (archState)
 					{
-						// Calculate time scaling if necessary
-						int total2DTics = 0;
-						FState* temp2D = State;
-						while (temp2D && temp2D->GetTics() != -1 && temp2D->GetNextState() != temp2D)
-						{
-							total2DTics += temp2D->GetTics();
-							temp2D = temp2D->GetNextState();
-							if (temp2D == State) break; // Avoid infinite loops
-						}
-
-						int total3DTics = 0;
-						FState* temp3D = archState;
-						while (temp3D && temp3D->GetTics() != -1 && temp3D->GetNextState() != temp3D)
-						{
-							total3DTics += temp3D->GetTics();
-							temp3D = temp3D->GetNextState();
-							if (temp3D == archState) break; // Avoid infinite loops
-						}
+						// Length of the 2D action block and the mapped 3D block. SumStateBlockTics
+						// walks each label's states, stopping at the chain end, a self-loop, or the
+						// next label anchor (e.g. Fire -> Ready) -- so a reload measures the reload,
+						// not the reload plus Ready. (The old inline loops had no iteration guard and
+						// could hang on a multi-frame Ready reached from Reload.)
+						int total2DTics = SumStateBlockTics(Caller->GetClass(), State);
+						int total3DTics = SumStateBlockTics(archClass, archState);
 
 						weapon->vr_weapon_data->Current3DState = archState;
 						weapon->vr_weapon_data->Current3DTics = 0;
-						// Store the scaling factor indirectly via max tics
 						weapon->vr_weapon_data->Max3DTics = total3DTics;
+						// Frame-perfect (DTS) bookkeeping: remember the 3D sequence start + both
+						// durations so DPSprite::Tick can time-scale the 3D animation onto the exact
+						// 2D action duration.
+						weapon->vr_weapon_data->Anim3DStart = archState;
+						weapon->vr_weapon_data->Max2DTics = total2DTics;
+						weapon->vr_weapon_data->Elapsed2DTics = 0;
 					}
 					}
 				}

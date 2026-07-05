@@ -171,6 +171,8 @@ class Actor : Thinker native
 	native readonly int WaterLevel;
 	native readonly double WaterDepth;
 	native int Score;
+	native int LastHitZone;   // [XR] VR locational damage: 0=torso 1=head 2=chest 3=legs (set by P_DamageMobj)
+	native int LastHitHand;   // [XR] hand that landed the hit: 0=main, 1=offhand
 	native int Accuracy;
 	native int Stamina;
 	native double MeleeRange;
@@ -875,6 +877,28 @@ class Actor : Thinker native
 	// is a quaternion (qx,qy,qz,qw); translation is parent-local (0,0,segLen for a chain).
 	native void SetModelUseProceduralPose(bool enable);
 	native void SetModelBonePose(int boneIndex, double tx, double ty, double tz, double qx, double qy, double qz, double qw);
+	// [XR] Read-only IQM hotspot bone introspection (VR weapon-handling foundation).
+	// GetBoneIndex: hs_foregrip/hs_magwell/hs_rack -> joint index, -1 if none / not an IQM (case-insensitive).
+	// GetBoneBindPos: joint index -> parent-resolved MODEL-LOCAL bind position (Vector3), (0,0,0) if invalid.
+	// Static bind data; never touches the procedural pose / whip write path above.
+	native int GetBoneIndex(Name boneName);
+	native Vector3 GetBoneBindPos(int boneIndex);
+	// [XR] DATA-ONLY: declare this weapon's native reload style ("boxmag"|...). Engine reads hs_* itself.
+	native int AssignWeaponHandling(String style);
+	// [XR reload juice] native reload FSM accessors (VR_UpdateWeaponReload in p_user.cpp).
+	// GetWeaponHotspot: world pos of hs_foregrip/hs_magwell/hs_rack (geometric fallback when no IQM bone).
+	// GetReloadState: EVReloadState (0=READY,1=EMPTY,2=MAG_OUT,3=MAG_IN,4=RACKED) for the ReadyWeapon.
+	// GetReloadPerfect: 1 if the last refill hit the PERFECT window, then clears (read-once).
+	// BeginTacticalEject: keep 1 chambered round, forfeit the partial mag, drop to MAG_OUT; 1 if performed.
+	// AbortReload: fumble reset (clears seat/rack latches); 1 if a reload was in progress.
+	// AddReloadHeat: RS_CANISTER heat feed (per-shot); returns clamped heat. GetReloadHeat: heat, or -heat-1 if overheated.
+	native clearscope vector3 VR_GetWeaponHotspot(Name hs);
+	native clearscope int VR_GetReloadState();
+	native int VR_GetReloadPerfect();
+	native int VR_BeginTacticalEject();
+	native int VR_AbortReload();
+	native int VR_AddReloadHeat(int delta);
+	native clearscope int VR_GetReloadHeat();
 	// VR head (HMD) world position in map-space. Local render viewpoint only
 	// (client presentation: holster zones / HUD anchors), not a networked field.
 	native vector3 GetHeadPos();
@@ -899,6 +923,8 @@ class Actor : Thinker native
 	native Actor GetHardpointStowed(int slotIndex);
 	// Analog VR squeeze 0..1 for a hand (0=main,1=off). 0 when not in VR.
 	native double GetGripValue(int hand);
+	// [XR haptics] Pulse one controller. hand: 0=LEFT, 1=RIGHT. intensity 0..1, duration seconds (capped at 1s). No-op outside VR.
+	native void VR_HapticPulse(int hand, double intensity, double duration);
 	// [XR grip arbiter / fling fix] Whip publishes whether a live pendulum-swing owns the pawn this tic
 	// (GM_ATTACHED + AltFire held); native climb reads it and yields Vel + gravity so only one system
 	// writes pawn Vel per tic. Per-player (no hand param). Call true every live-swing tic, false in EndGrapple.

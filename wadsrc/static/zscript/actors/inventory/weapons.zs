@@ -647,6 +647,21 @@ class Weapon : StateProvider
 	{
 		if (item.GetClass() == GetClass())
 		{
+			// VR dual-wield: a second same-class pickup can become a REAL second instance -- a
+			// gun in each hand -- instead of ammo-only, when this weapon opts in (its Keywords
+			// contain "vr_dualwield") and the owner is a player who can still take one. The
+			// PlayerPawn.VR_GiveDualWield helper creates + places the distinct instance; if it
+			// made one, the pickup is consumed here. Falls through to vanilla ammo behavior when
+			// the class is not dual-wieldable or the cap (two) is already reached.
+			if (Keywords.IndexOf("vr_dualwield") >= 0)
+			{
+				let pp = PlayerPawn(Owner);
+				if (pp != null && pp.VR_GiveDualWield(GetClass()))
+				{
+					item.bPickupGood = true;
+					return true;
+				}
+			}
 			if (Weapon(item).PickupForAmmo (self))
 			{
 				item.bPickupGood = true;

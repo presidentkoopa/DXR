@@ -9,6 +9,7 @@ class HandGrenade : DoomWeapon
 	Default
 	{
 		Weapon.SelectionOrder 2500;
+		Weapon.SlotNumber 8;   // [XR] slot 8 (matches DoomPlayer's Player.WeaponSlot 8)
 		Weapon.AmmoUse 1;
 		Weapon.AmmoGive 3;
 		Weapon.AmmoType "GrenadeAmmo";

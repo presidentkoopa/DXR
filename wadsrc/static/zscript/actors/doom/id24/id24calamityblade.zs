@@ -18,9 +18,11 @@
 
 class ID24CalamityBlade : DoomWeapon // Heatwave Generator
 {
+	mixin XR_ManualReload;   // [XR] chamber gate + reload; native VR gesture FSM refills it (vr_new_weapon_handling)
 	Default
 	{
 		Weapon.SelectionOrder 1000;
+		Weapon.SlotNumber 7;   // [XR] slot 7 (matches DoomPlayer's Player.WeaponSlot 7)
 		Weapon.AmmoUse 10;
 		Weapon.AmmoGive 20;
 		Weapon.AmmoType "ID24Fuel";
@@ -50,15 +52,21 @@ class ID24CalamityBlade : DoomWeapon // Heatwave Generator
 		CBLD A -1;
 		Stop;
 	Ready:
-		HETG A 1 A_WeaponReady;
+		HETG A 0 { if (invoker.XRMagSize == 0) invoker.XR_InitChamber(20); }   // [XR] mag size 20
+		HETG A 1 A_WeaponReady(WRF_ALLOWRELOAD);                               // on-demand reload button (classic fallback)
 		Loop;
 	Deselect:
 		HETG A 1 A_Lower;
 		Loop;
 	Select:
-		HETG A 1 A_Raise;
+		HETG A 1
+		{
+			A_Raise();
+			AssignWeaponHandling("boxmag");   // [XR] DATA-ONLY: native box-mag FSM; hs_* auto-read from the IQM
+		}
 		Loop;
 	Fire:
+		TNT1 A 0 A_JumpIf(!A_XR_TryFire(), "Ready");   // [XR] chamber gate: consumes 1 loaded round, dry-clicks when empty (before the charge)
 	Hold0:
 		HETG A 0 MBF21_ConsumeAmmo(0);
 		HETG A 0 A_GunFlashTo("Hold0Flash", 1);
@@ -176,6 +184,11 @@ class ID24CalamityBlade : DoomWeapon // Heatwave Generator
 		HETC Q 6 BRIGHT;
 		HETC RST 5 BRIGHT;
 		Goto LightDone;
+	Reload:
+		HETG A 0 A_XR_EjectToPouch();   // VR: eject mag -> Ready (chest pouch reloads); flatscreen: falls through
+		HETG A 30;
+		HETG A 15 A_XR_RefillChamber();   // re-arm chamber from the reserve
+		Goto Ready;
 	Flash:
 		TNT1 A 3 A_Light1;
 		TNT1 A 5 A_Light2;

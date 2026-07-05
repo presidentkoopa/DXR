@@ -112,6 +112,7 @@
 #include "model.h"
 #include "keyword_dispatcher.h"
 #include "playsim/vr_msdf_text.h"
+#include "vr_weapon.h"
 #include "d_net.h"
 
 #include <QzDoom/VrCommon.h>
@@ -438,11 +439,30 @@ void AActor::Serialize(FSerializer &arc)
 //
 //==========================================================================
 
+// [XR] A1: give a freshly-created weapon instance its OWN copy of the class default's resolved
+// VRWeaponData. CreateNew memcpy's the default, then ConstructNative re-nulls this native pointer
+// (the actor.h in-class initializer `vr_weapon_data = nullptr`) and InitializeSpecials does not
+// restore it (native field, not a ZScript special) -- so without this the 3D weapon-shell render
+// hook (hw_weapon.cpp:2007) and the anim-sync advance (p_pspr.cpp:501) read a null instance pointer
+// and never fire. A per-instance COPY (not a shared default pointer) keeps the mutable anim-sync
+// fields (Current3DState/Elapsed2DTics/...) independent across offhand/akimbo instances of the same
+// class. Idempotent + cheap for non-weapons (early-out when the default has no vr_weapon_data).
+static void VR_ResolveInstanceWeaponData(AActor* actor)
+{
+	if (actor == nullptr || actor->vr_weapon_data != nullptr) return;
+	AActor* def = actor->GetDefault();
+	if (def != nullptr && def->vr_weapon_data != nullptr)
+	{
+		actor->vr_weapon_data = new VRWeaponData(*def->vr_weapon_data);
+	}
+}
+
 void AActor::PostSerialize()
 {
 	touching_sectorlist = nullptr;
 	touching_rendersectors = nullptr;
 	LinkToWorld(nullptr, false, Sector);
+	VR_ResolveInstanceWeaponData(this);   // [XR] A1: re-derive the 3D-shell data lost on save (native field, not serialized)
 
 	AddToHash();
 	if (player)
@@ -5074,6 +5094,7 @@ AActor *AActor::StaticSpawn(FLevelLocals *Level, PClassActor *type, const DVecto
 
 	actor->vr_taxonomy = FVRConfig::GetTaxonomy(type->TypeName.GetChars());
 	KeywordDispatcher::ResolveMetadata(actor->Keywords, actor->vr_metadata);
+	VR_ResolveInstanceWeaponData(actor);   // [XR] A1: instance copy of the resolved 3D-shell data (default ptr is re-nulled by ConstructNative)
 
 	ConstructActor(actor, pos, SpawningMapThing);
 	return actor;
@@ -5392,6 +5413,18 @@ void AActor::OnDestroy ()
 	{
 		ViewPos->Destroy();
 		ViewPos = nullptr;
+	}
+
+	// [XR] A1: free the per-instance VRWeaponData allocated in VR_ResolveInstanceWeaponData.
+	// Never free the class default's struct (owned by FVRWeaponResolver, process-lifetime).
+	if (vr_weapon_data != nullptr)
+	{
+		AActor* def = GetDefault();
+		if (def == nullptr || vr_weapon_data != def->vr_weapon_data)
+		{
+			delete vr_weapon_data;
+		}
+		vr_weapon_data = nullptr;
 	}
 
 	// Transform any playing sound into positioned, non-actor sounds.

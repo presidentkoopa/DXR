@@ -9,7 +9,9 @@ Gameinfo
 	// lane) but left registered here -- each HARD-FATALS boot ("unknown event handler class X"):
 	//   SDFComboArbiter, VRDamageHandler, VRGifEventHandler (verified: no `class X` exists in zscript).
 	// The remaining 8 all have live classes. If a lane re-adds one of these classes, re-add it here.
-	AddEventHandlers = "VRLocationalArbiter", "GrenadeHandler", "XR_GravityPathGiver", "WeaponReplacementHandler", "VRDeathHandler", "VRRomLoadHandler", "VRTestingRig", "VRHardpointMarkerHandler"
+	// [XR] VRLocationalArbiter REMOVED: locational damage is now native C++ (p_interaction.cpp), the ZScript
+	// handler class was retired -- leaving it registered here = "unknown event handler class" boot abort.
+	AddEventHandlers = "GrenadeHandler", "XR_GravityPathGiver", "WeaponReplacementHandler", "VRDeathHandler", "VRRomLoadHandler", "VRHardpointMarkerHandler", "XRGrabmapText", "XRAmmoPouch", "XRReloadDebug", "XRReloadFumble", "XRReloadPerfectFX", "XRMagTrail", "XRDroppedAmmo", "XRChaingunSlam", "XRGrapple"
 }
 
 DoomEdNums

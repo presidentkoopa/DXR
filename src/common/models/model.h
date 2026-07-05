@@ -28,7 +28,14 @@ extern TDeletingArray<FModel*> Models;
 extern TArray<FSpriteModelFrame> SpriteModelFrames;
 extern TMap<const PClass*, FSpriteModelFrame> BaseSpriteModelFrames;
 
-#define MD3_MAX_SURFACES	32
+// [XR] Raised 32 -> 128: max separately-textured SURFACES per model (per-SurfaceSkin). The
+// DOOM Eternal marine already uses 7; complex future assets (mechs, detailed characters with
+// many material slots) can exceed 32. SAFE bump -- every MD3_MAX_SURFACES usage is a dynamic
+// TArray Alloc/Resize, a bound check, or a stride multiply; there is NO fixed C-array, GPU
+// uniform, or stack buffer sized by it, so this only grows dynamic allocations (a few KB per
+// modeldef). NOTE: models-per-actor is NOT capped here -- modelsAmount is dynamic (highest
+// Model index +1, floor MIN_MODELS), the only ceiling being its uint8_t type (255 models).
+#define MD3_MAX_SURFACES	128
 #define MIN_MODELS	4
 
 struct FSpriteModelFrame
@@ -58,6 +65,10 @@ public:
 	float pitchoffset, rolloffset; // I don't want to bother with type transformations, so I made this variables float.
 	bool isVoxel;
 	unsigned int getFlags(class DActorModelData * defs) const;
+	// [XR] OR extra render flags onto a runtime-built COPY of a frame. Used by the native weapon
+	// MD3<->IQM format swap (hw_weapon.cpp) to force MDL_MODELSAREATTACHMENTS so a 0-baked-frame
+	// rigged IQM uploads its bind pose -- without it a rigged 0-frame model renders no geometry.
+	void XR_OrFlags(unsigned int f) { flags |= f; }
 	friend void InitModels();
 	friend void ParseModelDefLump(int Lump);
 };
@@ -121,6 +132,13 @@ public:
 	virtual bool GetJointBindTRS(int jointIndex, TRS& out) const { return false; }
 	virtual int GetJointParent(int jointIndex) const { return -1; }
 	virtual int FindJointByName(FName name) const { return -1; }
+	// [XR] Case-INSENSITIVE joint-name lookup (hs_* hotspots may not match ZScript-literal case).
+	// Base no-op -> -1 on any non-IQM model, same pattern as FindJointByName above.
+	virtual int FindJointByNameCI(FName name) const { return -1; }
+	// [XR] Parent-resolved MODEL-LOCAL bind position of a joint (translation column of
+	// baseframe[jointIndex]). Read-only static bind data; base no-op so callers can invoke on
+	// ANY FModel* (MD3 -> false) with no dynamic_cast. Only IQMModel overrides it for real.
+	virtual bool GetJointBaseframePos(int jointIndex, FVector3& out) const { return false; }
 
 	void SetVertexBuffer(int type, IModelVertexBuffer *buffer) { mVBuf[type] = buffer; }
 	IModelVertexBuffer *GetVertexBuffer(int type) const { return mVBuf[type]; }

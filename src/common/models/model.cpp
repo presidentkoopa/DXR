@@ -177,6 +177,16 @@ unsigned FindModel(const char * path, const char * modelfile, bool silent)
 	auto lumpd = fileSystem.ReadFile(lump);
 	const char * buffer = lumpd.string();
 
+	// [XR] Guard a null lump buffer: some compressors (zipdir's BZIP2) yield a lump whose
+	// FileData.string() comes back null even though FileLength() is nonzero. Without this, the
+	// format probes below (memcmp) and FOBJModel::Load's FString(buffer,len) memcpy from null ->
+	// hard crash at startup. Skip the model gracefully instead. (Also repack pk3s deflate-only.)
+	if (buffer == nullptr)
+	{
+		Printf(PRINT_HIGH, "FindModel: '%s' could not be read (null/unreadable lump)\n", fullname.GetChars());
+		return -1;
+	}
+
 	if ( (size_t)fullname.LastIndexOf("_d.3d") == fullname.Len()-5 )
 	{
 		FString anivfile = fullname.GetChars();

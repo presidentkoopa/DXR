@@ -52,10 +52,12 @@ This is the decoder ring. Colors are fixed and semantic — same color always me
 | Sphere | Color | Radius | Meaning — reach in and… |
 |---|---|---|---|
 | Catch / snatch | 🟢 green | `vr_catch_radius` (24) | …grab a near item / snatch a bullet. Both hands. |
-| Climb | 🔵 blue | `vr_climb_radius` (32) | …grip a climbable surface. Both hands. |
+| Climb | 🔵 blue | `vr_climb_radius` (32) | …grip a climbable surface. Both hands. (currently commented out in `hw_weapon.cpp` — reads as a blue pillar with large radii; re-enable if needed) |
 | Two-hand | 🟡 yellow | `vr_twohand_radius` (8) | …if your *off*-hand enters this bubble on the main hand, the weapon two-hand-stabilizes. Main hand only. |
+| Hardpoint (body) | 🟣 hot magenta | `vr_hardpoint_radius` or per-slot | A holster/hardpoint slot anchored to the body (chest/hip). Toggle: `vr_debug_hardpoints`. |
+| Hardpoint (wrist) | 🟪 electric violet | `vr_hardpoint_radius` or per-slot | A hardpoint slot anchored to the OTHER hand's wrist transform (ability mounts). Toggle: `vr_debug_hardpoints`. |
 
-**The mental model:** *grab-at-a-distance is the **cone**; the up-close interactions are the **spheres**.* Every sphere is drawn **exactly where the game runs its `distance ≤ radius` test** — so if an interaction isn't triggering, the sphere tells you whether your hand was actually inside the volume. That's the whole point.
+**The mental model:** *grab-at-a-distance is the **cone**; the up-close interactions are the **spheres**.* Every sphere is drawn **exactly where the game runs its `distance ≤ radius` test** — so if an interaction isn't triggering, the sphere tells you whether your hand was actually inside the volume. That's the whole point. Hardpoint markers follow the same rule: they're drawn via `VR_ResolveHardpointWorldPos`, the exact same resolver `VR_UpdateHardpoints` uses for real grip/proximity checks, so the marker can never drift from the real mechanic.
 
 ---
 
@@ -77,8 +79,9 @@ vr_grab_debug_sphere 1       // interaction spheres
 vr_grab_debug_cone_solid 1   // fill the cones (0 = wireframe only)
 vr_grab_debug_sphere_solid 1 // fill the spheres (0 = wireframe rings only)
 xr_gp_debug 1                // gravity cast cone + path markers
+vr_debug_hardpoints 1        // holster/hardpoint slot markers (magenta=body, violet=wrist)
 ```
-All default to a sensible state: the sub-toggles default **on**, so `vr_grab_debug 1` alone lights up everything.
+All default to a sensible state: the sub-toggles default **on**, so `vr_grab_debug 1` alone lights up everything. `vr_debug_hardpoints` is independent of `vr_grab_debug` / `xr_gp_debug` — it reuses `vr_grab_debug_sphere_solid` for its glow fill but has its own master toggle so you can look at hardpoints without the grab cones/spheres cluttering the view.
 
 ---
 

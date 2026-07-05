@@ -267,7 +267,7 @@ public:
 	void TranslateViewpointMatrices(double x, double y, double z);
 	void InheritMultiviewState(const HWDrawInfo& other);
 	void RenderTranslucent(FRenderState &state);
-	void DrawGlowBillboards(FRenderState &state);	// [GITD-AIR] in-air glow panels
+	void DrawGlowBillboards(FRenderState &state);	// [RADIANCE-AIR] in-air glow panels
 	void RenderPortal(HWPortal *p, FRenderState &state, bool usestencil);
 	void EndDrawScene(sector_t * viewsector, FRenderState &state);
 	void DrawEndScene2D(sector_t * viewsector, FRenderState &state);

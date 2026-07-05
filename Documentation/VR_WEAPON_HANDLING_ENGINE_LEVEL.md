@@ -187,6 +187,16 @@ ssg, chaingun, bfg9000, rocketlauncher, plasmarifle, chainsaw, shieldsaw, incine
 - Pipeline is source-agnostic: chosen MD3 -> IQM, add `hs_*` hotspots, drop baked frames (procedural replaces).
   BUGFIX's separate mag/pod/flash meshes become held reload props + flash actors with zero extra rigging.
 
+## Migration SAFETY (non-negotiable — never all-or-nothing)
+- **KEEP every MD3. Delete nothing.** IQM versions live ALONGSIDE; modeldef points at one or the other.
+- **Toggle-gated** (`vr_new_weapon_handling`, default OFF until proven) — OFF = today's behavior bit-for-bit
+  (MD3 + classic button reload). ON = IQM + manual reload. Same escape-hatch pattern as `vr_grip_arbiter`.
+- **Per-weapon rollout, not all-at-once.** Migrate ONE weapon (m16 box-mag) end-to-end, prove in-headset,
+  then roll out one at a time. Unconverted weapons keep MD3 + classic reload independently.
+- **Cost shape:** ONE C++ build for the foundation (bone-read + FSM + two-hand). After that, every model
+  swap / hotspot is **pk3-only** (re-zip, no C++ recompile) — cheap, safe iteration.
+- **Bail-out:** flip the CVar off + point modeldefs back at the MD3s (never moved). Instantly on today's build.
+
 ## Migration (each step compiles; native throughout)
 1. **Hotspot reads** — `GetBoneIndex`/`GetBoneBindPos` thunks + `models_iqm` access. Prove on one IQM weapon.
 2. **IQM-convert the gun models** (Pistol/Shotgun/Plasma/m16 MD3 → IQM) with `hs_*` empties; drop canned MD3

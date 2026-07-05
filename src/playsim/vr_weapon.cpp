@@ -12,8 +12,13 @@
 #include "common/objects/dobjtype.h"
 
 CVAR(Bool, vr_weapon_shell, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
-CVAR(Bool, vr_weapon_hands, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 CVAR(Bool, vr_weapon_dts, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+// [XR] Weapon model format: 0 = MD3 (baked fire/reload animation, today's behaviour),
+// 1 = IQM (rigged bind pose + hs_* reload/two-hand hotspot bones). DEFAULT 1 = IQM.
+// Read by the native format swap in hw_weapon.cpp (VR_ApplyWeaponModelFormat). Flipping it
+// re-picks per frame, but the VR Weapon Options menu advertises "restart map" so a weapon
+// mid-reload-FSM re-baselines from a clean map load.
+CVAR(Int, vr_weapon_model_format, 1, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 
 void FVRWeaponResolver::Init()
 {
@@ -45,6 +50,10 @@ void FVRWeaponResolver::ResolveWeapons()
             else if (cls->IsDescendantOf(PClass::FindActor("BFG9000"))) archetype = EVRWeaponArchetype::BFG;
             else if (cls->IsDescendantOf(PClass::FindActor("Chainsaw"))) archetype = EVRWeaponArchetype::Chainsaw;
             else if (cls->IsDescendantOf(PClass::FindActor("Fist"))) archetype = EVRWeaponArchetype::Fist;
+            else if (cls->IsDescendantOf(PClass::FindActor("Rifle"))) archetype = EVRWeaponArchetype::Rifle;
+            else if (cls->IsDescendantOf(PClass::FindActor("SMG"))) archetype = EVRWeaponArchetype::SMG;
+            else if (cls->IsDescendantOf(PClass::FindActor("Revolver"))) archetype = EVRWeaponArchetype::Revolver;
+            else if (cls->IsDescendantOf(PClass::FindActor("Flamethrower"))) archetype = EVRWeaponArchetype::Flamethrower;
             
             if (archetype != EVRWeaponArchetype::Unknown)
             {
@@ -255,4 +264,29 @@ DEFINE_ACTION_FUNCTION(DMenu, GetVRWeaponArchetype)
         ACTION_RETURN_INT((int)defaultActor->vr_weapon_data->Archetype);
     else
         ACTION_RETURN_INT(0);
+}
+
+// ZScript->native bridge so the in-menu Archetype Scanner can PERSIST an assignment
+// (mirrors the vr_weapon_set_archetype CCMD above, but takes the menu's int archetype).
+DEFINE_ACTION_FUNCTION(DMenu, SetVRWeaponArchetype)
+{
+    PARAM_PROLOGUE;
+    PARAM_CLASS(cls, AActor);
+    PARAM_INT(archetype);
+    if (cls)
+    {
+        PClassActor* actorCls = static_cast<PClassActor*>(cls);
+        AActor* defaultActor = GetDefaultByType(actorCls);
+        if (defaultActor)
+        {
+            if (!defaultActor->vr_weapon_data)
+                defaultActor->vr_weapon_data = new VRWeaponData();
+            // Clamp to the valid EVRWeaponArchetype range (0 == Unknown/Auto).
+            if (archetype < 0) archetype = 0;
+            if (archetype > (int)EVRWeaponArchetype::Flamethrower) archetype = (int)EVRWeaponArchetype::Flamethrower;
+            defaultActor->vr_weapon_data->Archetype = (EVRWeaponArchetype)archetype;
+            FVRWeaponResolver::SaveJSONOverrides();
+        }
+    }
+    return 0;
 }

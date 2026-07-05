@@ -11,6 +11,7 @@ class Pistol : DoomWeapon
 	Default
 	{
 		Weapon.SelectionOrder 1900;
+		Weapon.SlotNumber 2;   // [XR] slot 2 (matches DoomPlayer's Player.WeaponSlot 2)
 		Weapon.AmmoUse 1;
 		Weapon.AmmoGive 20;
 		Weapon.AmmoType "Clip";
@@ -18,20 +19,26 @@ class Pistol : DoomWeapon
 		+WEAPON.WIMPY_WEAPON
 		Inventory.Pickupmessage "$PICKUP_PISTOL_DROPPED";
 		Tag "$TAG_PISTOL";
-		Keywords "mass:10", "grab", "class:pistol", "dmg:ballistic", "style:precision", "weight:light", "range:medium", "fire:semi", "handling:snappy", "role:sidearm";
+		Keywords "mass:10", "grab", "class:pistol", "dmg:ballistic", "style:precision", "weight:light", "range:medium", "fire:semi", "handling:snappy", "role:sidearm", "vr_dualwield";
 	}
 	States
 	{
 	Ready:
 		PISG A 0 { if (invoker.XRMagSize == 0) invoker.XR_InitChamber(12); }   // mag size 12
-		PISG A 0 A_XR_CheckChamber("Reload");                                  // auto-reload when empty
-		PISG A 1 A_WeaponReady(WRF_ALLOWRELOAD);                              // + on-demand reload button
+		PISG A 1 A_WeaponReady(WRF_ALLOWRELOAD);                              // reload bind -> eject -> chest pouch
 		Loop;
+	// [XR] Removed A_XR_CheckChamber auto-route: the Pistol now uses the chest-pouch reload like the other
+	// mag guns (dry-click on empty fire, then reload-bind ejects the mag and you grab a fresh one). Removing
+	// it also prevents an eject<->Reload infinite loop with A_XR_EjectToPouch below.
 	Deselect:
 		PISG A 1 A_Lower;
 		Loop;
 	Select:
-		PISG A 1 A_Raise;
+		PISG A 1
+		{
+			A_Raise();
+			AssignWeaponHandling("boxmag");   // [XR] native box-mag FSM; chest-pouch reload
+		}
 		Loop;
 	Fire:
 		TNT1 A 0 A_JumpIf(!A_XR_TryFire(), "Ready");   // chamber gate (consumes 1 loaded round; dry-clicks when empty)
@@ -74,6 +81,7 @@ class Pistol : DoomWeapon
 	// PISR A-R, mapped in modeldef.txt). 18 frames x 2 tics = ~1s snappy sidearm reload;
 	// chamber is topped from the reserve total on the final chambering frame.
 	Reload:
+		PISR A 0 A_XR_EjectToPouch();   // VR: eject mag -> Ready (chest pouch reloads); flatscreen: plays the PISR anim below
 		PISR A 2;
 		PISR B 2;
 		PISR C 2;

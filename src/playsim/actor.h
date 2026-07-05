@@ -1693,6 +1693,11 @@ public:
 
 	DVector3 (*OffhandDir)(AActor* actor, DAngle yaw, DAngle pitch);
 
+	// [XR] VR locational damage (native, POD ints -> memset-safe, no FString clobber). Written by
+	// P_DamageMobj's zone logic on every hit; read by mods (SDF combos) via Actor.LastHitZone / the
+	// GetHitZoneName() helper. Zone: 0=torso 1=head 2=chest 3=legs. Hand: 0=main 1=offhand.
+	int LastHitZone;
+	int LastHitHand;
 	FString Keywords;
 };
 

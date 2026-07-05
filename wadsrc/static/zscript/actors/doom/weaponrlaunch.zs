@@ -6,29 +6,37 @@
 
 class RocketLauncher : DoomWeapon
 {
+	mixin XR_ManualReload;   // [XR] chamber gate + reload; native VR gesture FSM refills it (vr_new_weapon_handling)
 	Default
 	{
 		Weapon.SelectionOrder 2500;
+		Weapon.SlotNumber 5;   // [XR] slot 5 (matches DoomPlayer's Player.WeaponSlot 5)
 		Weapon.AmmoUse 1;
 		Weapon.AmmoGive 2;
 		Weapon.AmmoType "RocketAmmo";
 		+WEAPON.NOAUTOFIRE
 		Inventory.PickupMessage "$GOTLAUNCHER";
 		Tag "$TAG_ROCKETLAUNCHER";
-		Keywords "mass:80", "grab", "class:rl", "dmg:explosive", "style:artillery", "weight:heavy", "range:long", "fire:single", "handling:heavy", "role:heavy";
+		Keywords "mass:80", "grab", "class:rl", "grip:heavy", "dmg:explosive", "style:artillery", "weight:heavy", "range:long", "fire:single", "handling:heavy", "role:heavy", "vr_dualwield";
 	}
 	States
 	{
 	Ready:
-		MISG A 1 A_WeaponReady;
+		MISG A 0 { if (invoker.XRMagSize == 0) invoker.XR_InitChamber(1); }   // [XR] mag size 1 (single-shot chamber)
+		MISG A 1 A_WeaponReady(WRF_ALLOWRELOAD);                              // on-demand reload button (classic fallback)
 		Loop;
 	Deselect:
 		MISG A 1 A_Lower;
 		Loop;
 	Select:
-		MISG A 1 A_Raise;
+		MISG A 1
+		{
+			A_Raise();
+			AssignWeaponHandling("boxmag");   // [XR] native box-mag FSM; hs_* auto-read from the IQM
+		}
 		Loop;
 	Fire:
+		TNT1 A 0 A_JumpIf(!A_XR_TryFire(), "Ready");   // [XR] chamber gate: consumes 1 loaded round, dry-clicks when empty
 		MISG B 8 A_GunFlash;
 		MISG B 12 
 		{
@@ -36,6 +44,11 @@ class RocketLauncher : DoomWeapon
 			A_Recoil(6.0);
 		}
 		MISG B 0 A_ReFire;
+		Goto Ready;
+	Reload:
+		MISG A 0 A_XR_EjectToPouch();   // VR: eject mag -> Ready (chest pouch reloads); flatscreen: falls through
+		MISG A 30;
+		MISG A 15 A_XR_RefillChamber();   // re-arm chamber from the reserve
 		Goto Ready;
 	Flash:
 		// VR: muzzle-flash sprite suppressed, muzzle light kept.

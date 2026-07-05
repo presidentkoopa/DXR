@@ -975,7 +975,7 @@ public:
 		planes[pos].GlowColor = color;
 	}
 
-	// [GITD] Localized GLOW SPOT: a recolorable glow CIRCLE painted on the floor/ceiling at a point
+	// [RADIANCE] Localized GLOW SPOT: a recolorable glow CIRCLE painted on the floor/ceiling at a point
 	// (e.g. under a dying actor), radius-limited so it is NOT sector-wide. Radial gradient, reuses
 	// the glow channel, ZERO dynamic lights. Height = radius (map units); 0 = off.
 	PalEntry WallGlowColor = 0;

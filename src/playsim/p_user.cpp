@@ -116,6 +116,8 @@ EXTERN_CVAR(Float, vr_climb_radius)
 EXTERN_CVAR(Float, vr_climb_speed_mult)
 EXTERN_CVAR(Bool, vr_grab_debug)
 EXTERN_CVAR(Float, vr_throw_force)
+EXTERN_CVAR(Bool, vr_throw_equip)
+EXTERN_CVAR(Float, vr_throw_equip_min_speed)
 EXTERN_CVAR(Bool, vr_easy_grab_props)
 EXTERN_CVAR(Float, vr_easy_grab_scale)
 EXTERN_CVAR(Float, vr_scale_meters_to_units)
@@ -130,10 +132,63 @@ EXTERN_CVAR(Bool,  vr_grip_arbiter_hysteresis)
 EXTERN_CVAR(Float, vr_grip_commit_arm)
 EXTERN_CVAR(Float, vr_grip_commit_release)
 EXTERN_CVAR(Bool,  vr_whip_grip_pump)
+// [XR weapon handling] master toggle + hotspot/foregrip/reload tuning (declared in hw_vrmodes.cpp)
+EXTERN_CVAR(Bool,  vr_new_weapon_handling)
+EXTERN_CVAR(Float, vr_weapon_hotspot_radius)
+EXTERN_CVAR(Float, vr_foregrip_radius)
+EXTERN_CVAR(Float, vr_reload_assist)
+EXTERN_CVAR(Float, vr_reload_magwell_radius)
+EXTERN_CVAR(Float, vr_reload_rack_radius)
+EXTERN_CVAR(Float, vr_reload_rack_travel)
+EXTERN_CVAR(Bool,  vr_reload_chamber)
+EXTERN_CVAR(Int,   vr_reload_perfect_window)
+EXTERN_CVAR(Int,   vr_reload_perfect_life)
+EXTERN_CVAR(Int,   vr_reload_heat_per_shot)
+EXTERN_CVAR(Int,   vr_reload_heat_max)
+EXTERN_CVAR(Bool,  vr_reload_toss_catch)
 EXTERN_CVAR(Float, vr_climb_radius)
 EXTERN_CVAR(Float, vr_climb_speed_mult)
 EXTERN_CVAR(Float, vr_grab_cone_angle)
 EXTERN_CVAR(Float, vr_grab_max_dist)
+// [XR hand-world collision] declared in hw_vrmodes.cpp
+EXTERN_CVAR(Bool,  vr_hand_collision)
+EXTERN_CVAR(Float, vr_hand_collision_radius)
+EXTERN_CVAR(Bool,  vr_hand_collision_glow)
+EXTERN_CVAR(Float, vr_hand_glow_range)
+EXTERN_CVAR(Float, vr_hand_glow_min_radius)
+EXTERN_CVAR(Float, vr_hand_glow_max_radius)
+EXTERN_CVAR(Color, vr_hand_glow_color)
+EXTERN_CVAR(Color, vr_hand_glow_climb_color)
+EXTERN_CVAR(Bool,  vr_hand_ik_clamp)
+
+// [XR interaction glows] declared in hw_vrmodes.cpp
+EXTERN_CVAR(Float, vr_catch_glow_radius)
+EXTERN_CVAR(Color, vr_catch_glow_color)
+EXTERN_CVAR(Bool,  vr_throw_arc_glow_enable)
+EXTERN_CVAR(Float, vr_throw_arc_glow_radius)
+EXTERN_CVAR(Color, vr_throw_arc_glow_color)
+EXTERN_CVAR(Bool,  vr_grab_highlight_enable)
+EXTERN_CVAR(Float, vr_grab_highlight_radius)
+EXTERN_CVAR(Color, vr_grab_highlight_color)
+EXTERN_CVAR(Bool,  vr_twohand_glow_enable)
+EXTERN_CVAR(Float, vr_twohand_glow_radius)
+EXTERN_CVAR(Color, vr_twohand_glow_color)
+EXTERN_CVAR(Bool,  vr_hardpoint_glow_enable)
+EXTERN_CVAR(Float, vr_hardpoint_glow_range)
+EXTERN_CVAR(Float, vr_hardpoint_glow_min_radius)
+EXTERN_CVAR(Float, vr_hardpoint_glow_max_radius)
+EXTERN_CVAR(Color, vr_hardpoint_glow_color_body)
+EXTERN_CVAR(Color, vr_hardpoint_glow_color_wrist)
+EXTERN_CVAR(Bool,  vr_reload_glow_enable)
+EXTERN_CVAR(Float, vr_reload_glow_radius)
+EXTERN_CVAR(Color, vr_reload_glow_color)
+EXTERN_CVAR(Float, vr_grab_weight_dist)
+EXTERN_CVAR(Float, vr_grab_weight_align)
+EXTERN_CVAR(Float, vr_grab_weight_mass)
+
+// [XR] shared airborne glow-spot push (def'd near VR_UpdateHandCollision, later in this file) --
+// forward-declared this early since VR_CalculateTwoHanding/VR_UpdateGravityGloves use it too.
+static void VR_PushWorldGlow(FLevelLocals* lvl, const DVector3& pos, PalEntry color, double radius);
 
 static FRandom pr_skullpop ("SkullPop");
 
@@ -443,6 +498,9 @@ size_t player_t::PropagateMark()
 			GC::Mark(vr_hardpoints[i].stowedWeapon);
 		}
 	}
+	// [XR weapon handling] vr_reload_weapon aliases the live ReadyWeapon (already marked), but mark it
+	// defensively so a mid-reload weapon swap can never leave a dangling tracked pointer.
+	GC::Mark(vr_reload_weapon);
 	return sizeof(*this);
 }
 
@@ -1328,14 +1386,93 @@ DEFINE_ACTION_FUNCTION(APlayerPawn, CheckUse)
 //----------------------------------------------------------------------------
 
 
+// [XR grip arbiter] Per-hand grip ownership. File-scope (header stays enum-free; player_t fields are plain int).
+// ZScript gets matching const values in actor.zs. PHYSICAL-controller-indexed everywhere. Declared HERE (before
+// VR_CalculateTwoHanding, its first user) so the foregrip two-hand upgrade below can reference GRIP_TWOHAND.
+enum EGripOwner { GRIP_NONE = 0, GRIP_CLIMB, GRIP_GLOVE, GRIP_WHIP, GRIP_HARDPOINT, GRIP_TWOHAND };
+
+// [XR weapon handling] Defined in p_actionfunctions.cpp. Forward-declared HERE (its first user,
+// VR_CalculateTwoHanding, is above the existing decl at ~line 1520) so this TU sees it before use.
+bool VR_WeaponHotspotWorld(AActor* weapon, FName name, DVector3& out);
+
+// [XR] Keyword-driven per-weapon two-hand style. Reads "grip:<style>" from the weapon's Keywords so MOD
+// weapons inherit the behavior just by carrying the keyword; falls back to "class:<type>" (which our weapons
+// and the archetype resolver already tag), then a rifle default. Fills capsule LENGTH (how far forward the
+// off-hand can grab) + MODE (0 = foregrip capsule along the barrel, 1 = hilt / both-hands-on-grip for swords,
+// 2 = none / not two-handable). This is the ONE place a weapon's two-hand feel is decided.
+static void VR_GripStyleFromKeywords(const FString& kw, double& outLen, int& outMode)
+{
+    outLen = 30.0; outMode = 0;   // default: full-length foregrip (unkeyworded mod guns still two-hand)
+    static const struct { const char* tag; double len; int mode; } ktab[] = {
+        { "grip:none",   0.0,  2 },
+        { "grip:pistol", 10.0, 0 },
+        { "grip:smg",    18.0, 0 },
+        { "grip:rifle",  30.0, 0 },
+        { "grip:heavy",  34.0, 0 },   // chaingun / rocket / bfg
+        { "grip:hilt",   12.0, 1 },   // sword: both hands on the hilt
+    };
+    for (auto& e : ktab) if (kw.IndexOf(e.tag) != -1) { outLen = e.len; outMode = e.mode; return; }
+    // fallback: derive from the class:<type> tag our weapons + the archetype resolver already carry.
+    if      (kw.IndexOf("class:pistol")   != -1) outLen = 10.0;
+    else if (kw.IndexOf("class:revolver") != -1) outLen = 12.0;
+    else if (kw.IndexOf("class:smg")      != -1) outLen = 18.0;
+    // else: full-length rifle default (30).
+}
+
 void VR_CalculateTwoHanding(player_t* player)
 {
     player->vr_two_hand_stabilized = false;
+    if (player) player->vr_foregrip_engaged = false;   // clear busy-off-hand latch each tic; re-set below
 
     if (!vr_two_handed_weapons || !player || !player->ReadyWeapon)
         return;
 
-    // Check whitelist
+    // [XR weapon handling] NEW native path: grip-gated engage at the authored hs_foregrip hotspot. Falls
+    // through to the legacy capsule branch on ANY of: toggle off, no foregrip bone on this weapon (unconverted
+    // MD3 -> VR_WeaponHotspotWorld returns false), or the arbiter not leaving the off-hand free -> toggle-off
+    // and every not-yet-converted weapon reproduce today's behavior bit-for-bit.
+    if (vr_new_weapon_handling)
+    {
+        DVector3 foregripWorld;
+        if (VR_WeaponHotspotWorld(player->ReadyWeapon, NAME_hs_foregrip, foregripWorld)) // true only for a REAL authored bone
+        {
+            const int offPhys = VR_PhysicalHandForSlot(VR_OFFHAND);
+            const VRMode* vrm = VRMode::GetVRModeCached(false);
+            VSMatrix offHandM;
+            if (vrm && vrm->GetWeaponTransform(&offHandM, VR_OFFHAND))
+            {
+                const float* om = offHandM.get();
+                DVector3 offPos(om[12], om[14], om[13]);
+                const double rr = vr_foregrip_radius;
+                const bool nearForegrip = (offPos - foregripWorld).LengthSquared() <= (rr * rr);
+                const bool gripHeld   = player->vr_grip_raw[offPhys];
+                const int  curOwner   = player->vr_grip_owner[offPhys];
+                const bool freeToGrab = (curOwner == GRIP_NONE) || (curOwner == GRIP_TWOHAND);
+                if (nearForegrip && gripHeld && freeToGrab)
+                {
+                    player->vr_two_hand_stabilized = true;
+                    player->vr_foregrip_engaged    = true;          // busy-off-hand swap + trigger-suspend read this
+                    player->vr_grip_owner[offPhys] = GRIP_TWOHAND;  // publish ownership
+                    player->vr_foregrip_world[0]   = (float)foregripWorld.X;
+                    player->vr_foregrip_world[1]   = (float)foregripWorld.Y;
+                    player->vr_foregrip_world[2]   = (float)foregripWorld.Z;
+                    if (vr_twohand_glow_enable)
+                    {
+                        VR_PushWorldGlow(player->mo->Level, foregripWorld, PalEntry((int)vr_twohand_glow_color), vr_twohand_glow_radius);
+                    }
+                }
+            }
+            return;   // NEW path made the decision; do NOT also run the capsule test.
+        }
+        // else: no foregrip bone on this weapon -> fall through to legacy capsule (safe for unconverted guns).
+    }
+
+    // [XR] Per-weapon two-hand style from the weapon's Keywords (mod weapons inherit via the keyword).
+    double length; int mode;
+    VR_GripStyleFromKeywords(player->ReadyWeapon->Keywords, length, mode);
+    if (mode == 2) return;   // grip:none -> not two-handable (fists, thrown, off-hand-only tools)
+
+    // Whitelist gate + per-weapon perpendicular radius still come from the KEYWORDS.json profile.
     float ox = 0, oy = 0, oz = 0, radius = vr_twohand_radius;
     bool isWeapon = KeywordDispatcher::GetWeaponOffsets(player->ReadyWeapon->Keywords, ox, oy, oz, radius);
     if (vr_twohand_whitelist_only && !isWeapon)
@@ -1348,40 +1485,76 @@ void VR_CalculateTwoHanding(player_t* player)
     DVector3 p1(mainHand.get()[12], mainHand.get()[14], mainHand.get()[13]);   // main (weapon) hand pos
     DVector3 p2(offHand.get()[12], offHand.get()[14], offHand.get()[13]);      // off hand pos
 
-    // [XR two-hand] CAPSULE test down the barrel, not a sphere at the grip. A weapon is a long object, so
-    // the off-hand engages when it is near the weapon's AXIS LINE (small perpendicular tolerance) anywhere
-    // along its length -- decoupling "on the barrel" (precise, no accidents) from "how far forward you grip"
-    // (generous). The main-hand transform gives the barrel forward direction (same basis the debug cone uses).
-    const float* m = mainHand.get();
-    DVector3 fwd(-m[8], -m[10], -m[9]);          // weapon forward (world-remapped, matches GetLaserBeamControllerDirection)
-    double fl = fwd.Length();
-    if (fl > 1e-6) fwd /= fl; else fwd = DVector3(0, 0, 1);
+    // [XR DETERMINISM] The off-hand must be GRIPPING, and the grip arbiter must leave it free (not owned by
+    // climb / whip / glove / hardpoint). This is the "keyword-assigned deterministic" grip: one squeeze on
+    // the barrel/hilt = two-hand, and it can't fight another system for the same hand. On engage it publishes
+    // GRIP_TWOHAND so those systems yield. (The legacy proximity-only behavior is gone on purpose -- it was
+    // non-deterministic, firing whenever the off-hand drifted near, even mid-grab.)
+    const int  offPhys  = VR_PhysicalHandForSlot(VR_OFFHAND);
+    const bool offGrip  = player->vr_grip_raw[offPhys];
+    const int  offOwner = player->vr_grip_owner[offPhys];
+    const bool offFree  = (offOwner == GRIP_NONE) || (offOwner == GRIP_TWOHAND);
+    if (!offGrip || !offFree) return;
 
-    double length = vr_twohand_length;           // barrel reach (sized to the shotgun); per-weapon override later
-    DVector3 d = p2 - p1;
-    double t = d | fwd;                           // project off-hand onto the barrel axis
-    if (t < 0.0) t = 0.0; else if (t > length) t = length;   // clamp to the segment [grip, grip+length]
-    DVector3 closest = p1 + fwd * t;              // nearest point on the barrel line to the off-hand
-    double perpSq = (p2 - closest).LengthSquared();
+    bool engaged = false;
+    DVector3 engagePoint = p1;
+    if (mode == 1)
+    {
+        // HILT (sword): both hands ON the grip. Off-hand within `length` of the MAIN grip point (a sphere,
+        // not a forward capsule) -- you clasp the hilt, you don't reach down a blade.
+        engaged = ((p2 - p1).LengthSquared() <= (length * length));
+        engagePoint = p1;
+    }
+    else
+    {
+        // FOREGRIP (guns): off-hand near the weapon's AXIS LINE, up to `length` forward from the grip.
+        // A weapon is a long object, so engage on the barrel line (small perpendicular tolerance) anywhere
+        // along the per-weapon length -- pistols cup short, SMGs reach mid, rifles/heavies reach full.
+        const float* m = mainHand.get();
+        DVector3 fwd(-m[8], -m[10], -m[9]);
+        double fl = fwd.Length();
+        if (fl > 1e-6) fwd /= fl; else fwd = DVector3(0, 0, 1);
+        DVector3 d = p2 - p1;
+        double t = d | fwd;
+        if (t < 0.0) t = 0.0; else if (t > length) t = length;
+        DVector3 closest = p1 + fwd * t;
+        engaged = ((p2 - closest).LengthSquared() <= (radius * radius));
+        engagePoint = closest;
+    }
 
-    if (perpSq <= (radius * radius))              // within the perpendicular tolerance of the barrel line
+    if (engaged)
     {
         player->vr_two_hand_stabilized = true;
+        player->vr_grip_owner[offPhys] = GRIP_TWOHAND;   // deterministic ownership publish
+        if (vr_twohand_glow_enable)
+        {
+            VR_PushWorldGlow(player->mo->Level, engagePoint, PalEntry((int)vr_twohand_glow_color), vr_twohand_glow_radius);
+        }
     }
 }
 
 bool VR_IsGripPressed(player_t* player, int hand)
 {
     if (hand < 0 || hand > 1 || !player) return false;
-    
-    // Check BT_VR_LGRIP and BT_VR_RGRIP from the playsim's button states
-    int btn = (hand == 0) ? BT_VR_LGRIP : BT_VR_RGRIP;
-    return (player->cmd.ucmd.buttons & btn) != 0;
+
+    // [XR] Read raw hardware grip state, NOT the ucmd BT_VR_LGRIP/RGRIP bit. When
+    // vr_secondary_button_mappings is on (default), the dominant hand's grip key is
+    // intentionally suppressed at the input layer (used as a shift-modifier instead --
+    // see vk_openxrdevice.cpp emitGameplayHandButtons / gl_openvr.cpp HandleInput_Default),
+    // so ucmd.buttons never carries a real press for that hand. Climb/gloves/hardpoints/
+    // the grip arbiter all need the true physical squeeze regardless of that UI feature;
+    // VRMode::IsGripPressed reads the controller state directly on both backends and is
+    // unaffected by the shift-layer suppression. BT_VR_LGRIP/RGRIP remain valid for the
+    // separate rebindable-menu-action path (menudef grip bind), which still wants the
+    // shift-layer behavior.
+    // TODO(net): this is a local-only hardware read, not carried in the recorded ticcmd,
+    // so gameplay grip state (climb/grab/gloves) is not demo-replay-safe or net-deterministic.
+    // Same tradeoff already accepted for vr_grip_value (VR_ResolveGripOwner, above) -- flag
+    // for whoever resumes VR ticcmd net-sanitization.
+    const VRMode* vrm = VRMode::GetVRModeCached(false);
+    return vrm && vrm->IsGripPressed(hand);
 }
 
-// [XR grip arbiter] Per-hand grip ownership. File-scope (header stays enum-free; player_t fields are plain int).
-// ZScript gets matching const values in actor.zs. PHYSICAL-controller-indexed everywhere.
-enum EGripOwner { GRIP_NONE = 0, GRIP_CLIMB, GRIP_GLOVE, GRIP_WHIP, GRIP_HARDPOINT, GRIP_TWOHAND };
 
 // [XR grip arbiter / fling fix] The whip publishes player->vr_whip_swing_live true every tic a live
 // pendulum swing owns the pawn (GM_ATTACHED + AltFire held), false in EndGrapple. Native climb reads this
@@ -1458,8 +1631,15 @@ void VR_ResolveGripOwner(player_t* player)
 
 void VR_UpdateClimbing(player_t* player);
 void VR_UpdateGravityGloves(player_t* player);
+void VR_UpdateHandCollision(player_t* player); // [XR] hand-vs-wall proximity + growing touch glow
+void VR_UpdateHardpointGlow(player_t* player); // [XR] hardpoint draw/stow proximity glow
 void VR_UpdateHardpoints(player_t* player);   // proximity+grip draw/holster, native hardpoint mounts
+void VR_UpdateWeaponReload(player_t* player); // [XR] native box-mag manual-reload FSM (gated vr_new_weapon_handling)
 void VR_UpdateArmIK(player_t* player);        // two-bone IK -> player->vr_ik_pose
+// [XR weapon handling] name -> bind-LOCAL hotspot pos (p_actionfunctions.cpp; confines FModel to that file).
+bool VR_WeaponBoneBindLocal(AActor* weapon, FName boneName, FVector3& out);
+// [XR weapon handling] canonical hotspot WORLD-pos primitive (defined below): false if no authored bone.
+bool VR_WeaponHotspotWorld(AActor* weapon, FName name, DVector3& out);
 FModel* VR_EnsureAvatarModelDataAndGetModel(AActor* mo);   // p_actionfunctions.cpp: gives the pawn a modelData (pose target) + returns its rigged model
 
 void P_PlayerThink (player_t *player)
@@ -1553,8 +1733,11 @@ void P_PlayerThink (player_t *player)
     VR_ResolveGripOwner(player);   // [XR grip arbiter] publish vr_grip_owner[] before any consumer runs
     VR_UpdateClimbing(player);
     VR_UpdateGravityGloves(player);
+    VR_UpdateHandCollision(player); // [XR] hand-vs-wall proximity + growing touch glow (independent of grip)
+    VR_UpdateHardpointGlow(player); // [XR] hardpoint draw/stow proximity glow
     VR_CalculateTwoHanding(player);
     VR_UpdateHardpoints(player);
+    VR_UpdateWeaponReload(player);   // [XR] native box-mag FSM (no-op unless vr_new_weapon_handling)
     VR_UpdateArmIK(player);
 
     // [XR] Decoupled body-avatar facing: hold the rendered body yaw steady while the head looks around
@@ -1601,6 +1784,32 @@ EXTERN_CVAR(Bool, vr_grab_debug_sphere)
 
 void VR_UpdateClimbing(player_t* player);
 void VR_UpdateGravityGloves(player_t* player);
+
+// ---------------------------------------------------------------------------
+// VR_EquipToHand -- native equip seam (canonical weapon-hand ruleset, Rule 1.3 /
+// 3.1 / toss-backfill spine). The native layer OWNS the equip DECISION and the
+// per-hand routing; the weapon-raise animation itself stays in the ZScript weapon
+// state machine (MoveWeaponToHand -> BringUpWeapon / A_Raise), which is correctly
+// the actor's business, not something to re-implement in C++.
+//
+// For a SINGLE weapon instance this delegates to the hand-aware ZScript
+// MoveWeaponToHand (same proven native->ZScript seam the weapon wheel uses). The
+// akimbo case (Rule 2.2 -- two instances of one class, one per hand) will branch
+// here later to bypass MoveWeaponToHand's same-class collapse; keeping ONE native
+// entry point means callers (grab, catch, backfill) never touch the ZScript
+// helpers directly.
+void VR_EquipToHand(player_t* player, AActor* weapon, int hand)
+{
+	if (player == nullptr || player->mo == nullptr || weapon == nullptr) return;
+	if (hand != 0 && hand != 1) hand = 0;
+
+	IFVIRTUALPTRNAME(player->mo, NAME_PlayerPawn, MoveWeaponToHand)
+	{
+		VMValue param[] = { player->mo, weapon, hand };
+		VMCall(func, param, 3, nullptr, 0);
+	}
+}
+
 void VR_UpdateGravityGloves(player_t* player)
 {
 	if (!player || !player->mo || !VRMode::GetVRModeCached(false)) return;
@@ -1609,13 +1818,28 @@ void VR_UpdateGravityGloves(player_t* player)
 	for (int hand = 0; hand < 2; hand++)
 	{
 		bool isGripPressed = VR_IsGripPressed(player, hand);
-		
+
 		if (player->vr_is_climbing[hand])
 		{
 		    isGripPressed = false; // Override grip if climbing
 		}
+		if (player->vr_whip_rope_attached[hand])
+		{
+		    // [XR grip priority] CLIMB > WHIP > GLOVE: a live rope on this hand already owns the
+		    // squeeze (whip pump reads it via the arbiter). Without this, gloves would run its
+		    // candidate-search/grab-lock logic on the same hand at the same time -- this function
+		    // already treats whip-attached as exclusive for the Rule-5 fling-throw check below
+		    // (freeGrip), so apply the same exclusion up here where the grip is first read.
+		    isGripPressed = false;
+		}
 		bool wasGripPressed = player->vr_was_grip_pressed[hand];
 		player->vr_was_grip_pressed[hand] = isGripPressed;
+
+		// `hand` here is a PHYSICAL controller index (0=left,1=right). Weapon slots
+		// (ReadyWeapon=main / OffhandWeapon=off) are a SEPARATE concept that maps to a
+		// physical hand via the control scheme -- so convert before touching weapons.
+		// Canonical mapping mirrors VR_UpdateClimbing (this file).
+		const int weapSlot = (hand == VR_PhysicalHandForSlot(VR_OFFHAND)) ? VR_OFFHAND : VR_MAINHAND;
 
 		VSMatrix handTransform;
 		if (!VRMode::GetVRModeCached(false)->GetWeaponTransform(&handTransform, hand)) continue;
@@ -1669,6 +1893,43 @@ void VR_UpdateGravityGloves(player_t* player)
 				heldItem->flags &= ~MF_NOGRAVITY;
 				heldItem->flags &= ~MF_NOBLOCKMAP;
 				player->vr_held_items[hand] = nullptr;
+			}
+			else if (wasGripPressed && vr_throw_equip)
+			{
+				// Rule 5: throw your EQUIPPED weapon. A grip-fling-release on this hand,
+				// when nothing else claimed the grip (not climb / whip / grab), flings the
+				// live gun into the world as a catchable, re-grabbable pickup. This sits at
+				// the BOTTOM of the grip priority chain by construction -- it only fires when
+				// the grip owned nothing else, so it can never steal a climb or a catch.
+				// Also exclude a hand that is BRACING a two-handed weapon: two-hand stabilize
+				// is proximity-driven (no grip of its own), so a grip-fling to un-brace must
+				// not toss that hand's own weapon. Only the off-hand ever braces.
+				const bool bracingHand = player->vr_two_hand_stabilized && (hand == VR_PhysicalHandForSlot(VR_OFFHAND));
+				const bool freeGrip =
+					!player->vr_is_climbing[hand] &&
+					!player->vr_whip_rope_attached[hand] &&
+					player->vr_grab_candidate[hand] == nullptr &&
+					!player->vr_grab_is_locked[hand] &&
+					!player->vr_grab_is_pulling[hand] &&
+					!bracingHand;
+
+				if (freeGrip && handVelocity.Length() > vr_throw_equip_min_speed)
+				{
+					// Select and throw the weapon in the SLOT this physical hand controls.
+					AActor* equipped = (weapSlot == VR_OFFHAND) ? player->OffhandWeapon : player->ReadyWeapon;
+					if (equipped != nullptr)
+					{
+						// Native owns the trigger + slot routing + velocity source; the ZScript
+						// helper does the un-equip / world-spawn surgery (inventory + PSprite),
+						// which is correctly the weapon actor's business.
+						const DVector3 throwVel = handVelocity * (vr_scale_meters_to_units / 35.0) * vr_throw_force;
+						IFVIRTUALPTRNAME(player->mo, NAME_PlayerPawn, VR_ThrowEquippedWeapon)
+						{
+							VMValue param[] = { player->mo, weapSlot, throwVel.X, throwVel.Y, throwVel.Z };
+							VMCall(func, param, 5, nullptr, 0);
+						}
+					}
+				}
 			}
 
 			if (wasGripPressed)
@@ -1739,7 +2000,17 @@ void VR_UpdateGravityGloves(player_t* player)
 
 					if (dot > coneThreshold)
 					{
-						double score = dot * (1.0 - (sqrt(distSq) / vr_grab_max_dist));
+						// [XR bugfix] vr_grab_weight_dist/align/mass back the VRGrabOptions "Distance/
+						// Alignment/Mass Penalty Weight" sliders, which existed with NO real cvar behind
+						// them anywhere (dead UI, not just unread). Defaults (dist=1, align=1, mass=0)
+						// collapse this to the EXACT old formula (`dot * (1-normDist)`, no mass term) --
+						// this only changes behavior once a player actually moves a slider.
+						double normDist = sqrt(distSq) / vr_grab_max_dist;
+						double alignFactor = 1.0 + (dot - 1.0) * vr_grab_weight_align;
+						double distFactor  = 1.0 + ((1.0 - normDist) - 1.0) * vr_grab_weight_dist;
+						double itemMass    = mo->Mass > 0 ? mo->Mass : 100.0;
+						double massPenalty = 1.0 - vr_grab_weight_mass * clamp<double>(itemMass / 1000.0, 0.0, 1.0);
+						double score = alignFactor * distFactor * massPenalty;
 						if (score > bestScore)
 						{
 							bestScore = score;
@@ -1754,6 +2025,14 @@ void VR_UpdateGravityGloves(player_t* player)
 					if (bestItem) bestItem->bForceShowVoxel = true;
 				}
 				player->vr_grab_candidate[hand] = bestItem;
+
+				// [XR] bForceShowVoxel above only helps on voxel-model actors; a generic glow at the
+				// candidate works regardless of model type, telling the player what they're about to
+				// grab before they squeeze.
+				if (vr_grab_highlight_enable && bestItem)
+				{
+					VR_PushWorldGlow(player->mo->Level, bestItem->Pos(), PalEntry((int)vr_grab_highlight_color), vr_grab_highlight_radius);
+				}
 
 				// [XR] The grab-cone / grab-sphere / target-pulse debug visualisation used to be
 				// drawn here with P_SpawnParticle -- which does NOT reach the VR stereo render, so
@@ -1788,7 +2067,7 @@ void VR_UpdateGravityGloves(player_t* player)
 			if (heldItem->flags & MF_MISSILE) isThrowable = true; // Snatched projectiles are throwable
 			else if (KeywordDispatcher::IsThrowable(heldItem->Keywords)) isThrowable = true;
 
-			if (vr_grab_debug || isThrowable)
+			if (vr_throw_arc_glow_enable && (vr_grab_debug || isThrowable))
 			{
 				double itemMass = heldItem->Mass > 0 ? heldItem->Mass : 100.0;
 				// Match the real throw's "Easier Grabbing" mass scale so this preview arc lines
@@ -1799,11 +2078,16 @@ void VR_UpdateGravityGloves(player_t* player)
 				double velocityScale = (vr_scale_meters_to_units / 35.0) * vr_throw_force * massScale;
 				DVector3 tVel = handVelocity * velocityScale;
 				DVector3 tPos = handPos;
+				const PalEntry arcColor((int)vr_throw_arc_glow_color);
 
+				// [XR bugfix] This preview used to draw with P_SpawnParticle, which does NOT reach
+				// the VR stereo render (see dxr-particles-invisible-in-vr) -- invisible in headset.
+				// Glow spots are the visible equivalent; strided (every 4th step, ~10 spots) since
+				// GlowSpots is uncapped but a spot every one of 40 steps/tic per held item is wasteful.
 				for (int step = 0; step < 40; ++step)
 				{
 					DVector3 nextPos = tPos + tVel;
-					
+
 					// Simple wall/floor collision for the arc
 					FTraceResults res;
 					DVector3 dir = tVel;
@@ -1812,14 +2096,15 @@ void VR_UpdateGravityGloves(player_t* player)
 
 					if (Trace(tPos, player->mo->Level->PointInSector(tPos.XY()), dir, dist, 0, ML_BLOCKING, player->mo, res, TRACE_HitSky))
 					{
-						P_SpawnParticle(player->mo->Level, res.HitPos, DVector3(0,0,0), DVector3(0,0,0), PalEntry(255, 255, 0, 0), 1.0, 1, 8.0, 1.0, 0.0, 0);
+						VR_PushWorldGlow(player->mo->Level, res.HitPos, arcColor, vr_throw_arc_glow_radius * 1.5);
 						break;
 					}
 
 					tVel.Z -= (player->mo->Level->gravity * heldItem->Gravity);
 					tPos = nextPos;
 
-					P_SpawnParticle(player->mo->Level, tPos, DVector3(0,0,0), DVector3(0,0,0), PalEntry(255, 0, 255, 255), 0.7, 1, 2.5, 1.0, 0.0, 0);
+					if ((step % 4) == 0)
+						VR_PushWorldGlow(player->mo->Level, tPos, arcColor, vr_throw_arc_glow_radius);
 				}
 			}
 
@@ -1836,8 +2121,33 @@ void VR_UpdateGravityGloves(player_t* player)
 				
 				if (vr_autoequip && (heldItem->flags & MF_SPECIAL))
 				{
+					// Rule 1.3: a grabbed WEAPON must equip to the GRABBING hand, not
+					// vanilla's hand-blind main-hand give. Capture the class BEFORE the
+					// give (P_TouchSpecialThing may euthanize the world actor), then route
+					// the now-owned instance to this hand via the native equip seam. A
+					// non-weapon pickup (health/ammo/armor) keeps the plain auto-apply.
+					const bool wasWeapon = heldItem->IsKindOf(NAME_Weapon);
+					PClassActor* const weapClass = wasWeapon ? static_cast<PClassActor*>(heldItem->GetClass()) : nullptr;
+					// Only a NEWLY-acquired weapon routes to the grabbing hand. Grabbing a
+					// duplicate of a weapon you already own grants ammo only (vanilla) and
+					// must NOT hand-swap/weapon-switch your existing instance -- so gate the
+					// equip on ownership captured BEFORE the give.
+					const bool alreadyOwned = (weapClass != nullptr) && (player->mo->FindInventory(weapClass) != nullptr);
+
 					P_TouchSpecialThing(heldItem, player->mo);
 					player->vr_held_items[hand] = nullptr;
+
+					if (wasWeapon && weapClass != nullptr && !alreadyOwned)
+					{
+						// The give routes hand-blind (main hand); move the owned instance
+						// to the WEAPON SLOT of the hand that actually grabbed it.
+						AActor* owned = player->mo->FindInventory(weapClass);
+						if (owned != nullptr)
+						{
+							VR_EquipToHand(player, owned, weapSlot);
+						}
+					}
+
 					if (heldItem->ObjectFlags & OF_EuthanizeMe) continue;
 					heldItem->flags &= ~(MF_NOGRAVITY | MF_NOBLOCKMAP);
 				}
@@ -1854,11 +2164,33 @@ void VR_UpdateGravityGloves(player_t* player)
 					AActor* target = player->vr_grab_candidate[hand];
 					if (target->Distance3D(player->mo) < 64.0) // catch radius
 					{
-						player->vr_held_items[hand] = target;
-						// Whoever's now holding this is responsible for what it does next (kill
-						// credit if it later explodes/detonates) -- same convention already used
-						// for the bullet-snatch case below (cand->target = player->mo).
-						target->target = player->mo;
+						// Rule 3.1: catching a WEAPON pickup into this (empty) hand equips
+						// it to the catching hand and makes it fireable, rather than leaving
+						// it a dumb held prop. Same give-then-route pattern as the magnet
+						// grab (Rule 1.3); capture class before the give may euthanize the
+						// world actor. Non-weapon catches (props/missiles) stay held props.
+						const bool caughtWeapon = (target->flags & MF_SPECIAL) && target->IsKindOf(NAME_Weapon);
+						if (caughtWeapon)
+						{
+							PClassActor* const weapClass = static_cast<PClassActor*>(target->GetClass());
+							// As Rule 1.3: only a NEWLY-acquired weapon equips to the catching
+							// hand; a duplicate you already own grants ammo only, no hand-swap.
+							const bool alreadyOwned = (weapClass != nullptr) && (player->mo->FindInventory(weapClass) != nullptr);
+							P_TouchSpecialThing(target, player->mo);
+							if (weapClass != nullptr && !alreadyOwned)
+							{
+								AActor* owned = player->mo->FindInventory(weapClass);
+								if (owned != nullptr) VR_EquipToHand(player, owned, weapSlot);
+							}
+						}
+						else
+						{
+							player->vr_held_items[hand] = target;
+							// Whoever's now holding this is responsible for what it does next (kill
+							// credit if it later explodes/detonates) -- same convention already used
+							// for the bullet-snatch case below (cand->target = player->mo).
+							target->target = player->mo;
+						}
 						player->vr_grab_is_locked[hand] = false;
 						player->vr_grab_is_pulling[hand] = false;
 						player->vr_grab_is_waiting_catch[hand] = false;
@@ -1880,21 +2212,37 @@ void VR_UpdateGravityGloves(player_t* player)
 						
 						if (vr_catch_haptic)
 						{
-							VR_HapticEvent("snatch", hand, 1.0, 0, 0);
+							VR_HapticEvent("snatch", hand == 0 ? 1 : 2, 100, 0, 0);
 						}
 						
 						if (vr_catch_spark)
 						{
-							for (int i = 0; i < 16; i++)
-							{
-								DVector3 sparkVel = DVector3(M_Random.Random2(), M_Random.Random2(), M_Random.Random2()) / 64.0;
-								P_SpawnParticle(player->mo->Level, cand->Pos(), sparkVel, DVector3(0, 0, -0.2), PalEntry(255, 255, 200, 50), 1.0, 10, 2.0, 0.95, 0.0, 0);
-							}
+							// [XR bugfix] This was a P_SpawnParticle burst, which does NOT reach the VR
+							// stereo render (see dxr-particles-invisible-in-vr) -- invisible in headset.
+							// A single glow spot at the catch point is the visible equivalent.
+							VR_PushWorldGlow(player->mo->Level, cand->Pos(), PalEntry((int)vr_catch_glow_color), vr_catch_glow_radius);
 						}
+					}
+					else if ((cand->Pos() - handPos).Length() < 48.0)
+					{
+						// [XR] DIRECT GRAB: a candidate already within hand reach grabs on the squeeze
+						// itself -- no flick-and-catch cycle. This is the intuitive "reach out and take it".
+						// The flick-pull (Initial Lock below) still handles DISTANT items you can't touch.
+						// Fixes the long-standing "squeeze does nothing" on things right in front of you:
+						// the old path only ever locked a bool silently and required a wrist flick to pull.
+						player->vr_held_items[hand] = cand;
+						cand->Vel.Zero();
+						cand->flags |= (MF_NOGRAVITY | MF_NOBLOCKMAP);
+						cand->target = player->mo;
+						cand->bForceShowVoxel = false;
+						player->vr_grab_candidate[hand] = nullptr;
+						player->vr_grab_is_locked[hand] = false;
+						if (vr_catch_haptic)
+							VR_HapticEvent("snatch", hand == 0 ? 1 : 2, 100, 0, 0);
 					}
 					else
 					{
-						// Initial Lock
+						// Initial Lock (distant item -> flick your hand to pull it in)
 						player->vr_grab_is_locked[hand] = true;
 					}
 				}
@@ -2095,9 +2443,22 @@ void VR_UpdateHardpoints(player_t* player)
 		bool risingEdge = isGripPressed && !wasGripPressed;
 		if (!risingEdge) continue;
 
-		// Don't steal grip from a hand mid-climb or holding a grabbed item.
+		// [XR grip priority] CLIMB > WHIP > GLOVE > TWOHAND > HARDPOINT (lowest). Don't steal a
+		// rising edge from a hand any higher-priority system already has a claim on: mid-climb,
+		// mid-whip-swing, already holding a glove-grabbed item, mid-reach for one (candidate
+		// highlighted / flick-locked / being pulled in), or bracing a two-hand foregrip. The
+		// TWOHAND check reads vr_grip_owner[] directly (not a legacy flag like the others) because
+		// VR_CalculateTwoHanding is the one consumer that publishes it itself, immediately before
+		// this function runs in the same tic (see P_PlayerThink call order) -- so it's same-tic
+		// fresh here, unlike the arbiter's CLIMB/GLOVE verdicts which are one tic stale by
+		// construction and why those still read the legacy per-hand flags directly instead.
 		if (player->vr_is_climbing[hand]) continue;
+		if (player->vr_whip_rope_attached[hand]) continue;
 		if (player->vr_held_items[hand]) continue;
+		if (player->vr_grab_candidate[hand] != nullptr) continue;
+		if (player->vr_grab_is_locked[hand]) continue;
+		if (player->vr_grab_is_pulling[hand]) continue;
+		if (player->vr_grip_owner[hand] == GRIP_TWOHAND) continue;
 
 		// Find the nearest reachable slot for this hand.
 		int    bestSlot   = -1;
@@ -2159,7 +2520,7 @@ void VR_UpdateHardpoints(player_t* player)
 				VMValue params[3] = { player->mo, hand, bestSlot };
 				VMCall(func, params, 3, nullptr, 0);
 			}
-			VR_HapticEvent("hardpoint", hand, 60, 0, 0);
+			VR_HapticEvent("hardpoint", hand == 0 ? 1 : 2, 60, 0, 0);
 			continue;
 		}
 
@@ -2175,7 +2536,7 @@ void VR_UpdateHardpoints(player_t* player)
 			}
 			slot.stowedWeapon = nullptr;
 			slot.occupied     = false;
-			VR_HapticEvent("hardpoint", hand, 80, 0, 0);
+			VR_HapticEvent("hardpoint", hand == 0 ? 1 : 2, 80, 0, 0);
 		}
 		else
 		{
@@ -2193,10 +2554,659 @@ void VR_UpdateHardpoints(player_t* player)
 				}
 				slot.stowedWeapon = toStow;
 				slot.occupied     = true;
-				VR_HapticEvent("hardpoint", hand, 80, 0, 0);
+				VR_HapticEvent("hardpoint", hand == 0 ? 1 : 2, 80, 0, 0);
 			}
 		}
 	}
+}
+
+//----------------------------------------------------------------------------
+//
+// [XR weapon handling] VR_WeaponHotspotWorld -- world position of an authored weapon hotspot this tic.
+// Composition = MAIN-hand transform (the gun rides the main hand) x the hotspot's model-local bind pos
+// (via VR_WeaponBoneBindLocal, which confines FModel to p_actionfunctions.cpp). Authored bone ALWAYS wins;
+// an un-migrated MD3 weapon has no hs_* bone -> we fill a coarse GEOMETRIC DEFAULT and return FALSE so
+// callers fall back / stay legacy. Pure READ: never sets Vel/SetOrigin; disjoint from the whip WRITE path.
+//
+//----------------------------------------------------------------------------
+
+bool VR_WeaponHotspotWorld(AActor* weapon, FName name, DVector3& out)
+{
+	out = DVector3(0, 0, 0);
+	if (weapon == nullptr) return false;
+	const VRMode* vrmode = VRMode::GetVRModeCached(false);
+	if (vrmode == nullptr) return false;
+	VSMatrix handXf;
+	if (!vrmode->GetWeaponTransform(&handXf, VR_MAINHAND)) return false;
+	const float* m = handXf.get();
+	const DVector3 handPos(m[12], m[14], m[13]);
+	const DVector3 hx(m[0], m[2], m[1]);   // local +X
+	const DVector3 hy(m[4], m[6], m[5]);   // local +Y (up off the gun)
+	const DVector3 hz(m[8], m[10], m[9]);  // local +Z (down the barrel, engine convention)
+
+	FVector3 bindLocal;
+	if (VR_WeaponBoneBindLocal(weapon, name, bindLocal))   // authored bone WINS
+	{
+		out = handPos + hx * (double)bindLocal.X + hy * (double)bindLocal.Y + hz * (double)bindLocal.Z;
+		return true;
+	}
+	// GEOMETRIC DEFAULT (bootstrap; authored bone always preferred). NEVER runs once a weapon authors hs_*.
+	if (name == NAME_hs_magwell) { out = handPos + hz * 4.0  - hy * 5.0; return false; }
+	if (name == NAME_hs_rack)    { out = handPos + hz * 10.0 + hy * 6.0; return false; }
+	out = handPos + hz * 14.0;   // foregrip along the barrel
+	return false;
+}
+
+// [XR manual reload] Native chamber refill. Ammo1 is the reserve total; re-arm the chamber to
+// min(magSize, reserve) and clear the reloading latch (the ZScript fire-gate reads XRChamber). Sole writer
+// while vr_new_weapon_handling is on -> no double-count.
+static void VR_ReloadRefill(AActor* weap, AActor* ammo, int magSize)
+{
+	if (!weap) return;
+	const int reserve = ammo ? ammo->IntVar(NAME_Amount) : 0;
+	const int loaded  = (reserve < magSize) ? reserve : magSize;
+	weap->IntVar(NAME_XRChamber)    = loaded;
+	weap->BoolVar(NAME_XRReloading) = false;
+}
+
+// [XR reload juice] Seat exactly ONE round (shell-by-shell / single-load). Clamps to magSize and reserve.
+// Returns true if a round was actually added (false = already full or no reserve).
+static bool VR_ReloadSeatOne(AActor* weap, AActor* ammo, int magSize)
+{
+	if (!weap) return false;
+	const int reserve = ammo ? ammo->IntVar(NAME_Amount) : 0;
+	const int cur     = weap->IntVar(NAME_XRChamber);
+	if (cur >= magSize || cur >= reserve) return false;
+	weap->IntVar(NAME_XRChamber)    = cur + 1;
+	weap->BoolVar(NAME_XRReloading) = false;
+	return true;
+}
+
+// [XR reload juice] Open the perfect-timing window (records the tic). Idempotent while already open.
+static void VR_ReloadOpenPerfectWindow(player_t* player)
+{
+	if (player->vr_reload_start_tic == 0) player->vr_reload_start_tic = gametic > 0 ? gametic : 1;
+}
+
+// [XR reload juice] A refill just landed -- decide PERFECT (inside the window) and close the window. The
+// ZScript juice handler polls VR_GetReloadPerfect; the flag also self-clears after vr_reload_perfect_life tics.
+static void VR_ReloadScorePerfect(player_t* player, bool forcePerfect)
+{
+	bool perfect = forcePerfect;
+	if (!perfect && player->vr_reload_start_tic != 0)
+	{
+		const int elapsed = gametic - player->vr_reload_start_tic;
+		perfect = (elapsed >= 0 && elapsed <= (int)vr_reload_perfect_window);
+	}
+	player->vr_reload_start_tic = 0;                 // window closes on any refill
+	if (perfect)
+	{
+		player->vr_reload_perfect     = true;
+		player->vr_reload_perfect_tic = gametic;
+		VR_HapticEvent("reload_perfect", 0, 100, 0, 0);   // 0 = both hands, distinct envelope
+	}
+}
+
+// [XR reload juice] TOSS-CATCH detection. Returns true if the gun is pointed sharply UP (barrel skyward),
+// which is the physical showoff gesture that lets a mag drop into the well. Reads the cached MAIN-hand basis:
+// GetWeaponTransform layout is column-major; -colZ is the barrel-forward direction (engine convention, matches
+// VR_WeaponHotspotWorld's hz). Barrel-up => forward.Z strongly positive.
+static bool VR_ReloadGunInverted(const VSMatrix& mainXf)
+{
+	const float* m = mainXf.get();
+	DVector3 fwd(-m[8], -m[10], -m[9]);              // down-the-barrel (same basis as hz in VR_WeaponHotspotWorld)
+	const double len = fwd.Length();
+	if (len < 1e-6) return false;
+	fwd /= len;
+	return fwd.Z > 0.70;                             // ~>45deg above horizontal: pointed up to catch
+}
+
+// [XR reload juice] SHELL-by-shell FSM (Shotgun / SuperShotgun). Seat ONE shell per grip-at-magwell, repeatable
+// until full; a rack pump chambers/settles. Partial reloads allowed; firing (which drops XRChamber via the
+// ZScript fire-gate) simply reopens the loop. Self-contained: caches its own hands. Style-gated by the caller.
+static void VR_ReloadStyleShell(player_t* player, const VRMode* vrm, AActor* weap)
+{
+	const int magSize = weap->IntVar(NAME_XRMagSize);
+	if (magSize <= 0) return;
+	AActor* ammo = weap->PointerVar<AActor>(NAME_Ammo1);
+
+	VSMatrix handXf[2]; bool handOk[2] = { false, false }; DVector3 handPos[2];
+	for (int h = 0; h < 2; ++h) { handOk[h] = vrm->GetWeaponTransform(&handXf[h], h); if (handOk[h]) { const float* mm = handXf[h].get(); handPos[h] = DVector3(mm[12], mm[14], mm[13]); } }
+	const int chamber = weap->IntVar(NAME_XRChamber);
+
+	switch (player->vr_reload_state)
+	{
+	case player_t::VRRL_READY:
+		if (chamber < magSize) { player->vr_reload_state = player_t::VRRL_EMPTY; VR_ReloadOpenPerfectWindow(player); }
+		break;
+
+	case player_t::VRRL_EMPTY:
+	case player_t::VRRL_MAG_OUT:
+	case player_t::VRRL_MAG_IN:   // shell has no distinct MAG_IN; treat all seat-loop nodes the same
+	{
+		if (chamber >= magSize) { player->vr_reload_state = player_t::VRRL_RACKED; break; }
+		DVector3 magwell; VR_WeaponHotspotWorld(weap, NAME_hs_magwell, magwell);
+		const double r = vr_reload_magwell_radius;
+		for (int hand = 0; hand < 2; ++hand)
+		{
+			if (!handOk[hand]) continue;
+			// A shell may ride as a held xr_mag item OR be seated "empty-handed" from a shoulder pouch feel:
+			// require a grip edge with the hand near the magwell (item optional -- shells are diegetically small).
+			AActor* held = player->vr_held_items[hand];
+			const bool hasShell = held && held->Keywords.IndexOf("xr_mag") != -1;
+			const double distSq = hasShell ? (held->Pos() - magwell).LengthSquared() : (handPos[hand] - magwell).LengthSquared();
+			if (vr_reload_assist > 0.f && hasShell && distSq <= (r * r * 4.0))
+			{
+				DVector3 np = held->Pos() + (magwell - held->Pos()) * (double)clamp((float)vr_reload_assist, 0.f, 1.f);
+				held->SetXYZ(np);
+			}
+			const bool gripNow  = (player->vr_grip_owner[hand] != GRIP_NONE) || VR_IsGripPressed(player, hand);
+			const bool seatEdge = gripNow && !player->vr_reload_mag_grip_prev[hand];
+			player->vr_reload_mag_grip_prev[hand] = gripNow;
+			if (distSq <= (r * r) && seatEdge)
+			{
+				if (VR_ReloadSeatOne(weap, ammo, magSize))
+				{
+					if (hasShell) { held->Destroy(); player->vr_held_items[hand] = nullptr; }
+					VR_HapticEvent("reload_seat", hand == 0 ? 1 : 2, 60, 0, 0);
+					if (weap->IntVar(NAME_XRChamber) >= magSize) player->vr_reload_state = player_t::VRRL_RACKED;
+				}
+				break;
+			}
+		}
+		break;
+	}
+
+	case player_t::VRRL_RACKED:
+	{
+		// A pump (rack pull) closes out the reload. Same travel gesture as box-mag rack.
+		DVector3 rackPt; VR_WeaponHotspotWorld(weap, NAME_hs_rack, rackPt);
+		DVector3 back(0, 0, 0);
+		if (handOk[VR_MAINHAND]) { const float* mm = handXf[VR_MAINHAND].get(); DVector3 fwd(-mm[8], -mm[10], -mm[9]); if (fwd.Length() > 1e-6) { fwd.MakeUnit(); back = -fwd; } }
+		for (int hand = 0; hand < 2; ++hand)
+		{
+			if (!handOk[hand]) continue;
+			const bool gripNow  = (player->vr_grip_owner[hand] != GRIP_NONE) || VR_IsGripPressed(player, hand);
+			const bool grabEdge = gripNow && !player->vr_reload_rack_grip_prev[hand];
+			player->vr_reload_rack_grip_prev[hand] = gripNow;
+			const double r = vr_reload_rack_radius; const double dSq = (handPos[hand] - rackPt).LengthSquared();
+			if (player->vr_reload_rack_hand == -1 && grabEdge && dSq <= (r * r))
+			{ player->vr_reload_rack_hand = hand; player->vr_reload_rack_anchor = handPos[hand]; player->vr_reload_rack_travel = 0.0; VR_HapticEvent("reload_rack", hand == 0 ? 1 : 2, 40, 0, 0); }
+			if (player->vr_reload_rack_hand == hand)
+			{
+				if (!gripNow) { player->vr_reload_rack_hand = -1; player->vr_reload_rack_travel = 0.0; break; }
+				const double pull = (handPos[hand] - player->vr_reload_rack_anchor) | back;
+				if (pull > player->vr_reload_rack_travel) player->vr_reload_rack_travel = pull;
+				if (player->vr_reload_rack_travel >= vr_reload_rack_travel)
+				{
+					player->vr_reload_rack_hand = -1; player->vr_reload_rack_travel = 0.0;
+					player->vr_reload_chambered = true; player->vr_reload_state = player_t::VRRL_READY;
+					VR_ReloadScorePerfect(player, false);
+					VR_HapticEvent("reload_chamber", hand == 0 ? 1 : 2, 90, 0, 0);
+				}
+			}
+		}
+		break;
+	}
+	}
+}
+
+// [XR reload juice] INTERNAL (revolver cylinder + speedloader). Swing-out on empty, ONE seat-at-magwell with a
+// speedloader bulk-loads the WHOLE cylinder (VR_ReloadRefill), then a close settles it. Self-contained.
+static void VR_ReloadStyleInternal(player_t* player, const VRMode* vrm, AActor* weap)
+{
+	const int magSize = weap->IntVar(NAME_XRMagSize);
+	if (magSize <= 0) return;
+	AActor* ammo = weap->PointerVar<AActor>(NAME_Ammo1);
+
+	VSMatrix handXf[2]; bool handOk[2] = { false, false }; DVector3 handPos[2];
+	for (int h = 0; h < 2; ++h) { handOk[h] = vrm->GetWeaponTransform(&handXf[h], h); if (handOk[h]) { const float* mm = handXf[h].get(); handPos[h] = DVector3(mm[12], mm[14], mm[13]); } }
+	const int chamber = weap->IntVar(NAME_XRChamber);
+
+	switch (player->vr_reload_state)
+	{
+	case player_t::VRRL_READY:
+		if (chamber <= 0) { player->vr_reload_state = player_t::VRRL_EMPTY; player->vr_reload_cylinder_open = true; VR_ReloadOpenPerfectWindow(player); }
+		break;
+
+	case player_t::VRRL_EMPTY:
+	case player_t::VRRL_MAG_OUT:
+	{
+		// Cylinder is swung out; a single seat gesture at the magwell with a speedloader loads all chambers.
+		DVector3 magwell; VR_WeaponHotspotWorld(weap, NAME_hs_magwell, magwell);
+		const double r = vr_reload_magwell_radius;
+		for (int hand = 0; hand < 2; ++hand)
+		{
+			if (!handOk[hand]) continue;
+			AActor* held = player->vr_held_items[hand];
+			if (!held || held->Keywords.IndexOf("xr_mag") == -1) continue;   // need the speedloader item
+			const double distSq = (held->Pos() - magwell).LengthSquared();
+			if (vr_reload_assist > 0.f && distSq <= (r * r * 4.0))
+			{ DVector3 np = held->Pos() + (magwell - held->Pos()) * (double)clamp((float)vr_reload_assist, 0.f, 1.f); held->SetXYZ(np); }
+			const bool gripNow  = (player->vr_grip_owner[hand] != GRIP_NONE) || VR_IsGripPressed(player, hand);
+			const bool seatEdge = gripNow && !player->vr_reload_mag_grip_prev[hand];
+			player->vr_reload_mag_grip_prev[hand] = gripNow;
+			if (distSq <= (r * r) && seatEdge)
+			{
+				held->Destroy(); player->vr_held_items[hand] = nullptr;
+				VR_ReloadRefill(weap, ammo, magSize);       // bulk load the whole cylinder at once
+				player->vr_reload_mag_seated = true;
+				player->vr_reload_state = player_t::VRRL_MAG_IN;   // MAG_IN == "cylinder loaded, awaiting close"
+				VR_HapticEvent("reload_seat", hand == 0 ? 1 : 2, 75, 0, 0);
+				break;
+			}
+		}
+		break;
+	}
+
+	case player_t::VRRL_MAG_IN:
+	{
+		// CLOSE the cylinder: a flick/grip near the rack point (or auto-close when chamber toggle is off).
+		if (!vr_reload_chamber)
+		{
+			player->vr_reload_cylinder_open = false; player->vr_reload_chambered = true;
+			player->vr_reload_mag_seated = false; player->vr_reload_state = player_t::VRRL_READY;
+			VR_ReloadScorePerfect(player, false);
+			VR_HapticEvent("reload_chamber", 0, 85, 0, 0);   // 0 = both hands
+			break;
+		}
+		DVector3 rackPt; VR_WeaponHotspotWorld(weap, NAME_hs_rack, rackPt);
+		const double r = vr_reload_rack_radius;
+		for (int hand = 0; hand < 2; ++hand)
+		{
+			if (!handOk[hand]) continue;
+			const bool gripNow  = (player->vr_grip_owner[hand] != GRIP_NONE) || VR_IsGripPressed(player, hand);
+			const bool grabEdge = gripNow && !player->vr_reload_rack_grip_prev[hand];
+			player->vr_reload_rack_grip_prev[hand] = gripNow;
+			const double dSq = (handPos[hand] - rackPt).LengthSquared();
+			if (grabEdge && dSq <= (r * r))
+			{
+				player->vr_reload_cylinder_open = false; player->vr_reload_chambered = true;
+				player->vr_reload_mag_seated = false; player->vr_reload_state = player_t::VRRL_READY;
+				VR_ReloadScorePerfect(player, false);
+				VR_HapticEvent("reload_chamber", hand == 0 ? 1 : 2, 85, 0, 0);
+				break;
+			}
+		}
+		break;
+	}
+
+	case player_t::VRRL_RACKED:
+		player->vr_reload_state = player_t::VRRL_READY;
+		break;
+	}
+}
+
+// [XR reload juice] CANISTER (heat-vent energy weapons -- Plasma / BFG alt). No empty chamber: a per-player heat
+// meter (ZScript adds heat per shot via VR_AddReloadHeat; native vents). On overheat, rack out the hot canister
+// (hs_rack pull) then seat a cold one (hs_magwell) to reset heat. Self-contained.
+static void VR_ReloadStyleCanister(player_t* player, const VRMode* vrm, AActor* weap)
+{
+	AActor* ammo = weap->PointerVar<AActor>(NAME_Ammo1);
+	const int magSize = weap->IntVar(NAME_XRMagSize);   // reused as the "cold canister" chamber count
+
+	if (player->vr_reload_heat >= (int)vr_reload_heat_max) player->vr_reload_overheated = true;
+	if (!player->vr_reload_overheated) { player->vr_reload_state = player_t::VRRL_READY; return; }
+
+	VSMatrix handXf[2]; bool handOk[2] = { false, false }; DVector3 handPos[2];
+	for (int h = 0; h < 2; ++h) { handOk[h] = vrm->GetWeaponTransform(&handXf[h], h); if (handOk[h]) { const float* mm = handXf[h].get(); handPos[h] = DVector3(mm[12], mm[14], mm[13]); } }
+
+	switch (player->vr_reload_state)
+	{
+	case player_t::VRRL_READY:
+		player->vr_reload_state = player_t::VRRL_EMPTY; VR_ReloadOpenPerfectWindow(player);
+		break;
+
+	case player_t::VRRL_EMPTY:
+	case player_t::VRRL_MAG_IN:   // still awaiting the hot-canister rack-out
+	{
+		// RACK OUT the hot canister.
+		DVector3 rackPt; VR_WeaponHotspotWorld(weap, NAME_hs_rack, rackPt);
+		DVector3 back(0, 0, 0);
+		if (handOk[VR_MAINHAND]) { const float* mm = handXf[VR_MAINHAND].get(); DVector3 fwd(-mm[8], -mm[10], -mm[9]); if (fwd.Length() > 1e-6) { fwd.MakeUnit(); back = -fwd; } }
+		for (int hand = 0; hand < 2; ++hand)
+		{
+			if (!handOk[hand]) continue;
+			const bool gripNow  = (player->vr_grip_owner[hand] != GRIP_NONE) || VR_IsGripPressed(player, hand);
+			const bool grabEdge = gripNow && !player->vr_reload_rack_grip_prev[hand];
+			player->vr_reload_rack_grip_prev[hand] = gripNow;
+			const double r = vr_reload_rack_radius; const double dSq = (handPos[hand] - rackPt).LengthSquared();
+			if (player->vr_reload_rack_hand == -1 && grabEdge && dSq <= (r * r))
+			{ player->vr_reload_rack_hand = hand; player->vr_reload_rack_anchor = handPos[hand]; player->vr_reload_rack_travel = 0.0; VR_HapticEvent("reload_rack", hand == 0 ? 1 : 2, 50, 0, 0); }
+			if (player->vr_reload_rack_hand == hand)
+			{
+				if (!gripNow) { player->vr_reload_rack_hand = -1; player->vr_reload_rack_travel = 0.0; break; }
+				const double pull = (handPos[hand] - player->vr_reload_rack_anchor) | back;
+				if (pull > player->vr_reload_rack_travel) player->vr_reload_rack_travel = pull;
+				if (player->vr_reload_rack_travel >= vr_reload_rack_travel)
+				{
+					player->vr_reload_rack_hand = -1; player->vr_reload_rack_travel = 0.0;
+					player->vr_reload_state = player_t::VRRL_MAG_OUT;   // hot canister ejected; awaiting a cold seat
+					VR_HapticEvent("reload_rack", hand == 0 ? 1 : 2, 90, 0, 0);
+				}
+			}
+		}
+		break;
+	}
+
+	case player_t::VRRL_MAG_OUT:
+	{
+		// SEAT a cold canister to reset heat.
+		DVector3 magwell; VR_WeaponHotspotWorld(weap, NAME_hs_magwell, magwell);
+		const double r = vr_reload_magwell_radius;
+		for (int hand = 0; hand < 2; ++hand)
+		{
+			if (!handOk[hand]) continue;
+			AActor* held = player->vr_held_items[hand];
+			const bool hasCan = held && held->Keywords.IndexOf("xr_mag") != -1;
+			const double distSq = hasCan ? (held->Pos() - magwell).LengthSquared() : (handPos[hand] - magwell).LengthSquared();
+			if (vr_reload_assist > 0.f && hasCan && distSq <= (r * r * 4.0))
+			{ DVector3 np = held->Pos() + (magwell - held->Pos()) * (double)clamp((float)vr_reload_assist, 0.f, 1.f); held->SetXYZ(np); }
+			const bool gripNow  = (player->vr_grip_owner[hand] != GRIP_NONE) || VR_IsGripPressed(player, hand);
+			const bool seatEdge = gripNow && !player->vr_reload_mag_grip_prev[hand];
+			player->vr_reload_mag_grip_prev[hand] = gripNow;
+			if (distSq <= (r * r) && seatEdge)
+			{
+				if (hasCan) { held->Destroy(); player->vr_held_items[hand] = nullptr; }
+				player->vr_reload_heat = 0; player->vr_reload_overheated = false;
+				if (magSize > 0) VR_ReloadRefill(weap, ammo, magSize);   // re-arm the chamber if this weapon uses one
+				player->vr_reload_state = player_t::VRRL_READY;
+				VR_ReloadScorePerfect(player, false);
+				VR_HapticEvent("reload_seat", hand == 0 ? 1 : 2, 80, 0, 0);
+				break;
+			}
+		}
+		break;
+	}
+
+	default:
+		player->vr_reload_state = player_t::VRRL_READY;
+		break;
+	}
+}
+
+//----------------------------------------------------------------------------
+//
+// [XR manual reload] VR_UpdateWeaponReload -- native box-mag reload FSM, peer of VR_UpdateHardpoints.
+// LOCAL-PLAYER-ONLY. Vel-only: NEVER writes pawn Vel or SetOrigin -- refills act on Ammo1/XRChamber; the
+// held mag is an item (SetXYZ on the item, not the pawn). Only READS hotspot bind poses (disjoint from the
+// whip SetModelBonePose WRITE path).
+//
+//----------------------------------------------------------------------------
+
+void VR_UpdateWeaponReload(player_t* player)
+{
+	if (!vr_new_weapon_handling) return;                        // MASTER TOGGLE off => classic reload untouched
+	if (!player || !player->mo) return;
+	if ((player - players) != consoleplayer) return;            // local-only (desync guard)
+	const VRMode* vrm = VRMode::GetVRModeCached(true);
+	if (!vrm->IsVR()) return;                                   // FLATSCREEN => classic button reload only
+
+	AActor* weap = player->ReadyWeapon;
+	if (weap != player->vr_reload_weapon)                       // weapon switch (or none): reset runtime
+	{
+		player->vr_reload_weapon      = weap;
+		player->vr_reload_state       = player_t::VRRL_READY;
+		player->vr_reload_mag_seated  = false;
+		player->vr_reload_chambered   = false;
+		player->vr_reload_rack_hand   = -1;
+		player->vr_reload_rack_travel = 0.0;
+		for (int h = 0; h < 2; ++h) { player->vr_reload_mag_grip_prev[h] = false; player->vr_reload_rack_grip_prev[h] = false; }
+		// [XR reload juice] reset the extra-style + perfect + tactical runtime on switch too (heat persists per-weapon
+		// only while it is the ReadyWeapon; a swap resets it -- acceptable for the alt heat-vent path).
+		player->vr_reload_heat        = 0;
+		player->vr_reload_overheated  = false;
+		player->vr_reload_cylinder_open = false;
+		player->vr_reload_start_tic   = 0;
+		player->vr_reload_perfect     = false;
+		player->vr_reload_tactical    = false;
+		// [XR crash fix] clear handling style on switch so a non-mixin weapon can NEVER inherit RS_BOXMAG and
+		// reach IntVar(XRMagSize) on a class without that field. The new weapon re-declares via
+		// AssignWeaponHandling on its Select if it is a native-boxmag weapon.
+		player->vr_weapon_handling.style    = player_t::RS_NONE;
+		player->vr_weapon_handling.assigned = false;
+	}
+	if (!weap) return;
+
+	// [XR reload juice] auto-clear a stale PERFECT flag the ZScript juice handler never polled (window life guard).
+	if (player->vr_reload_perfect && (gametic - player->vr_reload_perfect_tic) > (int)vr_reload_perfect_life)
+		player->vr_reload_perfect = false;
+
+	// [XR reload juice] STYLE DISPATCH. Every mapped style is an XR_ManualReload-mixin weapon (has XRMagSize/
+	// XRChamber), so each self-contained handler may safely read those fields. RS_BOXMAG falls through to the
+	// original switch below -- BYTE-IDENTICAL, untouched. Non-boxmag styles run their own handler and return so
+	// the box-mag XRMagSize read can NEVER see a class without the mixin field.
+	switch (player->vr_weapon_handling.style)
+	{
+	case player_t::RS_SHELL:    VR_ReloadStyleShell(player, vrm, weap);    return;
+	case player_t::RS_INTERNAL: VR_ReloadStyleInternal(player, vrm, weap); return;
+	case player_t::RS_CANISTER: VR_ReloadStyleCanister(player, vrm, weap); return;
+	case player_t::RS_BOXMAG:   break;   // fall through to the original box-mag FSM below
+	default:                    return;  // RS_NONE / RS_BREAK / RS_POD: not yet FSM-wired -> no-op
+	}
+
+	const int magSize = weap->IntVar(NAME_XRMagSize);           // safe: RS_BOXMAG weapon has the mixin field
+	if (magSize <= 0) return;
+
+	AActor* ammo = weap->PointerVar<AActor>(NAME_Ammo1);        // the ONE true resource
+
+	// Cache both hand transforms once (parity with VR_UpdateHardpoints).
+	VSMatrix handXf[2]; bool handOk[2] = { false, false }; DVector3 handPos[2];
+	for (int h = 0; h < 2; ++h)
+	{
+		handOk[h] = vrm->GetWeaponTransform(&handXf[h], h);
+		if (handOk[h]) { const float* mm = handXf[h].get(); handPos[h] = DVector3(mm[12], mm[14], mm[13]); }
+	}
+
+	const int chamber = weap->IntVar(NAME_XRChamber);          // rounds the fire-gate believes are loaded
+
+	switch (player->vr_reload_state)
+	{
+	case player_t::VRRL_READY:
+		if (chamber <= 0) { player->vr_reload_state = player_t::VRRL_EMPTY; player->vr_reload_chambered = false; VR_ReloadOpenPerfectWindow(player); }
+		break;
+
+	case player_t::VRRL_EMPTY:
+	case player_t::VRRL_MAG_OUT:
+	{
+		DVector3 magwell;
+		VR_WeaponHotspotWorld(weap, NAME_hs_magwell, magwell);
+		// [XR] Show new players where to insert the mag -- weapon-riding, so airborne/billboard glow.
+		if (vr_reload_glow_enable) VR_PushWorldGlow(player->mo->Level, magwell, PalEntry((int)vr_reload_glow_color), vr_reload_glow_radius);
+		// [XR reload juice] TOSS-CATCH: when the gun is pointed sharply UP, a held mag that touches the magwell
+		// seats WITHOUT the grip edge -- the showoff reload, always granting the perfect bonus. Cheap pre-scan.
+		const bool tossReady = vr_reload_toss_catch && handOk[VR_MAINHAND] && VR_ReloadGunInverted(handXf[VR_MAINHAND]);
+		for (int hand = 0; hand < 2; ++hand)
+		{
+			if (!handOk[hand]) continue;
+			AActor* held = player->vr_held_items[hand];
+			if (!held) continue;
+			if (held->Keywords.IndexOf("xr_mag") == -1) continue;   // only a spawned reload mag counts
+			const double r = vr_reload_magwell_radius;
+			const double distSq = (held->Pos() - magwell).LengthSquared();
+			if (vr_reload_assist > 0.f && distSq <= (r * r * 4.0))  // soft outer ring: magnetic assist on the MAG (an item)
+			{
+				DVector3 np = held->Pos() + (magwell - held->Pos()) * (double)clamp((float)vr_reload_assist, 0.f, 1.f);
+				held->SetXYZ(np);
+			}
+			const bool gripNow  = (player->vr_grip_owner[hand] != GRIP_NONE) || VR_IsGripPressed(player, hand);
+			const bool seatEdge = gripNow && !player->vr_reload_mag_grip_prev[hand];
+			player->vr_reload_mag_grip_prev[hand] = gripNow;
+			// ALTERNATE toss-catch seat: inverted gun + mag intersecting the well, no grip edge required.
+			const bool tossSeat = tossReady && distSq <= (r * r);
+			if ((distSq <= (r * r) && seatEdge) || tossSeat)
+			{
+				held->Destroy();
+				player->vr_held_items[hand] = nullptr;
+				player->vr_reload_mag_seated = true;
+				player->vr_reload_state = player_t::VRRL_MAG_IN;
+				VR_HapticEvent("reload_seat", hand == 0 ? 1 : 2, tossSeat ? 90 : 70, 0, 0);
+				if (!vr_reload_chamber)                             // AUTO-CHAMBER: seating re-arms, no rack
+				{
+					VR_ReloadRefill(weap, ammo, magSize);
+					player->vr_reload_chambered = true;
+					player->vr_reload_state = player_t::VRRL_READY;
+					VR_ReloadScorePerfect(player, tossSeat);        // toss-catch => forced perfect
+				}
+				break;
+			}
+		}
+		break;
+	}
+
+	case player_t::VRRL_MAG_IN:
+	{
+		DVector3 rackPt;
+		VR_WeaponHotspotWorld(weap, NAME_hs_rack, rackPt);
+		// [XR] Show new players where/how far to rack -- weapon-riding, so airborne/billboard glow.
+		if (vr_reload_glow_enable) VR_PushWorldGlow(player->mo->Level, rackPt, PalEntry((int)vr_reload_glow_color), vr_reload_glow_radius);
+		DVector3 back(0, 0, 0);
+		if (handOk[VR_MAINHAND]) { const float* mm = handXf[VR_MAINHAND].get(); DVector3 fwd(-mm[8], -mm[10], -mm[9]); if (fwd.Length() > 1e-6) { fwd.MakeUnit(); back = -fwd; } }
+		for (int hand = 0; hand < 2; ++hand)
+		{
+			if (!handOk[hand]) continue;
+			const bool gripNow  = (player->vr_grip_owner[hand] != GRIP_NONE) || VR_IsGripPressed(player, hand);
+			const bool grabEdge = gripNow && !player->vr_reload_rack_grip_prev[hand];
+			player->vr_reload_rack_grip_prev[hand] = gripNow;
+			const double r   = vr_reload_rack_radius;
+			const double dSq = (handPos[hand] - rackPt).LengthSquared();
+			if (player->vr_reload_rack_hand == -1 && grabEdge && dSq <= (r * r))
+			{
+				player->vr_reload_rack_hand   = hand;
+				player->vr_reload_rack_anchor = handPos[hand];
+				player->vr_reload_rack_travel = 0.0;
+				VR_HapticEvent("reload_rack", hand == 0 ? 1 : 2, 40, 0, 0);
+			}
+			if (player->vr_reload_rack_hand == hand)
+			{
+				if (!gripNow) { player->vr_reload_rack_hand = -1; player->vr_reload_rack_travel = 0.0; break; }
+				const double pull = (handPos[hand] - player->vr_reload_rack_anchor) | back; // travel backward along barrel
+				if (pull > player->vr_reload_rack_travel) player->vr_reload_rack_travel = pull;
+				if (player->vr_reload_rack_travel >= vr_reload_rack_travel)
+				{
+					VR_ReloadRefill(weap, ammo, magSize);          // rounds become live
+					player->vr_reload_chambered   = true;
+					player->vr_reload_mag_seated  = false;
+					player->vr_reload_rack_hand   = -1;
+					player->vr_reload_rack_travel = 0.0;
+					player->vr_reload_state = player_t::VRRL_RACKED;
+					VR_ReloadScorePerfect(player, false);          // rack landed the reload -> check the perfect window
+					VR_HapticEvent("reload_chamber", hand == 0 ? 1 : 2, 90, 0, 0);
+				}
+			}
+		}
+		break;
+	}
+
+	case player_t::VRRL_RACKED:
+		player->vr_reload_state = player_t::VRRL_READY;            // one-tic settle
+		break;
+	}
+}
+
+//----------------------------------------------------------------------------
+// [XR debug/juice] ZScript accessors for the reload overlay + juice. STAGED: the
+// ZScript callers live (commented) in vr_reload_debug.zs; enabling them also needs
+// matching `native` decls added to the Actor class in actor.zs at this same rebuild.
+//----------------------------------------------------------------------------
+DEFINE_ACTION_FUNCTION(AActor, VR_GetWeaponHotspot)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_NAME(hs);
+	DVector3 out(0, 0, 0);
+	VR_WeaponHotspotWorld(self, hs, out);          // geometric fallback when no IQM bone
+	ACTION_RETURN_VEC3(out);
+}
+
+DEFINE_ACTION_FUNCTION(AActor, VR_GetReloadState)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	int st = 0;
+	if (self->player) st = self->player->vr_reload_state;   // EVReloadState (0=READY..4=RACKED)
+	ACTION_RETURN_INT(st);
+}
+
+// [XR reload juice] PERFECT-reload flag. Returns 1 if the last refill landed inside the perfect window, then
+// CLEARS it (read-once). ZScript juice handler polls this to pop the "PERFECT" text + feed the combo meter.
+DEFINE_ACTION_FUNCTION(AActor, VR_GetReloadPerfect)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	int r = 0;
+	if (self->player && self->player->vr_reload_perfect)
+	{
+		r = 1;
+		self->player->vr_reload_perfect = false;            // consumed
+	}
+	ACTION_RETURN_INT(r);
+}
+
+// [XR reload juice] TACTICAL 1-in-the-barrel eject. Called by the ZScript eject when the chamber still has a
+// round: keeps ONE chambered round, forfeits the rest of the partial mag, and drops the FSM into MAG_OUT so the
+// seat loop re-arms. Returns 1 if a tactical eject was actually performed (chamber > 1 before the call).
+DEFINE_ACTION_FUNCTION(AActor, VR_BeginTacticalEject)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	player_t* pl = self ? self->player : nullptr;
+	AActor* weap = pl ? pl->ReadyWeapon : nullptr;
+	if (!pl || !weap) { ACTION_RETURN_INT(0); }
+	const int cur = weap->IntVar(NAME_XRChamber);
+	weap->IntVar(NAME_XRChamber) = (cur >= 1) ? 1 : 0;      // keep the chambered round (partial-mag rounds forfeit)
+	pl->vr_reload_tactical  = true;
+	pl->vr_reload_state     = player_t::VRRL_MAG_OUT;
+	pl->vr_reload_mag_seated = false;
+	pl->vr_reload_chambered = (weap->IntVar(NAME_XRChamber) > 0);
+	VR_ReloadOpenPerfectWindow(pl);                         // tactical eject opens a fresh timing window
+	ACTION_RETURN_INT(cur > 1 ? 1 : 0);
+}
+
+// [XR reload juice] FUMBLE / abort. Resets the reload runtime (state -> EMPTY if chamber is dry, else READY),
+// clears the seat/rack latches, and returns 1 if a reload was actually IN PROGRESS (so a ZScript fumble handler
+// can drop the loose mag). Does NOT touch XRChamber -- ammo state is untouched, only the in-flight gesture aborts.
+DEFINE_ACTION_FUNCTION(AActor, VR_AbortReload)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	player_t* pl = self ? self->player : nullptr;
+	if (!pl) { ACTION_RETURN_INT(0); }
+	const bool inProgress = (pl->vr_reload_state != player_t::VRRL_READY) || pl->vr_reload_mag_seated || (pl->vr_reload_rack_hand != -1);
+	AActor* weap = pl->ReadyWeapon;
+	const int chamber = weap ? weap->IntVar(NAME_XRChamber) : 0;
+	pl->vr_reload_mag_seated   = false;
+	pl->vr_reload_rack_hand    = -1;
+	pl->vr_reload_rack_travel  = 0.0;
+	pl->vr_reload_cylinder_open = false;
+	pl->vr_reload_start_tic    = 0;                          // window closes on abort (no perfect from a fumble)
+	pl->vr_reload_tactical     = false;
+	for (int h = 0; h < 2; ++h) { pl->vr_reload_mag_grip_prev[h] = false; pl->vr_reload_rack_grip_prev[h] = false; }
+	pl->vr_reload_state = (chamber <= 0) ? player_t::VRRL_EMPTY : player_t::VRRL_READY;
+	ACTION_RETURN_INT(inProgress ? 1 : 0);
+}
+
+// [XR reload juice] Heat feed for RS_CANISTER. ZScript adds heat per shot (the fire path knows the weapon fired);
+// the native FSM vents it. Clamps 0..vr_reload_heat_max; sets the overheat latch when the ceiling is reached.
+// Returns the new heat value. No-op unless this weapon is the heat-vent style (guards accidental heat on others).
+DEFINE_ACTION_FUNCTION(AActor, VR_AddReloadHeat)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	PARAM_INT(delta);
+	player_t* pl = self ? self->player : nullptr;
+	if (!pl) { ACTION_RETURN_INT(0); }
+	if (pl->vr_weapon_handling.style != player_t::RS_CANISTER) { ACTION_RETURN_INT(pl->vr_reload_heat); }
+	int h = pl->vr_reload_heat + delta;
+	if (h < 0) h = 0;
+	if (h > (int)vr_reload_heat_max) h = (int)vr_reload_heat_max;
+	pl->vr_reload_heat = h;
+	if (h >= (int)vr_reload_heat_max) pl->vr_reload_overheated = true;
+	ACTION_RETURN_INT(h);
+}
+
+// [XR reload juice] Read the RS_CANISTER heat 0..max (for a glow-bar HUD). Also exposes the overheat latch via
+// the sign: returns heat, or -heat-1 when overheated so ZScript can branch without a second call.
+DEFINE_ACTION_FUNCTION(AActor, VR_GetReloadHeat)
+{
+	PARAM_SELF_PROLOGUE(AActor);
+	int r = 0;
+	if (self->player) r = self->player->vr_reload_overheated ? (-self->player->vr_reload_heat - 1) : self->player->vr_reload_heat;
+	ACTION_RETURN_INT(r);
 }
 
 //----------------------------------------------------------------------------
@@ -2313,13 +3323,85 @@ static FQuaternion IK_QuatFromTo(FVector3 a, FVector3 b)
 // literal (x,y,z)->(x,z,y) relabel, so step 2 here is the same relabel: local Y takes
 // the world-up component, local Z takes the lateral (yaw-corrected off.Y) component.
 // Local X (forward, from cosInvYaw/sinInvYaw) is untouched -- the swap never touches X.
-static FVector3 IK_WorldToModelLocal(const DVector3& worldPos, const DVector3& actorPos, double cosInvYaw, double sinInvYaw)
+// [XR] [[maybe_unused]]: the position path now inverts the renderer's objectToWorldMatrix directly
+// (VR_UpdateArmIK), so this hand-rebuilt world->model-local helper is retained only as the documented
+// reference for IK_ControllerModelRot's shared un-yaw algebra. Kept to avoid an unused-static warning.
+[[maybe_unused]] static FVector3 IK_WorldToModelLocal(const DVector3& worldPos, const DVector3& actorPos, double cosInvYaw, double sinInvYaw)
 {
 	DVector3 off = worldPos - actorPos;
 	double lx = off.X * cosInvYaw - off.Y * sinInvYaw; // forward
 	double ly = off.X * sinInvYaw + off.Y * cosInvYaw; // lateral (Doom-world sense)
 	// Y<->Z relabel into raw joint-local (Y-up) space: local Y = world up, local Z = lateral.
 	return FVector3((float)lx, (float)off.Z, (float)ly);
+}
+
+// [XR] ROTATION analog of the POSITION path: pull the CONTROLLER's orientation out of the same
+// GetWeaponTransform VSMatrix the position path reads, and land it in the EXACT baseframe the
+// two-bone solve works in (the frame targetLocal[] lives in), so the wrist can be driven
+// parent-relative off solve.lowerWorldRot.
+//
+// This now uses the SAME exact inverse the position path uses (Finv = swapYZ * objectToWorld^-1),
+// applied to the controller's basis vectors as DIRECTIONS (w=0), so the wrist frame is consistent
+// with the hand POSITION by construction -- NOT the old hand-rebuilt un-yaw/(Z,X,Y)-relabel/
+// forward-flip approximation (which only un-yawed the pawn yaw, ignored the Y/Z-swapped bodyScale
+// and the full drawn yaw baked into objectToWorldMatrix, and used an ad-hoc forward sign instead
+// of swapYZ -> a frame mismatch that inverted the wrist). Steps, each mirroring the point path:
+//   1. Read controller forward/up in raw GL layout (NO Doom remap): GL-forward = -colZ =
+//      (-m[8],-m[9],-m[10]); GL-up = +colY = (m[4],m[5],m[6]) -- the same GL columns ptGL reads.
+//   2. Transform each as a DIRECTION (w=0) through Finv (linear 3x3 only) -> baseframe space,
+//      identically to how the point path lands the position; uniform bodyScale cancels on normalize.
+//   3. Re-orthonormalize (fwd,up -> right = up^fwd, up = fwd^right) to strip any non-uniform
+//      Y/Z-swapped-scale skew that Finv's non-orthonormal 3x3 leaves.
+//   4. Load into a VSMatrix's rotation columns using the SAME column layout IK_MatRotation reads
+//      (colX=[0..2], colY=[4..6], colZ=[8..10]) with GL-forward == -colZ, and extract the
+//      quaternion with the proven IK_MatRotation. The returned quat is in the solve's baseframe
+//      == solve.lowerWorldRot's frame, so localHand = lowerWorldRot^-1 * (ctrlModelRot*palmOffset)
+//      is a valid same-frame composition and the wrist tracks correctly.
+static bool IK_ControllerModelRot(const VSMatrix& handXf, VSMatrix& Finv, FQuaternion& outRot)
+{
+	const float* m = handXf.get();
+	// (1) controller basis in the SAME raw GL layout the POSITION path reads (do NOT pre-remap to
+	// Doom): GL-forward = -colZ = (-m[8],-m[9],-m[10]); GL-up = +colY = (m[4],m[5],m[6]). These are
+	// the object->world (GL) axes objectToWorldMatrix^-1 expects, mirroring ptGL={m[12],m[13],m[14]}.
+	FLOATTYPE fwdGL[4] = { -m[8], -m[9], -m[10], (FLOATTYPE)0 }; // -colZ == controller forward, as a DIRECTION (w=0)
+	FLOATTYPE upGL [4] = {  m[4],  m[5],  m[6],  (FLOATTYPE)0 }; // +colY == controller up,      as a DIRECTION (w=0)
+
+	// (2) transform both basis vectors as DIRECTIONS through the EXACT Finv (= swapYZ * objectToWorld^-1),
+	// identically to how the point path lands the POSITION -- so the wrist frame == the target frame.
+	// w=0 applies only Finv's linear 3x3 part (multMatrixPoint = column-major M*vec, matrix.cpp:357-367);
+	// uniform bodyScale cancels on the normalize below.
+	FLOATTYPE fwdB4[4], upB4[4];
+	Finv.multMatrixPoint(fwdGL, fwdB4);
+	Finv.multMatrixPoint(upGL,  upB4);
+	FVector3 f((float)fwdB4[0], (float)fwdB4[1], (float)fwdB4[2]); // baseframe forward
+	FVector3 u((float)upB4[0],  (float)upB4[1],  (float)upB4[2]);  // baseframe up
+	if (f.LengthSquared() < 1.e-8f || u.LengthSquared() < 1.e-8f) return false;
+	f.MakeUnit();
+
+	// (3) Finv's 3x3 is NON-orthonormal (Y/Z-swapped, possibly non-uniform bodyScale), so the transformed
+	// fwd/up are not guaranteed orthogonal -> re-orthonormalize off forward to strip the skew.
+	// HANDEDNESS: Finv contains swapYZ (det -1) so its linear part is ORIENTATION-REVERSING. A textbook
+	// right-handed cross order (right = up^fwd) on Finv's outputs yields a LEFT-handed basis (det -1) --
+	// a MIRROR that IK_MatRotation silently collapses to the nearest rotation and that NO palmOffset can
+	// correct (a reflection is unreachable by any rotation), which is what left the wrist mirrored/inverted.
+	// Reverse the cross order (right = fwd^up, up = right^fwd) to compensate for the det(-1) map so the
+	// reconstructed basis is a PROPER rotation (verified det +1 across 200 random controller poses).
+	FVector3 right = f ^ u;
+	if (right.LengthSquared() < 1.e-8f) return false; // fwd/up parallel -> degenerate, keep bind
+	right.MakeUnit();
+	u = right ^ f;      // re-orthonormalize up (right-handed given the reversed cross above)
+	u.MakeUnit();
+
+	// (4) orthonormal basis + matrix -> quat. GL-forward == -colZ, so colZ = -f (matches IK_MatRotation's read).
+	FVector3 colZ = -f;
+	VSMatrix rm;
+	rm.loadIdentity();
+	float* d = const_cast<float*>(rm.get());
+	d[0] = right.X; d[1] = right.Y; d[2]  = right.Z; // colX
+	d[4] = u.X;     d[5] = u.Y;     d[6]  = u.Z;     // colY
+	d[8] = colZ.X;  d[9] = colZ.Y;  d[10] = colZ.Z;  // colZ
+	outRot = IK_MatRotation(rm);
+	return true;
 }
 
 // Two-bone (shoulder/elbow) IK solve for one arm, entirely in the model's own local/rest
@@ -2331,6 +3413,7 @@ struct FArmIKSolve
 {
 	FQuaternion upperWorldRot;
 	FQuaternion lowerWorldRot;
+	float stretch = 1.0f;  // [XR] >1 => arm stretched to reach a target beyond its natural span (written onto the upperArm bone scale)
 };
 
 static bool IK_SolveTwoBoneArm(
@@ -2352,6 +3435,18 @@ static bool IK_SolveTwoBoneArm(
 	float rawReach = (float)toTarget.Length();
 	if (rawReach < 0.0001f) return false; // target sits on the shoulder -- no aim direction
 	FVector3 aimDir = toTarget / rawReach;
+
+	// [XR] STRETCHY REACH: if the controller sits farther than the arm's natural span, scale BOTH bones so
+	// the arm spans exactly rawReach -- the hand then lands ON the controller regardless of the marine's
+	// (short) arm-to-height proportion. upperLen/forearmLen are by-value params, so overwriting them here
+	// feeds the stretched lengths through the whole solve; out.stretch is written onto the upperArm bone's
+	// pose scale in VR_UpdateArmIK so the MESH follows. == 1.0 (no change) whenever the target is in reach.
+	{
+		const float naturalArm = upperLen + forearmLen;
+		out.stretch = (naturalArm > 0.01f && rawReach > naturalArm) ? (rawReach / naturalArm) : 1.0f;
+		upperLen   *= out.stretch;
+		forearmLen *= out.stretch;
+	}
 
 	// Reach-clamp: solve as if the target were at the nearest point still reachable by this
 	// bone pair, along the SAME direction, instead of feeding law-of-cosines an out-of-domain
@@ -2411,6 +3506,26 @@ static bool IK_SolveTwoBoneArm(
 EXTERN_CVAR(Bool,  vr_ik_enable)
 EXTERN_CVAR(Float, vr_ik_upperarm_len)
 EXTERN_CVAR(Float, vr_ik_forearm_len)
+EXTERN_CVAR(Bool,  vr_ik_hand_rot)
+EXTERN_CVAR(Float, vr_ik_hand_pitch)
+EXTERN_CVAR(Float, vr_ik_hand_yaw)
+EXTERN_CVAR(Float, vr_ik_hand_roll)
+EXTERN_CVAR(Float, vr_ik_hand_smooth)
+EXTERN_CVAR(Float, vr_ik_hand_maxstep)
+
+// [XR] Live-tunable CONSTANT nudge of the IK hand target in the model's own frame so the hand can be slid
+// exactly onto the controller in-headset (same idea as per-weapon model offsets). Absorbs any fixed shift
+// the frame math leaves (vr_body_z, feet-vs-mesh-origin, mesh authoring). 0,0,0 = no nudge. Dial in-console.
+CVAR(Float, vr_ik_target_offx, 0.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // +X = model LATERAL (+left / -right)
+CVAR(Float, vr_ik_target_offy, 0.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // +Y = model FORWARD (view direction)
+CVAR(Float, vr_ik_target_offz, 0.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // +Z = model UP
+// [XR] EXTRA palm rotation applied to the LEFT / OFF hand ONLY (side 1), on top of the shared
+// vr_ik_hand_pitch/yaw/roll. The left hand's bind palm is a MIRROR of the right, so the offset that
+// aligns the right hand is ~180 off for the left. Dial these (try vr_ik_offhand_roll 180 first) until
+// the offhand palm matches the right; 0,0,0 = same as the main hand.
+CVAR(Float, vr_ik_offhand_pitch, 0.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_ik_offhand_yaw,   0.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+CVAR(Float, vr_ik_offhand_roll,  0.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 // [XR] mesh-facing correction the RENDERER adds to the VR body (r_data/models.cpp:76, default 90).
 // VR_UpdateArmIK must un-yaw the hand target by the SAME total yaw the renderer draws the body at
 // (vr_body_facing_yaw + vr_body_yaw + SpriteRotation, models.cpp:223) so the IK frame == render frame.
@@ -2425,6 +3540,12 @@ EXTERN_CVAR(Float, vr_body_yaw)
 EXTERN_CVAR(Float, vr_body_scale)
 EXTERN_CVAR(Bool,  vr_body_autofit)
 extern float g_xr_vrBodyRenderScale;
+// [XR] The renderer's OWN finalized VR-body objectToWorldMatrix (r_data/models.cpp), published so the IK
+// can invert it exactly. target_baseframe = swapYZ * objectToWorldMatrix^-1 * controller_world_GL -- this
+// single inverse subsumes the drawn yaw, vr_body_z, and the bodyScale divide, eliminating the hand-rebuilt
+// un-yaw / axis-remap / feet-subtract / bodyFit-divide / forward-flip below.
+extern VSMatrix g_xr_vrBodyObjectToWorld;
+extern bool     g_xr_vrBodyObjToWorldValid;
 
 //----------------------------------------------------------------------------
 //
@@ -2641,26 +3762,41 @@ void VR_UpdateArmIK(player_t* player)
 	ArmChain (&chains)[2] = cachedChains; // reference to the cached (or freshly re-resolved) chain array
 
 	// ---- world -> model-local space setup for the hand targets (see COORDINATE FRAME above) ----
-	const DVector3 actorPos = player->mo->Pos();
-	// [XR] Un-yaw by the SAME facing the renderer draws the VR body at, NOT the raw pawn Angles.Yaw.
-	// The pawn yaw tracks the HMD, but the body is rendered at the DECOUPLED facing
-	// vr_body_facing_yaw + vr_body_yaw + SpriteRotation (r_data/models.cpp:223, then rotate(-angle) at
-	// :243). Using the pawn yaw made two things wrong: (1) head turns changed invYaw every tic while the
-	// rendered body stayed put (vr_body_facing_yaw is held in a dead-zone by P_PlayerThink), so the
-	// actor-local target swung under a stationary controller -> "reads from the HMD too"; and (2) it left
-	// an uncancelled ~180 residual (the vr_body_yaw term) that the old horizontal-mirror band-aid had to
-	// negate away. Matching invYaw to -render_angle fixes the head leak AND removes that residual, so the
-	// target/pole 180 negations below are no longer needed and have been removed (do NOT re-add them --
-	// that would double-rotate the now-correct target). Fall back to the pawn yaw when the decoupled
-	// facing isn't valid yet so the first-frame / non-decoupled path stays correct.
-	DAngle renderYaw;
-	if (player->vr_body_facing_valid)
-		renderYaw = DAngle::fromDeg((double)player->vr_body_facing_yaw + (double)vr_body_yaw + player->mo->SpriteRotation.Degrees());
-	else
-		renderYaw = player->mo->Angles.Yaw;
-	const DAngle   invYaw   = -renderYaw; // undo the RENDERED body facing (matches r_data/models.cpp:223)
-	const double   cosInvYaw = invYaw.Cos();
-	const double   sinInvYaw = invYaw.Sin();
+	// [XR] actorPos (player->mo->Pos()) is no longer needed: the feet-relative subtract it fed
+	// IK_WorldToModelLocal is now inverted for free inside objectToWorldMatrix (translate at models.cpp).
+	// [XR] UN-YAW BASIS FIX (proven by [VRIK_TGT2] range-of-motion data + vk_openxrdevice.cpp:5345): the
+	// hand WORLD position from GetWeaponTransform is placed at world yaw = -90 + doomYaw + controllerRelYaw,
+	// where doomYaw == player->mo->Angles.Yaw (the live pawn/HMD yaw). So the target must be un-yawed by the
+	// PAWN yaw, NOT the decoupled vr_body_facing_yaw the renderer draws the body at. Un-yawing by the render
+	// facing left a residual of (pawnYaw - vr_body_facing_yaw) whenever the head turns inside the 50-deg body
+	// dead-zone -- which rotated the horizontal plane (the apparent "90-deg off / sign flip") and inflated
+	// reach (worst ~+70% at a ~100-deg head/body gap). Because doomYaw is baked into the hand placement,
+	// un-yawing by that SAME doomYaw cancels head rotation cleanly (no HMD leak). The vr_body_yaw(90) /
+	// SpriteRotation mesh terms must NOT be added (the -90 baked into the hand placement is their counterpart
+	// and already cancels; the baseframe shoulders are authored in the frame that nets to a plain -pawnYaw).
+	// Also: vr_body_facing_yaw is updated AFTER this function in P_PlayerThink, so it lagged a tic -- another
+	// reason the in-sync pawn yaw is the right basis. Across the full log this gives 10% of rows over reach-25
+	// vs ~35% for the old render-facing basis.
+	// [XR] HEAD-SWING FIX: un-yaw by the EXACT yaw the RENDERER draws the body at (r_data/models.cpp:241-253):
+	//   valid facing -> vr_body_facing_yaw + vr_body_yaw + SpriteRotation   (DECOUPLED from the HMD)
+	//   else         -> pawn Angles.Yaw   + vr_body_yaw + SpriteRotation
+	// The pawn Angles.Yaw follows the headset, but the body is DRAWN at the decoupled facing. Un-yawing by
+	// the pawn yaw (the old basis) rotated the model-local hand target by (headYaw - bodyFacingYaw) every
+	// time the head turned inside the body dead-zone, so the extended arm swung opposite the head. Matching
+	// the renderer's ACTUAL drawn yaw makes the IK frame track the DRAWN body -> head-turn no longer moves
+	// the arm. (This replaces the earlier pure-pawnYaw basis, which was measured before the facing-decouple
+	// and body-yaw/sprite terms were folded into the render path.)
+	double renderBodyYaw = (player->vr_body_facing_valid ? (double)player->vr_body_facing_yaw
+	                                                     : player->mo->Angles.Yaw.Degrees())
+	                     + (double)vr_body_yaw + player->mo->SpriteRotation.Degrees();
+	const DAngle   invYaw   = DAngle::fromDeg(-renderBodyYaw); // undo the renderer's drawn body yaw (models.cpp:241-253)
+	// [XR] cosInvYaw/sinInvYaw are no longer consumed by the wrist path: IK_ControllerModelRot now
+	// derives the controller orientation from the EXACT Finv (= swapYZ * objectToWorld^-1), the same
+	// inverse the position path uses, instead of this pawn-yaw-only un-yaw. invYaw itself is still read
+	// by the [VRIK_TGT2] diagnostic below; the cos/sin are retained [[maybe_unused]] as the documented
+	// reference for IK_WorldToModelLocal's shared algebra.
+	[[maybe_unused]] const double   cosInvYaw = invYaw.Cos();
+	[[maybe_unused]] const double   sinInvYaw = invYaw.Sin();
 
 	// Real per-hand tracked targets. NOTE: player->mo->AttackPos is deliberately NOT used
 	// here for either hand, even though the design notes floated it for the main hand --
@@ -2686,6 +3822,35 @@ void VR_UpdateArmIK(player_t* player)
 	bool haveTarget[2];
 	haveTarget[0] = vrmode->GetWeaponTransform(&rightXf, rightHandEnum);
 	haveTarget[1] = vrmode->GetWeaponTransform(&leftXf,  leftHandEnum);
+
+	// [XR hand-world collision] Clamp a hand's IK target to the wall when VR_UpdateHandCollision (this
+	// file, runs earlier the same tic) found it touching solid geometry -- keeps the rendered hand from
+	// clipping through walls. Deliberately placed HERE, upstream of everything below (including the
+	// hs_foregrip pin a few lines down): overriding rightXf/leftXf's translation before either matrix is
+	// consumed means a clamped, non-foregripping hand flows into the rest of the solve for free, with no
+	// second write site. CONTRACT: a foregripping OFF-hand stays pinned to the gun, never the wall --
+	// excluded here so this and the foregrip pin can never fight over the same hand in the same tic.
+	// m[12]=X, m[13]=Z(map-up), m[14]=Y -- same layout every GetWeaponTransform consumer in this file
+	// uses; const_cast<float*>(xf.get()) matches the existing write-through pattern used below (~line
+	// 3399's rotation-matrix build) rather than adding a new mutator to VSMatrix.
+	if (vr_hand_ik_clamp)
+	{
+		if (haveTarget[0] && player->vr_hand_touching_wall[rightHandEnum] &&
+			!(rightHandEnum == VR_OFFHAND && player->vr_foregrip_engaged))
+		{
+			const DVector3& c = player->vr_hand_collision_clamp_pos[rightHandEnum];
+			float* rm = const_cast<float*>(rightXf.get());
+			rm[12] = (float)c.X; rm[13] = (float)c.Z; rm[14] = (float)c.Y;
+		}
+		if (haveTarget[1] && player->vr_hand_touching_wall[leftHandEnum] &&
+			!(leftHandEnum == VR_OFFHAND && player->vr_foregrip_engaged))
+		{
+			const DVector3& c = player->vr_hand_collision_clamp_pos[leftHandEnum];
+			float* lm = const_cast<float*>(leftXf.get());
+			lm[12] = (float)c.X; lm[13] = (float)c.Z; lm[14] = (float)c.Y;
+		}
+	}
+
 	{ static int s_ikMode=0; if (s_ikMode++<20) Printf("[VRIK_MODE] IsVR=%d haveTarget=%d,%d\n", (int)vrmode->IsVR(), (int)haveTarget[0], (int)haveTarget[1]); }
 	if (!haveTarget[0] && !haveTarget[1])
 	{
@@ -2694,56 +3859,108 @@ void VR_UpdateArmIK(player_t* player)
 		return;
 	}
 
-	FVector3 targetLocal[2]; // [0]=right,[1]=left
-	if (haveTarget[0])
+	// [XR] EXACT F^-1: target_baseframe = swapYZ * objectToWorldMatrix^-1 * controller_world_GL.
+	// This single inversion of the renderer's OWN published matrix (g_xr_vrBodyObjectToWorld, models.cpp)
+	// REPLACES the whole hand-rebuilt world->model-local pipeline that used to live here -- the un-yaw
+	// (IK_WorldToModelLocal), the (.Z,.X,.Y) skeleton relabel, the bodyFit divide, and the forward-Y flip.
+	// The renderer draws  world = objectToWorldMatrix * boneData[i] * vertex,  boneData[i] == Identity at
+	// bind, and the uploaded vertex is swapYZ * v_file while baseframe[] is built from the RAW file TRS with
+	// no swap -- so the exact baseframe-space -> GL-world map is  F = objectToWorldMatrix * swapYZ,  and its
+	// inverse lands the controller in the SAME baseframe space (Z-up, shoulder Z~59) the two-bone solver
+	// reads shoulderPos = IK_MatTranslation(baseframe[upperArm]) from. objectToWorldMatrix already contains
+	// the drawn yaw, vr_body_z, and the Y/Z-swapped bodyScale, so all of those are inverted for free: NO
+	// manual remap / feet-subtract / scale-divide / forward-flip. (invYaw is retained ABOVE only for the
+	// [VRIK_TGT2] diagnostic; the wrist path IK_ControllerModelRot now uses this SAME Finv, not invYaw.)
+	// swapYZ = row-swap of Y and Z, its own inverse (models_iqm.cpp).
+	static const FLOATTYPE kSwapYZ[16] = { 1,0,0,0,  0,0,1,0,  0,1,0,0,  0,0,0,1 };
+	VSMatrix swapYZ; swapYZ.loadMatrix(kSwapYZ);
+	VSMatrix objToWorldInv;
+	if (!g_xr_vrBodyObjToWorldValid || !g_xr_vrBodyObjectToWorld.inverseMatrix(objToWorldInv))
 	{
-		const float* m = rightXf.get();
-		// column-major GetWeaponTransform output -> Doom world (X, GL.Z->Doom.Y, GL.Y->Doom.Z),
-		// same remap already used by VR_UpdateGravityGloves/VR_UpdateHardpoints in this file.
-		targetLocal[0] = IK_WorldToModelLocal(DVector3(m[12], m[14], m[13]), actorPos, cosInvYaw, sinInvYaw);
+		// No published body matrix yet (pre-first-render) or a singular transform (e.g. bodyScale 0):
+		// hold the bind pose this tic rather than solving to garbage.
+		{ static int s_gM=0; if (s_gM++<20) Printf("[VRIK_BAIL_M] valid=%d\n", (int)g_xr_vrBodyObjToWorldValid); }
+		player->vr_ik_active = false;
+		return;
 	}
-	if (haveTarget[1])
-	{
-		const float* m = leftXf.get();
-		targetLocal[1] = IK_WorldToModelLocal(DVector3(m[12], m[14], m[13]), actorPos, cosInvYaw, sinInvYaw);
-	}
+	// F^-1 = swapYZ * objectToWorldMatrix^-1  (VSMatrix A.multMatrix(B) => A = A*B, so this composes swapYZ
+	// on the LEFT of the inverse -- applied to the point AFTER the inverse, which is what F^-1 requires).
+	VSMatrix Finv = swapYZ;
+	Finv.multMatrix(objToWorldInv);
 
-	// [XR] FRAME FIX (proven by [VRIK_TGT] live data): IK_WorldToModelLocal returns (forward, up,
-	// lateral) -- a Y-up frame -- but the skeleton's baseframe (IK_MatTranslation) is Z-up: shoulder
-	// height sits in Z (=59), not Y. Comparing the two mismatched frames made the solve aim at a
-	// garbage point far out of reach and collapse to the bind pose ("arms dead at side"). Remap the
-	// target into the skeleton's frame: (forward=X, up=Y, lateral=Z) -> (lateral, forward, up).
-	for (int s = 0; s < 2; s++)
-		if (haveTarget[s])
-			targetLocal[s] = FVector3(targetLocal[s].Z, targetLocal[s].X, targetLocal[s].Y);
-
-	// [XR] The old HORIZONTAL-MIRROR band-aid that negated targetLocal.X/.Y here has been REMOVED.
-	// It existed only because the IK un-yawed by the pawn yaw while the renderer drew the body at
-	// pawn-yaw + vr_body_yaw, leaving a ~180 residual about UP. The un-yaw above now matches the
-	// renderer's decoupled facing exactly (invYaw = -(vr_body_facing_yaw + vr_body_yaw + SpriteRotation)),
-	// so there is NO residual to cancel. Re-adding the negation would double-rotate the target 180.
-	// (Reach/height come from the frame remap + body-fit scale below and are unaffected by this.)
-
-	// [XR] SCALE FIX (the reach>>armLen "arms dead at side" defect): the target is captured in the
-	// RENDERED body's space. The renderer (r_data/models.cpp:110-136) scales the local avatar by
-	// bodyScale about the mesh origin, which is the feet == actorPos == the exact origin
-	// IK_WorldToModelLocal subtracted. The IK, however, solves in the UNSCALED baseframe (shoulder
-	// up-coord ~= 59). So every target component (all relative to the feet pivot) is a rendered-body
-	// offset and must be divided by bodyScale to become an unscaled-baseframe offset. We divide by
-	// the LIVE render scale g_xr_vrBodyRenderScale (the exact smoothed autofit value the renderer
-	// used last frame), NOT the vr_body_scale proxy, so no autofit/cvar gap remains; vr_body_scale
-	// is only a fallback if the global hasn't been written yet. NOTE: this is NOT the
-	// vr_vunits_per_meter=34 factor -- m[12..14] from GetHandTransform is already in Doom map units
-	// (VR_UpdateGravityGloves / VR_UpdateHardpoints in this same file feed those very columns into
-	// blockmap iterators and actor-distance tests in map units and work); dividing by 34 would
-	// wrongly shrink the hand to ~1.6 units from the feet. The divisor is the body FIT-scale.
+	// [XR] bodyFitScale is kept ONLY for the [VRIK_TGT2] diagnostic printf below; it no longer scales the
+	// target (bodyScale is inverted inside objectToWorldMatrix). Remove with the probe once tracking is
+	// confirmed.
 	float bodyFitScale = g_xr_vrBodyRenderScale;
 	if (!(bodyFitScale > 0.05f && bodyFitScale < 8.0f)) bodyFitScale = (float)vr_body_scale;
-	if (!(bodyFitScale > 0.05f && bodyFitScale < 8.0f)) bodyFitScale = 0.70f; // sane fallback == the cvar default
-	const float invBodyFit = 1.0f / bodyFitScale;
+	if (!(bodyFitScale > 0.05f && bodyFitScale < 8.0f)) bodyFitScale = 0.70f;
+
+	FVector3 targetLocal[2]; // [0]=right,[1]=left, in baseframe space (X=lateral, Y=forward, Z=up)
 	for (int s = 0; s < 2; s++)
-		if (haveTarget[s])
-			targetLocal[s] *= invBodyFit;
+	{
+		if (!haveTarget[s]) continue;
+
+		// [XR] HAND-TO-HOTSPOT PIN (IQM weapons). When the OFF hand is foregripping the weapon's authored
+		// hs_foregrip bone, drive THAT hand's IK target from the foregrip WORLD point instead of the raw
+		// controller. This lands the marine hand exactly ON the gun's foregrip and keeps it glued there as
+		// two-hand aim swings the gun -- instead of floating at wherever the physical controller drifted.
+		//   * Gated on player->vr_foregrip_engaged, which VR_CalculateTwoHanding (called ONE line before this
+		//     in P_PlayerThink, same tic -> fresh) sets ONLY when VR_WeaponHotspotWorld returns a REAL authored
+		//     hs_foregrip bone AND the off hand grips within vr_foregrip_radius AND the grip arbiter frees it.
+		//     MD3 / unconverted weapons never author the bone -> never engage -> this path is byte-for-byte
+		//     unchanged for them (no behavioral risk to the existing roster).
+		//   * MAIN hand is intentionally NOT pinned: the gun rides the main-hand transform and hs_grip sits at
+		//     the model origin (0,0,0), so the main hand already lands on the grip by construction.
+		//   * vr_foregrip_world is Doom world (x, y, z-up); the point path below wants GL (x, up, z) -- i.e.
+		//     GLx=Doom.x, GLy=Doom.z, GLz=Doom.y -- the exact inverse of VR_WeaponHotspotWorld's own
+		//     handPos(m[12],m[14],m[13]) Doom read. Wrist ORIENTATION is left on the controller (unchanged):
+		//     the off hand is physically at the grip when engaged, so its real orientation reads as a natural
+		//     grip, and this avoids disturbing the verified IK_ControllerModelRot wrist path.
+		const int   handEnum    = (s == 0) ? rightHandEnum : leftHandEnum;
+		const bool  pinForegrip = player->vr_foregrip_engaged && (handEnum == VR_OFFHAND);
+
+		FLOATTYPE ptGL[4];
+		if (pinForegrip)
+		{
+			ptGL[0] = (FLOATTYPE)player->vr_foregrip_world[0]; // Doom.x   -> GL.x
+			ptGL[1] = (FLOATTYPE)player->vr_foregrip_world[2]; // Doom.z-up-> GL.y
+			ptGL[2] = (FLOATTYPE)player->vr_foregrip_world[1]; // Doom.y   -> GL.z
+			ptGL[3] = (FLOATTYPE)1;
+		}
+		else
+		{
+			// GetWeaponTransform columns m[12..14] are ALREADY in GL layout (GL-X=Doom.x, GL-Y=up=Doom.z,
+			// GL-Z=Doom.y) -- exactly objectToWorldMatrix's output axes -- so feed them straight in, NO reorder.
+			// (This is the same per-hand controller world pos the old m[12],m[14],m[13] Doom read used; here we
+			// keep the raw GL columns because objectToWorldMatrix^-1 wants GL, not Doom. AttackPos is NOT used:
+			// its X/Y are actor-center-pinned, per the note above, so it can't drive sideways reach.)
+			const FLOATTYPE* m = (s == 0) ? rightXf.get() : leftXf.get();
+			ptGL[0] = m[12]; ptGL[1] = m[13]; ptGL[2] = m[14]; ptGL[3] = (FLOATTYPE)1;
+		}
+		FLOATTYPE outBase[4];
+		Finv.multMatrixPoint(ptGL, outBase);                 // swapYZ * objectToWorldMatrix^-1 * (ctrl | foregrip)_GL
+		targetLocal[s] = FVector3((float)outBase[0], (float)outBase[1], (float)outBase[2]);
+
+		if (pinForegrip)
+		{
+			static int s_pinLog = 0;
+			if (s_pinLog < 40)
+			{
+				s_pinLog++;
+				Printf("[VRIK_PIN] off-hand -> hs_foregrip world=(%.1f,%.1f,%.1f) local=(%.1f,%.1f,%.1f)\n",
+					player->vr_foregrip_world[0], player->vr_foregrip_world[1], player->vr_foregrip_world[2],
+					targetLocal[s].X, targetLocal[s].Y, targetLocal[s].Z);
+			}
+		}
+	}
+
+	// [XR] Live CONSTANT nudge so the hand can be dialed exactly onto the controller in-headset -- absorbs any
+	// fixed shift the frame math leaves (vr_body_z, feet-vs-mesh-origin, authoring). Dial vr_ik_target_off* in
+	// the console until the model hand sits in the sphere; the value is then baked into autoexec.
+	if ((float)vr_ik_target_offx != 0.f || (float)vr_ik_target_offy != 0.f || (float)vr_ik_target_offz != 0.f)
+		for (int s = 0; s < 2; s++)
+			if (haveTarget[s])
+				targetLocal[s] += FVector3((float)vr_ik_target_offx, (float)vr_ik_target_offy, (float)vr_ik_target_offz);
 
 	// ---- per-side bind-pose geometry, read straight from the model's own baseframe
 	// (model-local space, no swapYZ / inversebaseframe -- see COORDINATE FRAME above) ----
@@ -2778,14 +3995,19 @@ void VR_UpdateArmIK(player_t* player)
 	// small (over-divided), too-small -> too large. Also prints the raw target so a HEIGHT-only offset
 	// (Z far from ~45 while X/Y sane) is distinguishable from a uniform scale error. Remove once tracking.
 	{
+		// [XR] periodic (every 15 tics, up to 400 logs) so it captures a full RANGE OF MOTION, not just the
+		// startup burst. Also logs the yaw state (fv=facing_valid / rYaw=renderYaw used / aYaw=raw pawn yaw)
+		// so the arm-frame error AND any HMD-yaw fallback (fv=0 -> uses aYaw -> head leak) are both visible.
+		static int s_ikTgt2Call = 0;
 		static int s_ikTgt2 = 0;
-		for (int s = 0; s < 2 && s_ikTgt2 < 60; s++)
+		const bool doLog = ((s_ikTgt2Call++ % 15) == 0) && s_ikTgt2 < 400;
+		for (int s = 0; s < 2 && doLog; s++)
 		{
 			if (!haveTarget[s]) continue;
 			s_ikTgt2++;
 			FVector3 d = targetLocal[s] - shoulderPos[s];
-			Printf("[VRIK_TGT2] side=%d bodyFit=%.3f tgt=(%.1f,%.1f,%.1f) shoulder=(%.1f,%.1f,%.1f) reach=%.1f armLen=%.1f (expect reach~=armLen)\n",
-				s, bodyFitScale,
+			Printf("[VRIK_TGT2] side=%d fv=%d invYaw=%.1f aYaw=%.1f bodyFit=%.3f tgt=(%.1f,%.1f,%.1f) shoulder=(%.1f,%.1f,%.1f) reach=%.1f armLen=%.1f\n",
+				s, (int)player->vr_body_facing_valid, invYaw.Degrees(), player->mo->Angles.Yaw.Degrees(), bodyFitScale,
 				targetLocal[s].X, targetLocal[s].Y, targetLocal[s].Z,
 				shoulderPos[s].X, shoulderPos[s].Y, shoulderPos[s].Z,
 				(float)d.Length(), upperLen[s] + forearmLen[s]);
@@ -2878,9 +4100,98 @@ void VR_UpdateArmIK(player_t* player)
 		// and must stay untouched (bones don't stretch).
 		TRS& upperPose = player->vr_ik_pose[chains[side].upperArm];
 		upperPose.rotation = FVector4(localUpper.X, localUpper.Y, localUpper.Z, localUpper.W);
+		// [XR] STRETCHY: scale the upperArm bone by solve.stretch. Bone scale propagates down the chain
+		// (forearm + hand inherit it), so BOTH arm segments lengthen and the mesh hand reaches the
+		// controller even when the target is past the marine's natural arm span. 1.0 = untouched (in reach);
+		// the pose is re-seeded to bind every tic above, so no stretch ever lingers.
+		// [XR] STRETCH the arm bones so the hand PINS to the controller no matter the marine's arm-to-height
+		// proportion. The frame is now an exact inverse (head no longer drags the shoulders), so the target is
+		// correct; the only thing that can leave the hand short is the arm being physically too short, and the
+		// stretch closes that gap. Allow a generous 2.5x (covers any human reach vs marine proportion) and only
+		// guard against NaN / runaway (finite check) so a bad tic can't explode the arm. Solve.stretch is 1.0
+		// for in-reach targets, so this is a no-op until you actually extend past the marine's natural span.
+		if (solve.stretch > 1.001f && solve.stretch < 100.0f)
+		{
+			float s = (solve.stretch > 2.5f) ? 2.5f : solve.stretch;
+			upperPose.scaling = FVector3(s, s, s);
+		}
 
 		TRS& lowerPose = player->vr_ik_pose[chains[side].lowerArm];
 		lowerPose.rotation = FVector4(localLower.X, localLower.Y, localLower.Z, localLower.W);
+
+		// [XR] WRIST FOLLOWS CONTROLLER. Without this the hand bone stays at its bind rotation
+		// (re-seeded from GetJointBindTRS every tic above) and the palm locks facing inward no
+		// matter how the controller twists. The hand's parent in the bip chain is the lowerArm,
+		// so -- exactly like localLower = upperWorldRot^-1 * lowerWorldRot above -- the local
+		// (parent-relative) hand rotation is lowerArm's JUST-SOLVED model rot ^-1 times the
+		// desired hand model rot. desiredHandModel is the controller orientation brought into
+		// this same solve frame by IK_ControllerModelRot (same VSMatrix rightXf/leftXf as the
+		// position target, same invYaw un-yaw + skeleton relabel). palmOffset is the fixed
+		// bind-palm-vs-controller correction, exposed as vr_ik_hand_pitch/yaw/roll (deg) and
+		// applied on the MODEL-space side so it rotates the hand about its own axes; dial it
+		// in-headset. Guarded by vr_ik_hand_rot so it can be killed without touching reach/bend,
+		// and it only touches .rotation (translate/scale stay at bind -- the wrist doesn't move,
+		// so the reach the elbow just solved to is not disturbed).
+		if (vr_ik_hand_rot)
+		{
+			const VSMatrix& handXf = (side == 0) ? rightXf : leftXf;
+			FQuaternion ctrlModelRot;
+			// [XR] Pass the SAME exact Finv (= swapYZ * objectToWorld^-1) the POSITION path built at the
+				// top of this function, so the wrist orientation lands in the SAME baseframe as
+				// solve.lowerWorldRot -- consistent with the hand position by construction. (Was
+				// cosInvYaw/sinInvYaw: the deleted pawn-yaw-only un-yaw + relabel + forward-flip approximation.)
+				if (IK_ControllerModelRot(handXf, Finv, ctrlModelRot))
+			{
+				FQuaternion palmOffset =
+					FQuaternion::AxisAngle(FVector3(0.f, 0.f, 1.f), FAngle::fromDeg((double)vr_ik_hand_roll))  *
+					FQuaternion::AxisAngle(FVector3(0.f, 1.f, 0.f), FAngle::fromDeg((double)vr_ik_hand_yaw))   *
+					FQuaternion::AxisAngle(FVector3(1.f, 0.f, 0.f), FAngle::fromDeg((double)vr_ik_hand_pitch));
+				// [XR] LEFT/offhand (side 1) bind palm is mirrored vs the right, so it gets its OWN extra
+				// alignment (vr_ik_offhand_*) on top of the shared palmOffset; side 0 (right) = identity.
+				FQuaternion offhandFlip = (side == 1)
+					? FQuaternion::AxisAngle(FVector3(0.f, 0.f, 1.f), FAngle::fromDeg((double)vr_ik_offhand_roll))
+					  * FQuaternion::AxisAngle(FVector3(0.f, 1.f, 0.f), FAngle::fromDeg((double)vr_ik_offhand_yaw))
+					  * FQuaternion::AxisAngle(FVector3(1.f, 0.f, 0.f), FAngle::fromDeg((double)vr_ik_offhand_pitch))
+					: FQuaternion(0.f, 0.f, 0.f, 1.f);
+					FQuaternion desiredHandModel = ctrlModelRot * palmOffset * offhandFlip;
+				FQuaternion localHand = solve.lowerWorldRot.Inverse() * desiredHandModel;
+				localHand.MakeUnit();
+
+				// [XR] JITTER FIX: exponential smoothing of the wrist rotation. Raw controller
+				// tracking is noisy, and if consecutive-tic wrist quats flip sign the renderer
+				// interpolates them "the long way" -> violent jitter. SLerp(prev, target, a) fixes
+				// BOTH: it damps the noise (a<1) AND enforces sign-continuity (it negates `target`
+				// when dot<0), so my per-tic outputs are continuous and the render interp stays short.
+				// vr_ik_hand_smooth: 1 = raw/instant, lower = smoother/laggier. Per-hand static state;
+				// this is first-person local-player only, so a static [2] is safe/transient.
+				static FQuaternion s_prevHand[2];
+				static bool s_prevHandValid[2] = { false, false };
+				if (s_prevHandValid[side])
+				{
+					// [XR] RATE LIMIT + smoothing. The euler round-trip (vk_openxrdevice.cpp) makes the
+					// controller orientation gimbal-jump INSTANTANEOUSLY -- huge one-tic deltas a real
+					// wrist can't produce. Measure the shortest angle prev->target (2*acos|dot|, |dot| for
+					// quaternion double-cover), and if the smoothed step would exceed vr_ik_hand_maxstep
+					// degrees this tic, clamp the SLerp fraction so the wrist rotates AT MOST that far --
+					// violent spikes become bounded, human-speed motion and get averaged out, while normal
+					// motion (small delta) passes at the vr_ik_hand_smooth rate. SLerp also fixes sign
+					// continuity so the render never interpolates "the long way".
+					float qd = clamp((float)(s_prevHand[side] | localHand), -1.0f, 1.0f);
+					float angRad = 2.0f * acosf(fabsf(qd));                 // shortest prev->target angle
+					float t = clamp((float)vr_ik_hand_smooth, 0.05f, 1.0f); // base smoothing fraction
+					float maxStepRad = (float)(fabs((double)vr_ik_hand_maxstep) * (M_PI / 180.0));
+					if (maxStepRad > 1.e-4f && angRad > 1.e-4f && angRad * t > maxStepRad)
+						t = maxStepRad / angRad;                            // cap this tic's rotation
+					localHand = FQuaternion::SLerp(s_prevHand[side], localHand, t);
+				}
+				localHand.MakeUnit();
+				s_prevHand[side] = localHand;
+				s_prevHandValid[side] = true;
+
+				TRS& handPose = player->vr_ik_pose[chains[side].hand];
+				handPose.rotation = FVector4(localHand.X, localHand.Y, localHand.Z, localHand.W);
+			}
+		}
 
 		anySolved = true;
 	}
@@ -3006,7 +4317,7 @@ void VR_UpdateClimbing(player_t* player)
             if (player->vr_climbing_lines[hand][0] != nullptr)
             {
                 if (!player->vr_was_grip_pressed[hand]) {
-                    VR_HapticEvent("grip_climb", hand, 60, 0, 0);
+                    VR_HapticEvent("grip_climb", hand == 0 ? 1 : 2, 60, 0, 0);
                 }
 
                 anyGrip = true;
@@ -3027,7 +4338,7 @@ void VR_UpdateClimbing(player_t* player)
                     player->vr_climbing_haptic_dist[hand] += move.Length();
                     if (player->vr_climbing_haptic_dist[hand] > 8.0) // Pulse every 8 units
                     {
-                        VR_HapticEvent("climb_texture", hand, 20, 0, 0);
+                        VR_HapticEvent("climb_texture", hand == 0 ? 1 : 2, 20, 0, 0);
                         player->vr_climbing_haptic_dist[hand] = 0;
                     }
                 }
@@ -3064,6 +4375,216 @@ void VR_UpdateClimbing(player_t* player)
         player->mo->flags &= ~MF_NOGRAVITY;
     }
     // else (whipSwingLive): climb touches neither Vel nor MF_NOGRAVITY -- the whip owns both this tic.
+}
+
+// [XR interaction glows] Shared primitive for every "QoL helper glow" feature below: pushes one
+// airborne/billboard FGlowSpot (same construction AddGlowPanel uses, vmthunks.cpp) at a world
+// position. Unlike VR_UpdateHandCollision's wall-plane spots (planeFlags=4, anchored to a line),
+// this is for spots that float free in space or ride a moving actor/weapon -- grab targets,
+// two-hand grips, hardpoints, reload hotspots, catch bursts, throw arcs. Level->GlowSpots is
+// cleared every tic (p_tick.cpp) and rebuilt by every publisher, so callers just re-push each tic
+// they want the glow visible -- no lifetime/staleness bookkeeping needed here.
+static void VR_PushWorldGlow(FLevelLocals* lvl, const DVector3& pos, PalEntry color, double radius)
+{
+    if (!lvl || radius <= 0.0) return;
+    FGlowSpot gs;
+    gs.center = DVector2(pos.X, pos.Y);
+    gs.radius = radius;
+    gs.color = color;
+    gs.wipeType = 0;
+    gs.wipeProgress = 0.0;
+    gs.wipeDir = DVector2(0, 0);
+    gs.planeFlags = 0;
+    gs.zoff = pos.Z;
+    gs.gflags = 1; // billboard/airborne, same as AddGlowPanel
+    lvl->GlowSpots.Push(gs);
+}
+
+// [XR hand-world collision] Per-tic proximity check of each VR hand against solid wall linedefs,
+// reusing the exact blockmap query VR_UpdateClimbing already runs (FBoundingBox + FBlockLinesIterator)
+// -- broad-phase, not a new spatial-query path. On approach/contact this feeds a growing wall-glow
+// spot (native Level->GlowSpots registry, hw_walls.cpp WALL bit -- ZERO dynamic lights, see
+// glow-hard-constraint), tinted differently on KEYWORDS-tagged climbable lines vs plain solid walls
+// (most solid walls are NOT climb-tagged, so this tells the player which is which before they grip),
+// and a haptic bump on first contact. vr_hand_touching_wall[hand] + vr_hand_collision_clamp_pos[hand]
+// are published on the player; VR_UpdateArmIK (below) reads both to clamp the rendered hand at the
+// wall surface when vr_hand_ik_clamp is on.
+void VR_UpdateHandCollision(player_t* player)
+{
+    if (!player || !player->mo || !VRMode::GetVRModeCached(false)) return;
+    if (!vr_hand_collision) return;
+    if (vr_hand_collision_radius <= 0) return;
+
+    for (int hand = 0; hand < 2; hand++)
+    {
+        VSMatrix handTransform;
+        if (!VRMode::GetVRModeCached(false)->GetWeaponTransform(&handTransform, hand))
+        {
+            player->vr_hand_collision_last_valid[hand] = false;
+            player->vr_hand_touching_wall[hand] = false;
+            continue;
+        }
+
+        const float* m = handTransform.get();
+        DVector3 handPos(m[12], m[14], m[13]);
+
+        // Search out to the largest of the relevant radii (collision, real climb range, glow ramp-in) so
+        // a climbable wall further than the plain collision radius but within climb range still gets found.
+        const double searchRadius = max<double>(max<double>(vr_hand_collision_radius, vr_climb_radius), vr_hand_glow_range);
+        FBoundingBox box(handPos.X, handPos.Y, searchRadius);
+        FBlockLinesIterator it(player->mo->Level, box);
+        line_t* line;
+
+        double bestDist = searchRadius;
+        line_t* bestLine = nullptr;
+        DVector2 bestPoint;
+        bool bestClimbable = false;
+
+        while ((line = it.Next()))
+        {
+            // Only solid (blocking) geometry counts as "world" to bump against -- open two-sided
+            // passages (doorways, windows you can reach through) should not glow/block.
+            const bool solid = (line->sidedef[1] == nullptr) || (line->flags & ML_BLOCKING);
+            if (!solid) continue;
+
+            const DVector2 v1 = line->v1->fPos();
+            const DVector2 v2 = line->v2->fPos();
+            const DVector2 seg = v2 - v1;
+            const double segLenSq = seg.LengthSquared();
+            if (segLenSq <= 0.0) continue;
+
+            double t = ((handPos.X - v1.X) * seg.X + (handPos.Y - v1.Y) * seg.Y) / segLenSq;
+            t = clamp<double>(t, 0.0, 1.0);
+            const DVector2 closest = v1 + seg * t;
+            const double dist = (DVector2(handPos.X, handPos.Y) - closest).Length();
+
+            if (dist < bestDist)
+            {
+                // Z-gate: only count the wall if it actually spans the hand's height (uses whichever
+                // sector is present so one-sided exterior lines still gate correctly).
+                sector_t* sec = line->frontsector ? line->frontsector : line->backsector;
+                if (sec)
+                {
+                    const double floorZ = sec->floorplane.ZatPoint(closest);
+                    const double ceilZ = sec->ceilingplane.ZatPoint(closest);
+                    if (handPos.Z < floorZ - 4.0 || handPos.Z > ceilZ + 4.0) continue;
+                }
+
+                bestDist = dist;
+                bestLine = line;
+                bestPoint = closest;
+
+                // [XR] Same climbable test VR_UpdateClimbing runs (Keywords -> "climb:<tex>" -> sector
+                // Keywords) so the glow tells the player "this one is grippable" before they commit a
+                // grip -- most solid walls are NOT keyword-tagged, so this needs its own check per-line
+                // rather than reusing climb's per-hand cache (which is grip-gated and only built on squeeze).
+                float speedMult = 1.0f;
+                bool climbable = KeywordDispatcher::IsClimbable(line->Keywords, speedMult);
+                if (!climbable && line->sidedef[0] != nullptr)
+                {
+                    FGameTexture* tex = TexMan.GetGameTexture(line->sidedef[0]->GetTexture(side_t::mid));
+                    if (tex) climbable = KeywordDispatcher::IsClimbable("climb:" + tex->GetName(), speedMult);
+                }
+                if (!climbable && line->frontsector) climbable = KeywordDispatcher::IsClimbable(line->frontsector->Keywords, speedMult);
+                if (!climbable && line->backsector)  climbable = KeywordDispatcher::IsClimbable(line->backsector->Keywords, speedMult);
+                bestClimbable = climbable;
+            }
+        }
+
+        // A climbable line's REAL contact threshold is vr_climb_radius (the actual grab-distance the
+        // climb system grips at, VR_UpdateClimbing above) -- not the generic wall-bump radius. A player
+        // reaching for a climbable wall needs the glow to promise "you are in real climb range", so the
+        // two ranges must be evaluated (and colored) independently, not collapsed onto one radius.
+        const double contactRadius = bestClimbable ? (double)vr_climb_radius : (double)vr_hand_collision_radius;
+
+        const bool wasTouching = player->vr_hand_touching_wall[hand];
+        const bool touching = (bestLine != nullptr) && (bestDist <= contactRadius);
+        player->vr_hand_touching_wall[hand] = touching;
+
+        if (touching && !wasTouching)
+        {
+            VR_HapticEvent(bestClimbable ? "hand_climb_range" : "hand_wall_touch", hand == 0 ? 1 : 2, 40, 0, 0);
+        }
+
+        // [XR] The IK clamp target: when touching, pull the hand's XY back to sit exactly at
+        // contactRadius from the wall point along the hand->wall direction (keeps the real
+        // controller's Z so vertical reach still tracks naturally) -- read by VR_UpdateArmIK.
+        if (touching)
+        {
+            DVector2 fromWall = DVector2(handPos.X, handPos.Y) - bestPoint;
+            const double fromWallLen = fromWall.Length();
+            if (fromWallLen > 1e-6) fromWall *= (contactRadius / fromWallLen);
+            else fromWall = DVector2(contactRadius, 0.0);
+            player->vr_hand_collision_clamp_pos[hand] = DVector3(bestPoint.X + fromWall.X, bestPoint.Y + fromWall.Y, handPos.Z);
+        }
+        else
+        {
+            player->vr_hand_collision_clamp_pos[hand] = handPos;
+        }
+
+        if (vr_hand_collision_glow && bestLine != nullptr)
+        {
+            // 0 = just entered glow range, 1 = at the real contact threshold for THIS surface type
+            // (climb radius for climbable, collision radius for plain solid -- see contactRadius above).
+            const double range = max<double>(max<double>(vr_hand_glow_range, contactRadius), 0.001);
+            const double t = clamp<double>(1.0 - bestDist / range, 0.0, 1.0);
+            const double radius = vr_hand_glow_min_radius + (vr_hand_glow_max_radius - vr_hand_glow_min_radius) * t;
+
+            FGlowSpot gs;
+            gs.center = bestPoint;
+            gs.radius = radius;
+            gs.color = PalEntry((int)(bestClimbable ? vr_hand_glow_climb_color : vr_hand_glow_color));
+            gs.wipeType = 0;
+            gs.wipeProgress = 0.0;
+            gs.wipeDir = DVector2(0, 0);
+            gs.planeFlags = 4; // WALL bit (hw_walls.cpp)
+            player->mo->Level->GlowSpots.Push(gs);
+        }
+
+        player->vr_hand_collision_last_pos[hand] = handPos;
+        player->vr_hand_collision_last_valid[hand] = true;
+    }
+}
+
+// [XR hardpoint draw/stow glow] Per-tic proximity glow so players can see where their holster/ability
+// mounts actually are without memorizing the motion. Mirrors the EXACT distance test IsHardpointNear
+// (vmthunks_actors.cpp) already runs, but gets each slot's world position via the shared
+// VR_ResolveHardpointWorldPos (vr_hardpoint.h) instead of recomputing the anchor math here. Body-anchored
+// slots move with the player and wrist-anchored ones with the other hand -- both are fine to recompute
+// fresh every tic since GlowSpots itself is rebuilt every tic (p_tick.cpp).
+void VR_UpdateHardpointGlow(player_t* player)
+{
+    if (!player || !player->mo || !vr_hardpoint_glow_enable) return;
+    if (player->vr_hardpoint_count <= 0) return;
+
+    for (int hand = 0; hand < 2; hand++)
+    {
+        VSMatrix handTransform;
+        if (!VRMode::GetVRModeCached(false)->GetWeaponTransform(&handTransform, hand)) continue;
+        const float* m = handTransform.get();
+        DVector3 handPos(m[12], m[14], m[13]);
+
+        for (int i = 0; i < player->vr_hardpoint_count; i++)
+        {
+            const auto& slot = player->vr_hardpoints[i];
+            if (!slot.enabled) continue;
+            if (slot.hand != -1 && slot.hand != hand) continue;
+
+            double slotPos[3];
+            if (!VR_ResolveHardpointWorldPos(player, i, hand, slotPos)) continue;
+            DVector3 pos(slotPos[0], slotPos[1], slotPos[2]);
+
+            const double reach = (slot.radius > 0.f) ? (double)slot.radius : (double)vr_hardpoint_radius;
+            const double range = max<double>(max<double>(vr_hardpoint_glow_range, reach), 0.001);
+            const double dist = (handPos - pos).Length();
+            if (dist > range) continue;
+
+            const double t = clamp<double>(1.0 - dist / range, 0.0, 1.0);
+            const double glowRadius = vr_hardpoint_glow_min_radius + (vr_hardpoint_glow_max_radius - vr_hardpoint_glow_min_radius) * t;
+            const PalEntry color = (slot.anchor == HP_ANCHOR_WRIST) ? PalEntry((int)vr_hardpoint_glow_color_wrist) : PalEntry((int)vr_hardpoint_glow_color_body);
+            VR_PushWorldGlow(player->mo->Level, pos, color, glowRadius);
+        }
+    }
 }
 
 void P_PredictionLerpReset()

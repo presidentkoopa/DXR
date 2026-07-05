@@ -106,7 +106,7 @@ typedef TMap<FName, int> FDialogueMap;				// maps actor class names to dialogue 
 typedef TMap<int, FUDMFKeys> FUDMFKeyMap;
 class DIntermissionController;
 
-// [GITD] a transient localized glow spot (a radial glow pool on the floor/ceiling). Actors publish
+// [RADIANCE] a transient localized glow spot (a radial glow pool on the floor/ceiling). Actors publish
 // these each game tic into FLevelLocals::GlowSpots; the flat renderer consumes them. ZERO lights.
 struct FGlowSpot
 {
@@ -116,10 +116,10 @@ struct FGlowSpot
 	int      wipeType;     // 0 = none, 1 = seam (reveal a widening band along wipeDir)
 	double   wipeProgress; // 0..1 how open the wipe is
 	DVector2 wipeDir;      // wipe axis (unit vector in the floor plane)
-	int      planeFlags;   // [GITD] 0 = both planes, 1 = floor only, 2 = ceiling only (bit flags)
-	double   zoff = 0.0;   // [GITD-AIR] world Z of the panel centre; used only in billboard mode
-	int      gflags = 0;   // [GITD-AIR] bit 0 = billboard (camera-facing air panel); else floor/ceiling stamp
-	int      counter = 0;  // [GITD-AIR] number to display on a digit panel (kept out of the colour float)
+	int      planeFlags;   // [RADIANCE] 0 = both planes, 1 = floor only, 2 = ceiling only (bit flags)
+	double   zoff = 0.0;   // [RADIANCE-AIR] world Z of the panel centre; used only in billboard mode
+	int      gflags = 0;   // [RADIANCE-AIR] bit 0 = billboard (camera-facing air panel); else floor/ceiling stamp
+	int      counter = 0;  // [RADIANCE-AIR] number to display on a digit panel (kept out of the colour float)
 };
 
 struct FLevelLocals
@@ -507,7 +507,7 @@ public:
 	DoomLevelAABBTree* aabbTree = nullptr;
 	DoomLevelMesh* levelMesh = nullptr;
 
-	// [GITD] per-tic registry of transient localized glow spots (death pools, weapon impacts, ...).
+	// [RADIANCE] per-tic registry of transient localized glow spots (death pools, weapon impacts, ...).
 	// Cleared every game tic in P_Ticker; actors re-publish each tick via Level.AddGlowSpot().
 	TArray<FGlowSpot> GlowSpots;
 

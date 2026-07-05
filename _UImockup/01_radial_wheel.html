@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DoomXR Radial Weapon Wheel</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+:root{
+  --canvas:#05070D;
+  --cyan:#38E6FF;
+  --cyan-dim:rgba(56,230,255,0.35);
+  --amber:#FFD000;
+  --amber-dim:rgba(255,208,0,0.35);
+  --orange:#FF7A1B;
+  --plasma-c:#38E6FF;
+  --bfg-c:#46FF7A;
+  --glass:rgba(10,14,20,0.55);
+  --pill:rgba(56,230,255,0.08);
+  --text-bright:#DFF9FF;
+  --text-sec:#7FBFCF;
+  --violet:#B428FF;
+  --violet-dim:rgba(180,40,255,0.3);
+}
+
+html,body{
+  width:100%;height:100%;
+  background:var(--canvas);
+  overflow:hidden;
+  font-family:'Courier New',Courier,monospace;
+  color:var(--text-bright);
+}
+
+body{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+}
+
+/* radial vignette */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background:radial-gradient(ellipse 80% 80% at 50% 50%, transparent 40%, rgba(0,0,0,0.7) 100%);
+  pointer-events:none;z-index:0;
+}
+
+/* doom corridor bg suggestion */
+body::after{
+  content:'';
+  position:fixed;inset:0;
+  background:
+    repeating-linear-gradient(0deg,rgba(56,230,255,0.012) 0px,rgba(56,230,255,0.012) 1px,transparent 1px,transparent 40px),
+    repeating-linear-gradient(90deg,rgba(56,230,255,0.008) 0px,rgba(56,230,255,0.008) 1px,transparent 1px,transparent 60px);
+  pointer-events:none;z-index:0;
+}
+
+canvas#corridor{
+  position:fixed;inset:0;
+  width:100%;height:100%;
+  z-index:0;
+  opacity:0.22;
+}
+
+.scene{
+  position:relative;
+  width:1280px;height:720px;
+  z-index:1;
+  flex-shrink:0;
+}
+
+/* ─── TIME FREEZE INDICATOR ─────────────────────────────── */
+.time-freeze{
+  position:absolute;top:22px;left:50%;transform:translateX(-50%);
+  font-size:11px;letter-spacing:0.18em;
+  color:var(--amber);
+  text-shadow:0 0 6px var(--amber),0 0 14px var(--amber-dim);
+  border:1px solid rgba(255,208,0,0.3);
+  padding:3px 12px;
+  background:rgba(255,208,0,0.05);
+  border-radius:2px;
+}
+
+/* ─── MAIN WHEEL ────────────────────────────────────────── */
+.wheel-wrap{
+  position:absolute;
+  top:50%;right:200px;
+  transform:translate(0,-50%);
+}
+
+.wheel{
+  position:relative;
+  width:460px;height:460px;
+}
+
+/* hub */
+.hub{
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:108px;height:108px;
+  border-radius:50%;
+  background:var(--glass);
+  border:2px solid var(--amber);
+  box-shadow:
+    0 0 0 1px rgba(255,208,0,0.15),
+    0 0 10px var(--amber),
+    0 0 28px rgba(255,208,0,0.4),
+    inset 0 0 18px rgba(255,208,0,0.08);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  z-index:10;
+}
+
+.hub-weapon{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  animation:hub-spin 4s linear infinite;
+  filter:drop-shadow(0 0 6px var(--orange)) drop-shadow(0 0 14px rgba(255,122,27,0.5));
+}
+
+@keyframes hub-spin{
+  0%{transform:perspective(120px) rotateY(0deg)}
+  50%{transform:perspective(120px) rotateY(180deg)}
+  100%{transform:perspective(120px) rotateY(360deg)}
+}
+
+/* hover ring */
+.hover-ring{
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:460px;height:460px;
+  border-radius:50%;
+  pointer-events:none;
+  z-index:2;
+}
+
+.hover-ring::after{
+  content:'';
+  position:absolute;inset:0;
+  border-radius:50%;
+  border:1.5px solid transparent;
+  animation:ring-rotate 8s linear infinite;
+}
+
+@keyframes ring-rotate{
+  0%{transform:rotate(0deg)}
+  100%{transform:rotate(360deg)}
+}
+
+/* SLOT CELLS */
+.slot{
+  position:absolute;
+  width:80px;height:80px;
+  transform:translate(-50%,-50%);
+  cursor:default;
+}
+
+.slot-inner{
+  width:100%;height:100%;
+  border-radius:12px;
+  background:var(--glass);
+  border:1.5px solid var(--cyan-dim);
+  box-shadow:
+    0 0 4px rgba(56,230,255,0.2),
+    0 0 12px rgba(56,230,255,0.12),
+    inset 0 0 0 1px rgba(56,230,255,0.06);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:6px 6px 14px;
+  position:relative;
+  overflow:hidden;
+  transition:border-color 0.2s,box-shadow 0.2s;
+}
+
+.slot-inner:hover{
+  border-color:rgba(56,230,255,0.6);
+}
+
+.slot.selected .slot-inner{
+  border-color:var(--orange);
+  box-shadow:
+    0 0 6px var(--orange),
+    0 0 18px rgba(255,122,27,0.45),
+    0 0 36px rgba(255,122,27,0.2),
+    inset 0 0 0 1px rgba(255,122,27,0.12);
+  animation:selected-breathe 1.25s ease-in-out infinite;
+}
+
+@keyframes selected-breathe{
+  0%,100%{box-shadow:0 0 6px var(--orange),0 0 18px rgba(255,122,27,0.45),0 0 36px rgba(255,122,27,0.2),inset 0 0 0 1px rgba(255,122,27,0.12)}
+  50%{box-shadow:0 0 10px var(--orange),0 0 26px rgba(255,122,27,0.65),0 0 50px rgba(255,122,27,0.3),inset 0 0 0 1px rgba(255,122,27,0.18)}
+}
+
+/* idle neon flicker — only on non-selected */
+.slot:not(.selected) .slot-inner{
+  animation:neon-flicker 2s ease-in-out infinite;
+}
+
+@keyframes neon-flicker{
+  0%,100%{opacity:1}
+  48%{opacity:1}
+  50%{opacity:0.96}
+  52%{opacity:1}
+  78%{opacity:1}
+  80%{opacity:0.93}
+  82%{opacity:1}
+}
+
+.slot-key{
+  font-size:9px;
+  color:var(--text-sec);
+  letter-spacing:0.1em;
+  margin-bottom:2px;
+  line-height:1;
+}
+
+.slot-glyph{
+  flex:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.slot-glyph svg{
+  opacity:0.82;
+}
+
+.slot.selected .slot-glyph svg{
+  opacity:1;
+  filter:drop-shadow(0 0 4px var(--orange));
+}
+
+/* ammo bar */
+.ammo-bar{
+  position:absolute;
+  bottom:5px;left:7px;right:7px;
+  height:3px;
+  background:rgba(56,230,255,0.1);
+  border-radius:2px;
+  overflow:hidden;
+}
+
+.ammo-fill{
+  height:100%;
+  border-radius:2px;
+  background:var(--cyan);
+  box-shadow:0 0 4px var(--cyan);
+}
+
+.slot.selected .ammo-fill{
+  background:var(--orange);
+  box-shadow:0 0 5px var(--orange);
+}
+
+/* slot number badge */
+.slot-num{
+  position:absolute;
+  top:4px;right:5px;
+  font-size:8px;
+  color:var(--text-sec);
+  line-height:1;
+}
+
+/* ─── AMBER HOVER ARC (selected slot indicator) ─────────── */
+.selected-arc{
+  position:absolute;
+  top:50%;left:50%;
+  width:100px;height:100px;
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+  pointer-events:none;
+  z-index:3;
+  animation:arc-pulse 1.25s ease-in-out infinite;
+}
+
+@keyframes arc-pulse{
+  0%,100%{box-shadow:0 0 0 68px transparent,0 0 0 70px rgba(255,208,0,0.18),0 0 0 74px rgba(255,208,0,0.06)}
+  50%{box-shadow:0 0 0 68px transparent,0 0 0 72px rgba(255,208,0,0.28),0 0 0 78px rgba(255,208,0,0.1)}
+}
+
+/* ─── STAT CARD ─────────────────────────────────────────── */
+.stat-card{
+  position:absolute;
+  top:90px;left:48px;
+  width:260px;
+  background:var(--glass);
+  border:1px solid rgba(56,230,255,0.22);
+  border-radius:10px;
+  padding:14px 16px;
+  box-shadow:
+    0 0 0 1px rgba(56,230,255,0.05),
+    0 0 18px rgba(56,230,255,0.08);
+  backdrop-filter:blur(4px);
+}
+
+.stat-card::before{
+  content:'';
+  position:absolute;
+  bottom:-80px;right:-20px;
+  width:1px;height:80px;
+  background:linear-gradient(to bottom,rgba(56,230,255,0.4),transparent);
+  transform-origin:top;
+}
+
+.stat-card::after{
+  content:'';
+  position:absolute;
+  bottom:-81px;right:-20px;
+  width:5px;height:5px;
+  border-radius:50%;
+  background:var(--cyan);
+  box-shadow:0 0 6px var(--cyan),0 0 12px var(--cyan-dim);
+}
+
+.stat-weapon-name{
+  font-size:22px;
+  font-weight:700;
+  letter-spacing:0.15em;
+  color:var(--text-bright);
+  text-shadow:0 0 8px var(--cyan),0 0 20px rgba(56,230,255,0.3);
+  line-height:1;
+}
+
+.stat-slot-chip{
+  display:inline-block;
+  margin-top:4px;
+  font-size:10px;
+  letter-spacing:0.12em;
+  color:var(--text-sec);
+  border:1px solid rgba(56,230,255,0.2);
+  padding:1px 7px;
+  border-radius:3px;
+  background:var(--pill);
+}
+
+.stat-reserve{
+  margin-top:12px;
+  font-size:13px;
+  color:var(--text-sec);
+  letter-spacing:0.1em;
+}
+
+.stat-reserve-val{
+  font-size:28px;
+  font-weight:700;
+  color:var(--text-bright);
+  text-shadow:0 0 8px rgba(56,230,255,0.4);
+  line-height:1.1;
+}
+
+.stat-chamber{
+  font-size:12px;
+  color:var(--text-sec);
+  margin-top:2px;
+  letter-spacing:0.08em;
+}
+
+.stat-hands{
+  display:flex;
+  gap:8px;
+  margin-top:10px;
+}
+
+.hand-pip{
+  font-size:10px;
+  letter-spacing:0.12em;
+  padding:2px 10px;
+  border-radius:3px;
+  border:1px solid;
+}
+
+.hand-pip.active{
+  color:var(--amber);
+  border-color:rgba(255,208,0,0.5);
+  background:rgba(255,208,0,0.07);
+  text-shadow:0 0 6px var(--amber);
+}
+
+.hand-pip.inactive{
+  color:var(--text-sec);
+  border-color:rgba(127,191,207,0.15);
+  background:transparent;
+  opacity:0.45;
+}
+
+.stat-divider{
+  margin:10px 0;
+  height:1px;
+  background:rgba(56,230,255,0.1);
+}
+
+.pills{
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+}
+
+.pill{
+  font-size:9px;
+  letter-spacing:0.1em;
+  color:var(--text-sec);
+  border:1px solid rgba(56,230,255,0.18);
+  background:var(--pill);
+  padding:2px 8px;
+  border-radius:3px;
+}
+
+.pill span{
+  color:var(--cyan);
+}
+
+.parry-badge{
+  margin-top:10px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.parry-label{
+  font-size:10px;
+  letter-spacing:0.12em;
+  color:var(--violet);
+  text-shadow:0 0 8px var(--violet);
+  border:1px solid rgba(180,40,255,0.4);
+  padding:2px 8px;
+  border-radius:3px;
+  background:rgba(180,40,255,0.06);
+  white-space:nowrap;
+}
+
+.parry-bar-wrap{
+  flex:1;
+  height:4px;
+  background:rgba(180,40,255,0.12);
+  border-radius:2px;
+  overflow:hidden;
+}
+
+.parry-bar-fill{
+  height:100%;
+  background:var(--violet);
+  border-radius:2px;
+  box-shadow:0 0 6px var(--violet),0 0 12px var(--violet-dim);
+}
+
+/* ─── OFF-HAND WHEEL (dim, cyan, small) ─────────────────── */
+.offhand-wheel-wrap{
+  position:absolute;
+  bottom:60px;left:40px;
+  opacity:0.42;
+  transform:scale(0.5);
+  transform-origin:bottom left;
+  filter:hue-rotate(15deg) saturate(0.7);
+}
+
+.offhand-label{
+  position:absolute;
+  bottom:48px;left:48px;
+  font-size:9px;
+  letter-spacing:0.15em;
+  color:var(--cyan);
+  opacity:0.5;
+  text-shadow:0 0 6px var(--cyan);
+}
+
+/* ─── BLOOM-IN ANIMATION ────────────────────────────────── */
+.slot{
+  opacity:0;
+  animation:slot-bloom 0.4s ease-out forwards;
+}
+
+.slot:nth-child(1){animation-delay:0.05s}
+.slot:nth-child(2){animation-delay:0.09s}
+.slot:nth-child(3){animation-delay:0.13s}
+.slot:nth-child(4){animation-delay:0.17s}
+.slot:nth-child(5){animation-delay:0.21s}
+.slot:nth-child(6){animation-delay:0.25s}
+.slot:nth-child(7){animation-delay:0.29s}
+.slot:nth-child(8){animation-delay:0.33s}
+
+@keyframes slot-bloom{
+  from{opacity:0;transform:translate(-50%,-50%) scale(0.6)}
+  to{opacity:1;transform:translate(-50%,-50%) scale(1)}
+}
+
+.hub{
+  opacity:0;
+  animation:hub-bloom 0.5s ease-out 0.38s forwards;
+}
+
+@keyframes hub-bloom{
+  from{opacity:0;transform:translate(-50%,-50%) scale(0.4)}
+  to{opacity:1;transform:translate(-50%,-50%) scale(1)}
+}
+
+.stat-card{
+  opacity:0;
+  animation:card-bloom 0.4s ease-out 0.45s forwards;
+}
+
+@keyframes card-bloom{
+  from{opacity:0;transform:translateY(8px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+</style>
+</head>
+<body>
+
+<h2 class="sr-only">DoomXR radial weapon select wheel showing 8 weapon slots in a ring, with stat card for the currently selected weapon and a secondary off-hand wheel.</h2>
+
+<!-- corridor perspective grid drawn on canvas -->
+<canvas id="corridor"></canvas>
+
+<div class="scene">
+
+  <!-- time freeze -->
+  <div class="time-freeze">TIME 0.15x</div>
+
+  <!-- ── STAT CARD ── -->
+  <div class="stat-card" id="statCard">
+    <div class="stat-weapon-name" id="statName">SHOTGUN</div>
+    <div class="stat-slot-chip" id="statSlot">[3]</div>
+
+    <div style="margin-top:12px">
+      <div class="stat-reserve" id="statReserveLabel">RESERVE</div>
+      <div class="stat-reserve-val" id="statReserveVal">24</div>
+      <div class="stat-chamber" id="statChamber">CHAMBER &nbsp;2 / 2</div>
+    </div>
+
+    <div class="stat-hands">
+      <div class="hand-pip active">MAIN</div>
+      <div class="hand-pip inactive">OFF</div>
+    </div>
+
+    <div class="stat-divider"></div>
+
+    <div class="pills" id="statPills">
+      <div class="pill"><span>class:</span>standard</div>
+      <div class="pill"><span>role:</span>workhorse</div>
+      <div class="pill"><span>dmg:</span>ballistic</div>
+      <div class="pill"><span>fire:</span>pump</div>
+      <div class="pill"><span>range:</span>medium</div>
+    </div>
+
+    <div class="parry-badge" id="statParry">
+      <div class="parry-label">PARRY</div>
+      <div class="parry-bar-wrap">
+        <div class="parry-bar-fill" id="parryFill" style="width:55%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MAIN WHEEL ── -->
+  <div class="wheel-wrap">
+    <div class="wheel" id="mainWheel">
+
+      <!-- slots positioned by JS -->
+      <!-- hub -->
+      <div class="hub">
+        <div class="hub-weapon" id="hubWeapon"></div>
+      </div>
+
+      <!-- selected arc halo -->
+      <div class="selected-arc"></div>
+
+    </div>
+  </div>
+
+  <!-- off-hand label -->
+  <div class="offhand-label">L-HAND</div>
+
+  <!-- ── OFF-HAND WHEEL (dim) ── -->
+  <div class="offhand-wheel-wrap">
+    <div class="wheel" id="offWheel"></div>
+  </div>
+
+</div>
+
+<!-- ═══ INLINE SVG WEAPON GLYPHS ═══ -->
+<svg style="display:none" id="glyphDefs">
+  <!-- 0: FIST -->
+  <symbol id="g-fist" viewBox="0 0 40 44">
+    <rect x="10" y="20" width="20" height="18" rx="4" fill="currentColor"/>
+    <rect x="12" y="10" width="6" height="14" rx="3" fill="currentColor"/>
+    <rect x="20" y="8" width="6" height="14" rx="3" fill="currentColor"/>
+    <rect x="28" y="11" width="5" height="12" rx="2.5" fill="currentColor"/>
+    <rect x="6" y="23" width="5" height="10" rx="2.5" fill="currentColor"/>
+  </symbol>
+  <!-- 1: PISTOL -->
+  <symbol id="g-pistol" viewBox="0 0 48 34">
+    <rect x="2" y="10" width="30" height="12" rx="3" fill="currentColor"/>
+    <rect x="28" y="6" width="16" height="6" rx="2" fill="currentColor"/>
+    <rect x="14" y="22" width="10" height="10" rx="2" fill="currentColor"/>
+    <rect x="2" y="18" width="8" height="4" rx="1" fill="currentColor"/>
+  </symbol>
+  <!-- 2: SHOTGUN -->
+  <symbol id="g-shotgun" viewBox="0 0 56 24">
+    <rect x="2" y="9" width="40" height="7" rx="3" fill="currentColor"/>
+    <rect x="36" y="5" width="18" height="5" rx="2" fill="currentColor"/>
+    <rect x="36" y="14" width="18" height="5" rx="2" fill="currentColor"/>
+    <rect x="8" y="16" width="16" height="7" rx="2" fill="currentColor"/>
+    <rect x="2" y="7" width="7" height="11" rx="2" fill="currentColor"/>
+  </symbol>
+  <!-- 3: SUPER SHOTGUN -->
+  <symbol id="g-ssg" viewBox="0 0 60 26">
+    <rect x="2" y="8" width="42" height="5" rx="2" fill="currentColor"/>
+    <rect x="2" y="14" width="42" height="5" rx="2" fill="currentColor"/>
+    <rect x="38" y="4" width="20" height="5" rx="2" fill="currentColor"/>
+    <rect x="38" y="17" width="20" height="5" rx="2" fill="currentColor"/>
+    <rect x="8" y="19" width="14" height="7" rx="2" fill="currentColor"/>
+  </symbol>
+  <!-- 4: CHAINGUN -->
+  <symbol id="g-chaingun" viewBox="0 0 56 34">
+    <rect x="2" y="14" width="36" height="8" rx="3" fill="currentColor"/>
+    <circle cx="42" cy="9" r="4" fill="currentColor"/>
+    <circle cx="42" cy="18" r="4" fill="currentColor"/>
+    <circle cx="50" cy="9" r="4" fill="currentColor"/>
+    <circle cx="50" cy="18" r="4" fill="currentColor"/>
+    <rect x="8" y="22" width="14" height="9" rx="2" fill="currentColor"/>
+  </symbol>
+  <!-- 5: ROCKET LAUNCHER -->
+  <symbol id="g-rocket" viewBox="0 0 58 28">
+    <rect x="2" y="11" width="40" height="8" rx="4" fill="currentColor"/>
+    <path d="M38 8 L54 15 L38 22 Z" fill="currentColor"/>
+    <rect x="4" y="9" width="10" height="12" rx="2" fill="currentColor"/>
+    <rect x="8" y="21" width="12" height="7" rx="2" fill="currentColor"/>
+  </symbol>
+  <!-- 6: PLASMA RIFLE -->
+  <symbol id="g-plasma" viewBox="0 0 58 28">
+    <rect x="2" y="10" width="44" height="10" rx="3" fill="currentColor"/>
+    <rect x="42" y="7" width="14" height="6" rx="2" fill="currentColor"/>
+    <rect x="42" y="15" width="14" height="6" rx="2" fill="currentColor"/>
+    <circle cx="10" cy="15" r="5" fill="currentColor" opacity="0.5"/>
+    <circle cx="22" cy="15" r="5" fill="currentColor" opacity="0.5"/>
+    <rect x="6" y="20" width="18" height="7" rx="2" fill="currentColor"/>
+  </symbol>
+  <!-- 7: BFG -->
+  <symbol id="g-bfg" viewBox="0 0 56 40">
+    <rect x="2" y="14" width="30" height="14" rx="4" fill="currentColor"/>
+    <circle cx="38" cy="21" r="14" fill="none" stroke="currentColor" stroke-width="4"/>
+    <circle cx="38" cy="21" r="7" fill="currentColor"/>
+    <rect x="6" y="28" width="16" height="9" rx="2" fill="currentColor"/>
+  </symbol>
+</svg>
+
+<script>
+(function(){
+
+// ── weapon data (real DoomXR fields) ──
+const weapons = [
+  { id:0, name:"FIST",     slot:1, glyph:"g-fist",    reserve:null, chamber:null, pills:[["class","unarmed"],["role","melee"],["dmg","kinetic"],["fire","punch"],["range","touch"]], parry:false, ammo:0, color:"#38E6FF" },
+  { id:1, name:"PISTOL",   slot:2, glyph:"g-pistol",  reserve:200,  chamber:null, pills:[["class","standard"],["role","sidearm"],["dmg","ballistic"],["fire","semi"],["range","long"]], parry:false, ammo:0.55, color:"#38E6FF" },
+  { id:2, name:"SHOTGUN",  slot:3, glyph:"g-shotgun", reserve:24,   chamber:"2 / 2", pills:[["class","standard"],["role","workhorse"],["dmg","ballistic"],["fire","pump"],["range","medium"]], parry:true, parryW:0.55, ammo:0.44, color:"#FF7A1B" },
+  { id:3, name:"S. SHOTGUN",slot:3,glyph:"g-ssg",     reserve:18,   chamber:"2 / 2", pills:[["class","standard"],["role","powerhouse"],["dmg","ballistic"],["fire","break"],["range","short"]], parry:false, ammo:0.38, color:"#FF7A1B" },
+  { id:4, name:"CHAINGUN", slot:4, glyph:"g-chaingun",reserve:300,  chamber:null, pills:[["class","standard"],["role","suppressor"],["dmg","ballistic"],["fire","auto"],["range","medium"]], parry:false, ammo:0.75, color:"#38E6FF" },
+  { id:5, name:"ROCKET",   slot:5, glyph:"g-rocket",  reserve:22,   chamber:null, pills:[["class","explosive"],["role","area"],["dmg","explosive"],["fire","single"],["range","long"]], parry:false, ammo:0.48, color:"#38E6FF" },
+  { id:6, name:"PLASMA",   slot:6, glyph:"g-plasma",  reserve:187,  chamber:"40 / 40", pills:[["class","energy"],["role","stream"],["dmg","plasma"],["fire","auto"],["range","long"]], parry:false, ammo:0.82, color:"#38E6FF" },
+  { id:7, name:"BFG 9000", slot:7, glyph:"g-bfg",     reserve:40,   chamber:null, pills:[["class","super"],["role","doomsday"],["dmg","plasma"],["fire","charged"],["range","extreme"]], parry:false, ammo:0.4, color:"#46FF7A" },
+];
+
+// cycle order for auto-advance: shotgun → plasma → bfg → shotgun
+const cycleOrder = [2, 6, 7];
+let cycleIdx = 0;
+let selectedIdx = cycleOrder[cycleIdx];
+
+const RADIUS = 175; // px from center to slot center
+const WHEEL_SIZE = 460;
+
+function slotPosition(i, total){
+  // start at top (-90deg), go clockwise
+  const angle = (i / total) * Math.PI * 2 - Math.PI / 2;
+  const cx = WHEEL_SIZE / 2 + Math.cos(angle) * RADIUS;
+  const cy = WHEEL_SIZE / 2 + Math.sin(angle) * RADIUS;
+  return { cx, cy };
+}
+
+function buildGlyph(glyphId, color, size){
+  const s = document.createElementNS("http://www.w3.org/2000/svg","svg");
+  s.setAttribute("width", size);
+  s.setAttribute("height", size);
+  s.setAttribute("viewBox","0 0 "+size+" "+size);
+  const use = document.createElementNS("http://www.w3.org/2000/svg","use");
+  use.setAttribute("href","#"+glyphId);
+  use.setAttribute("x","0"); use.setAttribute("y","0");
+  use.setAttribute("width",size); use.setAttribute("height",size);
+  use.setAttribute("color",color);
+  s.appendChild(use);
+  return s;
+}
+
+function buildWheel(container, weapons, selectedIdx, isOffhand){
+  container.innerHTML = "";
+  weapons.forEach((w, i)=>{
+    const pos = slotPosition(i, weapons.length);
+    const slot = document.createElement("div");
+    slot.className = "slot" + (i === selectedIdx && !isOffhand ? " selected" : "");
+    slot.style.left = pos.cx + "px";
+    slot.style.top  = pos.cy + "px";
+
+    const inner = document.createElement("div");
+    inner.className = "slot-inner";
+
+    // slot number badge
+    const num = document.createElement("div");
+    num.className = "slot-num";
+    num.textContent = w.slot;
+    inner.appendChild(num);
+
+    // glyph
+    const glyphWrap = document.createElement("div");
+    glyphWrap.className = "slot-glyph";
+    const color = i === selectedIdx && !isOffhand ? w.color : "#38E6FF";
+    const svgEl = buildGlyph(w.glyph, color, 36);
+    glyphWrap.appendChild(svgEl);
+    inner.appendChild(glyphWrap);
+
+    // ammo bar
+    const bar = document.createElement("div");
+    bar.className = "ammo-bar";
+    const fill = document.createElement("div");
+    fill.className = "ammo-fill";
+    fill.style.width = Math.round(w.ammo * 100) + "%";
+    if(isOffhand){ fill.style.background="#38E6FF"; fill.style.boxShadow="0 0 4px #38E6FF"; }
+    bar.appendChild(fill);
+    inner.appendChild(bar);
+
+    slot.appendChild(inner);
+    container.appendChild(slot);
+  });
+
+  // hub stays (main wheel only)
+  if(!isOffhand){
+    const hub = document.createElement("div");
+    hub.className = "hub";
+    const hw = document.createElement("div");
+    hw.className = "hub-weapon";
+    hw.id = "hubWeapon";
+    const sel = weapons[selectedIdx];
+    const hvSvg = buildGlyph(sel.glyph, sel.color, 56);
+    hw.appendChild(hvSvg);
+    hub.appendChild(hw);
+
+    const arc = document.createElement("div");
+    arc.className = "selected-arc";
+
+    container.appendChild(hub);
+    container.appendChild(arc);
+  }
+}
+
+function updateStatCard(w){
+  const fadeOut = ()=>{
+    document.getElementById("statCard").style.opacity = "0";
+    document.getElementById("statCard").style.transition = "opacity 0.15s";
+  };
+  const fadeIn = ()=>{
+    document.getElementById("statCard").style.opacity = "1";
+    document.getElementById("statCard").style.transition = "opacity 0.2s";
+  };
+
+  fadeOut();
+  setTimeout(()=>{
+    document.getElementById("statName").textContent = w.name;
+    document.getElementById("statSlot").textContent = "[" + w.slot + "]";
+
+    if(w.reserve !== null){
+      document.getElementById("statReserveLabel").textContent = "RESERVE";
+      document.getElementById("statReserveVal").textContent = w.reserve;
+    } else {
+      document.getElementById("statReserveLabel").textContent = "";
+      document.getElementById("statReserveVal").textContent = "--";
+    }
+
+    const chamberEl = document.getElementById("statChamber");
+    if(w.chamber){
+      chamberEl.textContent = "CHAMBER  " + w.chamber;
+      chamberEl.style.display = "";
+    } else {
+      chamberEl.style.display = "none";
+    }
+
+    // pills
+    const pillsEl = document.getElementById("statPills");
+    pillsEl.innerHTML = "";
+    w.pills.forEach(([k,v])=>{
+      const p = document.createElement("div");
+      p.className = "pill";
+      p.innerHTML = "<span>" + k + ":</span>" + v;
+      pillsEl.appendChild(p);
+    });
+
+    // parry
+    const parryEl = document.getElementById("statParry");
+    if(w.parry){
+      parryEl.style.display = "flex";
+      document.getElementById("parryFill").style.width = Math.round((w.parryW||0.55)*100)+"%";
+    } else {
+      parryEl.style.display = "none";
+    }
+
+    fadeIn();
+  }, 160);
+}
+
+// initial build
+const mainWheel = document.getElementById("mainWheel");
+const offWheel  = document.getElementById("offWheel");
+buildWheel(mainWheel, weapons, selectedIdx, false);
+buildWheel(offWheel,  weapons, 1, true);
+updateStatCard(weapons[selectedIdx]);
+
+// auto-cycle every 3s
+setInterval(()=>{
+  cycleIdx = (cycleIdx + 1) % cycleOrder.length;
+  selectedIdx = cycleOrder[cycleIdx];
+  buildWheel(mainWheel, weapons, selectedIdx, false);
+  updateStatCard(weapons[selectedIdx]);
+}, 3000);
+
+// ── corridor perspective bg ──
+const cv = document.getElementById("corridor");
+const ctx = cv.getContext("2d");
+cv.width = 1280; cv.height = 720;
+
+function drawCorridor(){
+  ctx.clearRect(0,0,1280,720);
+  const cx=640, cy=360;
+  const numLines = 14;
+  ctx.strokeStyle = "#38E6FF";
+  ctx.lineWidth = 0.5;
+
+  // floor lines
+  for(let i=0;i<=numLines;i++){
+    const t = i/numLines;
+    const x = t * 1280;
+    ctx.globalAlpha = 0.04 + 0.08*(1-Math.abs(t-0.5)*2);
+    ctx.beginPath();
+    ctx.moveTo(x, 720);
+    ctx.lineTo(cx + (x-cx)*0.05, cy + 40);
+    ctx.stroke();
+  }
+  // ceiling lines
+  for(let i=0;i<=numLines;i++){
+    const t = i/numLines;
+    const x = t * 1280;
+    ctx.globalAlpha = 0.03 + 0.06*(1-Math.abs(t-0.5)*2);
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(cx + (x-cx)*0.05, cy - 40);
+    ctx.stroke();
+  }
+  // walls
+  const numWall = 8;
+  for(let i=0;i<=numWall;i++){
+    const t = i/numWall;
+    const y = t * 720;
+    ctx.globalAlpha = 0.03;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(cx - 120, cy + (y-cy)*0.05);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(1280, y);
+    ctx.lineTo(cx + 120, cy + (y-cy)*0.05);
+    ctx.stroke();
+  }
+  // horizon rect
+  ctx.globalAlpha = 0.06;
+  ctx.strokeStyle = "#38E6FF";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(cx-118, cy-40, 236, 80);
+
+  ctx.globalAlpha = 1;
+}
+drawCorridor();
+
+})();
+</script>
+
+</body>
+</html>

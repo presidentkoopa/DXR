@@ -529,6 +529,27 @@ void PClassActor::InitializeDefaults()
 				adef->Keywords = pdef->Keywords;         // refcount-safe FString assignment
 				adef->vr_metadata = pdef->vr_metadata;   // member-wise copy (FStrings refcount-safe)
 			}
+
+			// [XR] GENERAL FIX (supersedes the stale "only these two need reconstruction" comment above):
+			// ZScript `extend class Actor { String lastHitZone; String lastHitHand; }` (VR locational
+			// damage) adds FString fields to the NATIVE AActor class. dobjtype.cpp registers String-field
+			// construction only when bRuntimeClass, so native-class EXTENSION FStrings are never registered
+			// or constructed -- the blanket memcpy/memset above leaves their Chars null. The first write
+			// (e.Thing.lastHitZone = "torso" from VRLocationalArbiter::WorldThingDamaged, fired on EVERY
+			// monster hit) then runs FString::operator= through a null buffer -> `dec [null-4]` refcount
+			// crash on the first shot. Reconstruct EVERY non-native, non-meta String field here so the
+			// Defaults hold a valid empty FString (-> immortal NullString); live instances inherit it via
+			// the parent-copy memcpy. Generic -> also covers any future mod-added actor String field.
+			for (const PField* field : Fields)
+			{
+				if (field->Type == TypeString && !(field->Flags & (VARF_Native | VARF_Meta)))
+				{
+					FString* fs = (FString*)((uint8_t*)Defaults + field->Offset);
+					new (fs) FString();
+					if (pdef != nullptr && field->Offset + sizeof(FString) <= ParentClass->Size)
+						*fs = *(FString*)((uint8_t*)ParentClass->Defaults + field->Offset);
+				}
+			}
 		}
 
 		assert(MetaSize >= ParentClass->MetaSize);

@@ -198,7 +198,7 @@ int UnpackUserCmd (usercmd_t *ucmd, const usercmd_t *basis, uint8_t **stream)
 
 	if (flags)
 	{
-		// We can support up to 29 buttons, using from 0 to 4 bytes to store them.
+		// We can support up to 31 buttons, using from 0 to 5 bytes to store them.
 		if (flags & UCMDF_BUTTONS)
 		{
 			uint32_t buttons = ucmd->buttons;
@@ -216,7 +216,12 @@ int UnpackUserCmd (usercmd_t *ucmd, const usercmd_t *basis, uint8_t **stream)
 					if (in & 0x80)
 					{
 						in = ReadInt8(stream);
-						buttons = (buttons & ~(0xFF << 21)) | (in << 21);
+						buttons = (buttons & ~(0x7F << 21)) | ((in & 0x7F) << 21);
+						if (in & 0x80)
+						{
+							in = ReadInt8(stream);
+							buttons = (buttons & ~(0x7Fu << 28)) | (uint32_t(in & 0x7F) << 28);
+						}
 					}
 				}
 			}
@@ -259,10 +264,11 @@ int PackUserCmd (const usercmd_t *ucmd, const usercmd_t *basis, uint8_t **stream
 	buttons_changed = ucmd->buttons ^ basis->buttons;
 	if (buttons_changed != 0)
 	{
-		uint8_t bytes[4] = {  uint8_t(ucmd->buttons        & 0x7F),
+		uint8_t bytes[5] = {  uint8_t(ucmd->buttons        & 0x7F),
 						  uint8_t((ucmd->buttons >> 7)  & 0x7F),
 						  uint8_t((ucmd->buttons >> 14) & 0x7F),
-						  uint8_t((ucmd->buttons >> 21) & 0xFF) };
+						  uint8_t((ucmd->buttons >> 21) & 0x7F),
+						  uint8_t((ucmd->buttons >> 28) & 0x7F) };
 
 		flags |= UCMDF_BUTTONS;
 
@@ -275,6 +281,10 @@ int PackUserCmd (const usercmd_t *ucmd, const usercmd_t *basis, uint8_t **stream
 				if (buttons_changed & 0xFFE00000)
 				{
 					bytes[2] |= 0x80;
+					if (buttons_changed & 0xF0000000)
+					{
+						bytes[3] |= 0x80;
+					}
 				}
 			}
 		}
@@ -288,6 +298,10 @@ int PackUserCmd (const usercmd_t *ucmd, const usercmd_t *basis, uint8_t **stream
 				if (bytes[2] & 0x80)
 				{
 					WriteInt8 (bytes[3], stream);
+					if (bytes[3] & 0x80)
+					{
+						WriteInt8 (bytes[4], stream);
+					}
 				}
 			}
 		}
@@ -426,7 +440,10 @@ int SkipTicCmd (uint8_t **stream, int count)
 						{
 							if (*++flow & 0x80)
 							{
-								++flow;
+								if (*++flow & 0x80)
+								{
+									++flow;
+								}
 							}
 						}
 					}

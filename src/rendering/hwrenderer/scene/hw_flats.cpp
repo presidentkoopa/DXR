@@ -353,7 +353,7 @@ void HWFlat::DrawFlat(HWDrawInfo *di, FRenderState &state, bool translucent)
 	state.ApplyTextureManipulation(TextureFx);
 	if (plane.plane.dithertransflag) state.SetEffect(EFF_DITHERTRANS);
 
-	// [GITD] Retrieve and bind the sector's top and bottom glow colors/heights and planes for flat surfaces
+	// [RADIANCE] Retrieve and bind the sector's top and bottom glow colors/heights and planes for flat surfaces
 	float topglowcolor[4] = { 0.f, 0.f, 0.f, 0.f };
 	float bottomglowcolor[4] = { 0.f, 0.f, 0.f, 0.f };
 	bool hasGlow = sector->GetWallGlow(topglowcolor, bottomglowcolor);
@@ -361,16 +361,19 @@ void HWFlat::DrawFlat(HWDrawInfo *di, FRenderState &state, bool translucent)
 	auto cv_glow = FindCVar("hf_glow_enabled", nullptr);
 	bool glow_enabled = cv_glow ? cv_glow->GetGenericRep(CVAR_Bool).Bool : true;
 
-	auto cv_flatglow = FindCVar("gitd_flatglow", nullptr);
+	auto cv_flatglow = FindCVar("radiance_flatglow", nullptr);
 	bool flatglow_enabled = cv_flatglow ? cv_flatglow->GetGenericRep(CVAR_Bool).Bool : true;
 
-	auto cv_surfaces = FindCVar("gitd_surfaces", nullptr);
+	auto cv_surfaces = FindCVar("radiance_surfaces", nullptr);
 	int surfaces = cv_surfaces ? cv_surfaces->GetGenericRep(CVAR_Int).Int : 7;
 
-	int gitdPlaneBit = (plane.plane.Normal().Z > 0.0) ? 1 : 2;   // [GITD] 1=floor, 2=ceiling
+	int radiancePlaneBit = (plane.plane.Normal().Z > 0.0) ? 1 : 2;   // [RADIANCE] 1=floor, 2=ceiling
 
 	// Removed forced solid teal/pink plane glow override so user-calibrated colors can be used.
-	if (hasGlow)
+	// [RADIANCE] UNIFORM flat wash: on when hf_glow_enabled + radiance_flatglow (defaults true). This
+	// is the "extended-to-flats" stock glow (floor gets uGlowBottomColor, ceiling uGlowTopColor,
+	// uniform across the flat). Wiring these two cvars (they were read-but-unused = a menu lie).
+	if (hasGlow && glow_enabled && flatglow_enabled)
 	{
 		state.EnableGlow(true);
 		state.SetGlowParams(topglowcolor, bottomglowcolor);
@@ -381,11 +384,14 @@ void HWFlat::DrawFlat(HWDrawInfo *di, FRenderState &state, bool translucent)
 		state.SetGlowPlanes(tp, bp);
 	}
 
-	// [GITD] localized glow SPOTS: gather up to MAX_WALL_GLOW_SPOTS pools for this flat — the sector's
+	// [RADIANCE] localized glow SPOTS: gather up to MAX_WALL_GLOW_SPOTS pools for this flat — the sector's
 	// own legacy spot (Sector.SetGlowSpot, if any) plus the level's per-tic global registry — packing
 	// each as vec4(center.x, center.y, packedRGB, radius). The shader clips each by its own radius, so
 	// feeding the same set to every flat is correct for the common (<=4 live) case. Zero plane-glow first.
+	// [RADIANCE] localized glow SPOTS/pools — ONLY when the uniform wash is OFF (radiance_flatglow 0).
+	// With radiance_flatglow 1 (default) you get the clean uniform floor/ceiling wash and NO spots.
 	bool wallGlowOn = false;
+	if (glow_enabled && !flatglow_enabled)
 	{
 		FVector4 wspots[MAX_WALL_GLOW_SPOTS];
 		FVector4 wmasks[MAX_WALL_GLOW_SPOTS];
@@ -398,32 +404,32 @@ void HWFlat::DrawFlat(HWDrawInfo *di, FRenderState &state, bool translucent)
 			wspots[wn++] = FVector4((float)sector->GetWallGlowX(), (float)sector->GetWallGlowY(), packed, (float)sector->GetWallGlowHeight());
 		}
 		TArray<FGlowSpot> &gs = di->Level->GlowSpots;
-		int gitdPlaneBit = (plane.plane.Normal().Z > 0.0) ? 1 : 2;   // [GITD] 1=floor, 2=ceiling
-		// [GITD] When more eligible spots are live than fit (MAX_WALL_GLOW_SPOTS), keep the ones
+		int radiancePlaneBit = (plane.plane.Normal().Z > 0.0) ? 1 : 2;   // [RADIANCE] 1=floor, 2=ceiling
+		// [RADIANCE] When more eligible spots are live than fit (MAX_WALL_GLOW_SPOTS), keep the ones
 		// NEAREST the camera so the glow stamp under the player's feet always wins over far-off
 		// heatmap cells. This removes the push-order starvation that made per-shot floor effects
 		// "stop registering" once the heatmap filled the 16-slot registry. Pick nearest-first.
-		double gitdVpX = di->Viewpoint.Pos.X, gitdVpY = di->Viewpoint.Pos.Y;
-		TArray<int> gitdCand;
+		double radianceVpX = di->Viewpoint.Pos.X, radianceVpY = di->Viewpoint.Pos.Y;
+		TArray<int> radianceCand;
 		for (unsigned gi = 0; gi < gs.Size(); gi++)
 		{
-			if (gs[gi].gflags & 1) continue;   // [GITD-AIR] billboards are drawn in the panel pass, not stamped on flats
-			if (gs[gi].planeFlags != 0 && !(gs[gi].planeFlags & gitdPlaneBit)) continue;   // [GITD] plane targeting
-			gitdCand.Push((int)gi);
+			if (gs[gi].gflags & 1) continue;   // [RADIANCE-AIR] billboards are drawn in the panel pass, not stamped on flats
+			if (gs[gi].planeFlags != 0 && !(gs[gi].planeFlags & radiancePlaneBit)) continue;   // [RADIANCE] plane targeting
+			radianceCand.Push((int)gi);
 		}
-		while (wn < MAX_WALL_GLOW_SPOTS && gitdCand.Size() > 0)
+		while (wn < MAX_WALL_GLOW_SPOTS && radianceCand.Size() > 0)
 		{
 			unsigned bestk = 0;
 			double bestd = -1.0;
-			for (unsigned k = 0; k < gitdCand.Size(); k++)
+			for (unsigned k = 0; k < radianceCand.Size(); k++)
 			{
-				double dx = gs[gitdCand[k]].center.X - gitdVpX;
-				double dy = gs[gitdCand[k]].center.Y - gitdVpY;
+				double dx = gs[radianceCand[k]].center.X - radianceVpX;
+				double dy = gs[radianceCand[k]].center.Y - radianceVpY;
 				double d2 = dx * dx + dy * dy;
 				if (bestd < 0.0 || d2 < bestd) { bestd = d2; bestk = k; }
 			}
-			int gi = gitdCand[bestk];
-			gitdCand.Delete(bestk);
+			int gi = radianceCand[bestk];
+			radianceCand.Delete(bestk);
 			PalEntry c = gs[gi].color;
 			float packed = c.r * 65536.0f + c.g * 256.0f + c.b;
 			wmasks[wn] = FVector4((float)gs[gi].wipeType, (float)gs[gi].wipeProgress, (float)gs[gi].wipeDir.X, (float)gs[gi].wipeDir.Y);

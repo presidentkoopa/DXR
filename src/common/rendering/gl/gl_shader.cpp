@@ -394,11 +394,11 @@ bool FShader::Load(const char * name, const char * vert_prog_lump, const char * 
 	i_data += "#define NPOT_EMULATION\nuniform vec2 uNpotEmulation;\n";
 #endif
 
-	int vp_lump = fileSystem.CheckNumForFullName(vert_prog_lump);          // [GITD] global FIRST so a mod/loose pk3 can override core shaders
+	int vp_lump = fileSystem.CheckNumForFullName(vert_prog_lump);          // [RADIANCE] global FIRST so a mod/loose pk3 can override core shaders
 	if (vp_lump == -1) vp_lump = fileSystem.CheckNumForFullName(vert_prog_lump, 0);
 	if (vp_lump == -1) I_Error("Unable to load '%s'", vert_prog_lump);
 
-	int fp_lump = fileSystem.CheckNumForFullName(frag_prog_lump);          // [GITD] global FIRST so a mod/loose pk3 can override core shaders (e.g. main.fp)
+	int fp_lump = fileSystem.CheckNumForFullName(frag_prog_lump);          // [RADIANCE] global FIRST so a mod/loose pk3 can override core shaders (e.g. main.fp)
 	if (fp_lump == -1) fp_lump = fileSystem.CheckNumForFullName(frag_prog_lump, 0);
 	if (fp_lump == -1) I_Error("Unable to load '%s'", frag_prog_lump);
 

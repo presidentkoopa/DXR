@@ -417,16 +417,18 @@ struct LevelLocals native
 
 	native Array<@Sector> Sectors;
 
-	// [GITD] publish a transient localized glow pool for THIS tic (the registry is cleared every game
+	// [RADIANCE] publish a transient localized glow pool for THIS tic (the registry is cleared every game
 	// tic). Call from Tick(); effects with duration re-publish each tick with their own radius/colour
 	// ramp. Up to MAX_WALL_GLOW_SPOTS render per surface. Pure GLOW channel, ZERO dynamic lights.
 	native void AddGlowSpot(Color col, double radius, double x, double y, int planeFlags = 0);
 	// wiped variant: wipeType 1 = seam (reveal a band of half-width progress*radius along (dirX,dirY)).
 	// planeFlags: 0 = both planes (default), 1 = floor only, 2 = ceiling only.
 	native void AddGlowSpotWiped(Color col, double radius, double x, double y, int wipeType, double wipeProgress, double dirX, double dirY, int planeFlags = 0);
-	// [GITD-AIR] camera-facing in-air glow PANEL floating at world (x,y,z). Drawn by a billboard
+	// [RADIANCE-AIR] camera-facing in-air glow PANEL floating at world (x,y,z). Drawn by a billboard
 	// quad in the panel pass with the glow_panel shader. counter = the number to display.
 	native void AddGlowPanel(Color col, double radius, double x, double y, double z, int wipeType, double wipeProgress, double dirX, double dirY, int counter = 0);
+	// [XR] persistent camera-facing SDF text label (neonfont atlas) anchored at a world position.
+	native void SpawnSDFText(double x, double y, double z, String text, double scale = 1.0);
 	native Array<@Line> Lines;
 	native Array<@Side> Sides;
 	native readonly Array<@Vertex> Vertexes;

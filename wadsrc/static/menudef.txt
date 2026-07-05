@@ -331,6 +331,14 @@ OptionValue "OnOff"
 	1, "$OPTVAL_ON"
 }
 
+OptionValue "VRDualWieldStart"
+{
+	0, "Off"
+	1, "Two Revolvers"
+	2, "Two Pistols"
+	3, "Two SMGs"
+}
+
 OptionValue "OffOn"
 {
 	0, "$OPTVAL_ON"
@@ -2923,7 +2931,7 @@ OptionMenu CinemaModeOptions protected
 	class TFLV_TooltipOptionMenu
 	Title "$VRCMODEMNU_TITLE"
 	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
-	TFLV_TooltipAppearance "", "", "GITDTTBG"
+	TFLV_TooltipAppearance "", "", "RADIANCETTBG"
 
 	StaticText " "
 	Option "$VRCINEMAMODE",						vr_overlayscreen,						"CinemaScreenFollow"
@@ -2954,7 +2962,7 @@ OptionMenu VRHUDOptions protected
 	class TFLV_TooltipOptionMenu
 	Title "$VRHUDMNU_TITLE"
 	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
-	TFLV_TooltipAppearance "", "", "GITDTTBG"
+	TFLV_TooltipAppearance "", "", "RADIANCETTBG"
 
 	StaticText ""
 	StaticText "HUD", gold
@@ -3050,7 +3058,7 @@ OptionMenu VRWeaponOptions protected
 	class TFLV_TooltipOptionMenu
 	Title "$VRWEAPONMNU_TITLE"
 	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
-	TFLV_TooltipAppearance "", "", "GITDTTBG"
+	TFLV_TooltipAppearance "", "", "RADIANCETTBG"
 	
 	StaticText ""
 	StaticText "$VRWEAPONMNU_GLOBAL_OPTIONS", gold
@@ -3067,9 +3075,13 @@ OptionMenu VRWeaponOptions protected
 	StaticText "3D Weapon Model Assignment", gold
 	Option "Enable 3D Weapon Model Assignment",		"vr_weapon_shell", "OnOff"
 	TFLV_Tooltip "\c[Gold]3D Weapon Model Assignment\c-  -  adds \c[White]3D weapon models\c- to the guns in scanned mods and PK3s for VR-friendliness: every weapon from any loaded mod is auto-matched to a 3D model that holds and animates in your hand, instead of a flat 2D sprite. On by default; off falls back to flat sprites."
+	Option "Weapon Model Format",		"vr_weapon_model_format", "VRWeaponModelFormat"
+	TFLV_Tooltip "\c[Gold]Weapon Model Format\c-  -  \c[White]IQM\c- uses the rigged bind-pose models with the hotspot bones that drive manual reload and two-hand grips; the gun holds \c[White]static\c- during fire. \c[White]MD3\c- uses the animated models with baked fire and reload motion. \c[Red]Restart the map\c- to apply."
 	StaticText ""
 	Option "Manual Reload (Chamber + Gesture)",	"vr_manual_reload", "OnOff"
 	TFLV_Tooltip "\c[Cyan]Manual Reload\c-  -  \c[White]On\c- makes you reload with a physical gesture and tracks a live chamber/round counter, instead of auto-reloading. On by default."
+	Submenu "Manual Reload & Ammo Pouch  >",	"VRReloadOptions"
+	TFLV_Tooltip "\c[Gold]Manual Reload & Ammo Pouch\c-  -  the full reload tuning panel: \c[White]chest pouch placement\c-, magnetic assist, auto-chamber vs rack, two-hand grip radii, hotspot sizes, and per-effect \c[White]haptic rumble\c- strength."
 	Option "Enemy Hitscans",	"vr_enemy_hitscans", "OnOff"
 	TFLV_Tooltip "\c[Cyan]Enemy Hitscans\c-  -  \c[White]On\c- (default) is vanilla: Zombieman/Shotgun Guy/Chaingunner shots are instant and unavoidable. \c[White]Off\c- turns those same shots into a slow, visible bullet you can dodge by moving."
 	Command "Open Weapon Archetype Scanner", "menu VRWeaponAssignmentMenu"
@@ -3123,6 +3135,252 @@ OptionMenu VRWeaponOptions protected
 	TFLV_Tooltip "\c[Gold]Reset to defaults\c-  -  restores the \c[White]sprite\c- weapon settings (3D mode, fat width, position, scale) to their factory values."
 }
 
+OptionValue "VRWeaponModelFormat"
+{
+	0, "MD3"
+	1, "IQM"
+}
+
+OptionMenu VRReloadOptions protected
+{
+	class TFLV_TooltipOptionMenu
+	Title "Manual Reload & Ammo Pouch"
+	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+	TFLV_TooltipAppearance "", "", "RADIANCETTBG"
+
+	StaticText ""
+	StaticText "Reload System", gold
+	Option "Manual Reload",							"vr_manual_reload", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Manual Reload\c-  -  master switch. \c[White]On\c- = physical gesture reload with a live round chamber; \c[White]Off\c- = classic auto-reload. On by default."
+	Option "Advanced Weapon Handling (hotspots)",	"vr_new_weapon_handling", "OnOff"
+	TFLV_Tooltip "\c[Red]Advanced Weapon Handling\c-  -  enables the hotspot-driven physical seat/rack/foregrip on the IQM models. Experimental; off by default. Needed for the full magwell/rack gesture."
+	Option "Reload Bind Ejects Mag",				"vr_pouch_eject", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Reload Bind Ejects\c-  -  \c[White]On\c- (VR): pressing reload DROPS the current mag and you grab a fresh one from your chest. \c[White]Off\c-: reload runs a full timed beat. Flatscreen always uses the timed beat."
+	Option "Auto-Chamber on Seat",					"vr_reload_chamber", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Auto-Chamber\c-  -  \c[White]On\c-: seating a fresh mag re-arms instantly. \c[White]Off\c-: you must also rack the slide/charging handle to chamber a round (hardcore)."
+	Slider "Magnetic Assist",						"vr_reload_assist", 0.0, 1.0, 0.05, 2
+	TFLV_Tooltip "\c[Gold]Magnetic Assist\c-  -  how strongly the mag snaps toward the gun's magwell as you bring it close. \c[White]0\c- = pure aim (hardcore), \c[White]1\c- = snaps home."
+
+	StaticText " "
+	StaticText "Reload Juice", gold
+	Option "Toss-Catch Reload",						"vr_reload_toss_catch", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Toss-Catch\c-  -  point the gun straight up and let a mag drop into the well to seat it hands-free. The showoff reload; always grants the PERFECT bonus."
+	Slider "Perfect Window",						"vr_reload_perfect_window", 2.0, 30.0, 1.0, 0
+	TFLV_Tooltip "\c[Gold]Perfect Window\c-  -  how many tics after the reload opens still count as a PERFECT. Bigger = more forgiving."
+	Slider "Heat per Shot",							"vr_reload_heat_per_shot", 1.0, 50.0, 1.0, 0
+	TFLV_Tooltip "\c[Gold]Heat per Shot\c-  -  heat added per shot for heat-vent energy weapons. Higher = vent more often."
+	Slider "Overheat Ceiling",						"vr_reload_heat_max", 20.0, 200.0, 5.0, 0
+	TFLV_Tooltip "\c[Gold]Overheat Ceiling\c-  -  heat level that forces a vent cycle on heat-vent weapons."
+
+	StaticText " "
+	StaticText "Chest Ammo Pouch", gold
+	Option "Show Pouch Box",						"vr_pouch_marker", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Show Pouch Box\c-  -  draws a white 3D wireframe box at your chest showing where to reach for a mag. Turn off once you know where it is."
+	Slider "Pouch Height",							"vr_pouch_height", 0.0, 80.0, 2.0, 0
+	TFLV_Tooltip "\c[Gold]Pouch Height\c-  -  how high up your body the pouch sits (map units above your feet). Raise/lower it to match your real chest."
+	Slider "Pouch Forward",							"vr_pouch_forward", -30.0, 30.0, 2.0, 0
+	TFLV_Tooltip "\c[Gold]Pouch Forward\c-  -  push the pouch in front of (or behind) your torso center along your facing."
+	Slider "Pouch Reach Radius",					"vr_pouch_radius", 6.0, 48.0, 2.0, 0
+	TFLV_Tooltip "\c[Gold]Pouch Reach Radius\c-  -  how close your hand must get to trigger a grab, and the marker's size. Bigger = easier to hit."
+
+	StaticText " "
+	StaticText "Hotspot Tuning (advanced)", gold
+	Slider "Magwell Seat Radius",					"vr_reload_magwell_radius", 2.0, 16.0, 0.5, 1
+	TFLV_Tooltip "\c[Gold]Magwell Seat Radius\c-  -  how close the mag must get to the gun's magwell to seat."
+	Slider "Rack Grab Radius",						"vr_reload_rack_radius", 2.0, 16.0, 0.5, 1
+	TFLV_Tooltip "\c[Gold]Rack Grab Radius\c-  -  how close your hand must get to the charging handle/slide to grab it."
+	Slider "Rack Pull Distance",					"vr_reload_rack_travel", 2.0, 16.0, 0.5, 1
+	TFLV_Tooltip "\c[Gold]Rack Pull Distance\c-  -  how far you must pull the slide back to chamber a round."
+	Slider "Grip Hotspot Radius",					"vr_weapon_hotspot_radius", 0.5, 8.0, 0.25, 2
+	TFLV_Tooltip "\c[Gold]Grip Hotspot Radius\c-  -  default engagement radius for weapon grip hotspots."
+	Slider "Foregrip Radius",						"vr_foregrip_radius", 0.5, 8.0, 0.25, 2
+	TFLV_Tooltip "\c[Gold]Foregrip Radius\c-  -  tight radius for grabbing a rifle's foregrip with the off hand."
+
+	StaticText " "
+	StaticText "Two-Handed Grip", gold
+	Option "Two-Handed Weapons",					"vr_two_handed_weapons", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Two-Handed Weapons\c-  -  lets the off hand grip a weapon for a braced, stabilized two-hand hold."
+	Slider "Grip Engage Radius",					"vr_twohand_radius", 0.5, 8.0, 0.25, 2
+	TFLV_Tooltip "\c[Gold]Grip Engage Radius\c-  -  max hand separation to engage the two-hand grip."
+	Slider "Grip Reach (barrel)",					"vr_twohand_length", 5.0, 60.0, 1.0, 0
+	TFLV_Tooltip "\c[Gold]Grip Reach\c-  -  how far along the barrel the off hand can grab."
+	Option "Whitelisted Weapons Only",				"vr_twohand_whitelist_only", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Whitelisted Only\c-  -  restrict two-hand grip to weapons designed for it (rifles etc.) instead of everything."
+
+	StaticText " "
+	StaticText "Haptics (Rumble)", gold
+	Option "Enable Haptics",						"vr_enable_haptics", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Enable Haptics\c-  -  master switch for all controller rumble."
+	Slider "Global Haptic Intensity",				"ext_haptic_level_global_intensity", 0.0, 2.0, 0.1, 1
+	TFLV_Tooltip "\c[Gold]Global Haptic Intensity\c-  -  master multiplier over every rumble effect."
+	Slider "Reload Rumble",							"vr_reload_haptic", 0.0, 1.0, 0.05, 2
+	TFLV_Tooltip "\c[Gold]Reload Rumble\c-  -  rumble strength for seating a mag, racking the slide, and ejecting."
+	Slider "Pickup Rumble",							"vr_pickup_haptic_level", 0.0, 1.0, 0.05, 2
+	TFLV_Tooltip "\c[Gold]Pickup Rumble\c-  -  rumble when you grab an item or weapon."
+	Slider "Explosion Rumble",						"vr_quake_haptic_level", 0.0, 1.0, 0.05, 2
+	TFLV_Tooltip "\c[Gold]Explosion Rumble\c-  -  rumble from nearby blasts and screen shake."
+	Slider "Missile Rumble",						"vr_missile_haptic_level", 0.0, 1.0, 0.05, 2
+	TFLV_Tooltip "\c[Gold]Missile Rumble\c-  -  rumble on launching/impacting missiles."
+
+	StaticText " "
+	StaticText "Debug: Wireframe Boxes"
+	Option "Show Reload Debug Boxes",				"vr_reload_debug", "OnOff"
+	TFLV_Tooltip "\c[Gold]Show Reload Debug Boxes\c-  -  draws colour-coded 3D wireframe boxes at the reload reach zones so you can line them up in the headset. Master switch for the overlay."
+	Option "Boxes on Hands",						"vr_reload_debug_hands", "OnOff"
+	TFLV_Tooltip "\c[Gold]Boxes on Hands\c-  -  green boxes on both controllers."
+	Option "Boxes on Clips",						"vr_reload_debug_clips", "OnOff"
+	TFLV_Tooltip "\c[Gold]Boxes on Clips\c-  -  cyan boxes on every magazine you are holding."
+	Option "Box on Chest Pouch",					"vr_reload_debug_pouch", "OnOff"
+	TFLV_Tooltip "\c[Gold]Box on Chest Pouch\c-  -  white box showing the chest reach-in zone."
+	Option "Boxes on Weapon Hotspots",				"vr_reload_debug_hotspots", "OnOff"
+	TFLV_Tooltip "\c[Gold]Boxes on Weapon Hotspots\c-  -  magwell, rack and foregrip markers. Lights up after the reload engine rebuild."
+
+	StaticText " "
+	Submenu "Advanced  >",		"VRReloadAdvanced"
+	TFLV_Tooltip "\c[Gold]Advanced\c-  -  the full reload workshop: every debug box, every reach-assist and pouch-fit slider, plus forgiving / realistic presets."
+
+	StaticText " "
+	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_manual_reload vr_new_weapon_handling vr_pouch_eject vr_reload_chamber vr_reload_assist vr_reload_toss_catch vr_reload_perfect_window vr_reload_perfect_life vr_reload_heat_per_shot vr_reload_heat_max vr_pouch_marker vr_pouch_height vr_pouch_forward vr_pouch_radius vr_reload_magwell_radius vr_reload_rack_radius vr_reload_rack_travel vr_weapon_hotspot_radius vr_foregrip_radius vr_reload_haptic vr_reload_debug vr_reload_debug_hands vr_reload_debug_clips vr_reload_debug_pouch vr_reload_debug_hotspots"
+	TFLV_Tooltip "\c[Gold]Reset to defaults\c-  -  restores every Manual Reload & Ammo Pouch setting on this page to its factory value."
+}
+
+//======================= RELOAD -- ADVANCED (debug & player helpers) =======================
+OptionMenu VRReloadAdvanced protected
+{
+	class TFLV_TooltipOptionMenu
+	Title "Reload  -  Advanced"
+	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+	TFLV_TooltipAppearance "", "", "RADIANCETTBG"
+
+	StaticText ""
+	StaticText "Debug Wireframe Boxes", gold
+	Option "Show Debug Boxes",						"vr_reload_debug", "OnOff"
+	TFLV_Tooltip "\c[Gold]Show Debug Boxes\c-  -  colour-coded 3D wireframe boxes at every reload reach zone so you can line them up in the headset. Master switch."
+	Option "Boxes on Hands",						"vr_reload_debug_hands", "OnOff"
+	TFLV_Tooltip "\c[Gold]Boxes on Hands\c-  -  green boxes on both controllers."
+	Option "Boxes on Clips",						"vr_reload_debug_clips", "OnOff"
+	TFLV_Tooltip "\c[Gold]Boxes on Clips\c-  -  cyan boxes on every magazine in hand."
+	Option "Box on Chest Pouch",					"vr_reload_debug_pouch", "OnOff"
+	TFLV_Tooltip "\c[Gold]Box on Chest Pouch\c-  -  white box showing the chest reach-in zone."
+	Option "Boxes on Weapon Hotspots",				"vr_reload_debug_hotspots", "OnOff"
+	TFLV_Tooltip "\c[Gold]Boxes on Weapon Hotspots\c-  -  magenta magwell, yellow rack, orange foregrip. Lights up after the reload engine rebuild."
+	Slider "Debug Box Size",						"vr_reload_debug_scale", 0.25, 3.0, 0.05, 2
+	TFLV_Tooltip "\c[Gold]Debug Box Size\c-  -  scales every debug box up or down if they read too big or small."
+
+	StaticText ""
+	StaticText "Reach Assist & Forgiveness", gold
+	Slider "Magnetic Seat Assist",					"vr_reload_assist", 0.0, 1.0, 0.05, 2
+	TFLV_Tooltip "\c[Gold]Magnetic Seat Assist\c-  -  softly pulls a nearby mag into the magwell. 0 = off, 1 = strong. Higher = easier seating."
+	Slider "Magwell Seat Radius",					"vr_reload_magwell_radius", 2.0, 24.0, 1.0, 0
+	TFLV_Tooltip "\c[Gold]Magwell Seat Radius\c-  -  how close the mag must get to seat. Bigger = more forgiving."
+	Slider "Rack Grab Radius",						"vr_reload_rack_radius", 2.0, 24.0, 1.0, 0
+	TFLV_Tooltip "\c[Gold]Rack Grab Radius\c-  -  how close your hand must get to the charging handle to grab it."
+	Slider "Rack Pull Distance",					"vr_reload_rack_travel", 2.0, 24.0, 1.0, 0
+	TFLV_Tooltip "\c[Gold]Rack Pull Distance\c-  -  how far back you must pull to chamber. Shorter = easier rack."
+	Slider "Hotspot Radius",						"vr_weapon_hotspot_radius", 2.0, 24.0, 1.0, 0
+	TFLV_Tooltip "\c[Gold]Hotspot Radius\c-  -  general grab tolerance for weapon hotspots."
+	Slider "Foregrip Radius",						"vr_foregrip_radius", 2.0, 24.0, 1.0, 0
+	TFLV_Tooltip "\c[Gold]Foregrip Radius\c-  -  two-hand support-grip tolerance."
+
+	StaticText ""
+	StaticText "Chest Pouch Fitting", gold
+	Slider "Pouch Height",							"vr_pouch_height", 0.0, 80.0, 2.0, 0
+	TFLV_Tooltip "\c[Gold]Pouch Height\c-  -  how high the chest pouch sits above your waist. Fit it to your torso."
+	Slider "Pouch Forward",							"vr_pouch_forward", -20.0, 40.0, 2.0, 0
+	TFLV_Tooltip "\c[Gold]Pouch Forward\c-  -  push the pouch toward or away from your chest."
+	Slider "Pouch Radius",							"vr_pouch_radius", 6.0, 40.0, 1.0, 0
+	TFLV_Tooltip "\c[Gold]Pouch Radius\c-  -  reach-in size. Bigger = easier to grab a mag."
+	Option "Show Pouch Box",						"vr_pouch_marker", "OnOff"
+	TFLV_Tooltip "\c[Gold]Show Pouch Box\c-  -  the white wireframe box at your chest."
+
+	StaticText ""
+	StaticText "Feedback", gold
+	Slider "Reload Rumble",							"vr_reload_haptic", 0.0, 1.0, 0.05, 2
+	TFLV_Tooltip "\c[Gold]Reload Rumble\c-  -  haptic strength for seating, racking and ejecting."
+
+	StaticText ""
+	StaticText "Reload Juice", gold
+	Option "Tactical Reload",						"vr_reload_tactical", "OnOff"
+	TFLV_Tooltip "\c[Gold]Tactical Reload\c-  -  ejecting with rounds still loaded keeps ONE in the barrel so you can keep firing while the fresh mag comes in. The rest of the partial mag is forfeit."
+	Option "Perfect Reload FX",						"vr_reload_perfect_fx", "OnOff"
+	TFLV_Tooltip "\c[Gold]Perfect Reload FX\c-  -  nailing the reload timing window pops a neon PERFECT and a glow flash over the gun."
+	Option "Heat-Vent Energy Weapons",				"vr_reload_heatvent", "OnOff"
+	TFLV_Tooltip "\c[Gold]Heat-Vent Energy Weapons\c-  -  plasma and BFG overheat and vent a hot heat-sink instead of a box-mag reload. Off = they use the normal mag reload."
+	Option "Fumble Under Fire",						"vr_reload_fumble", "OnOff"
+	TFLV_Tooltip "\c[Gold]Fumble Under Fire\c-  -  a big hit while reloading can make you DROP the loose mag. Only loosens the gesture, never voids ammo. Off by default."
+	Slider "Fumble Damage Threshold",				"vr_reload_fumble_damage", 5, 100, 5, 0
+	TFLV_Tooltip "\c[Gold]Fumble Damage Threshold\c-  -  a hit must deal at least this much to risk a fumble."
+	Slider "Fumble Chance",							"vr_reload_fumble_chance", 0, 100, 5, 0
+	TFLV_Tooltip "\c[Gold]Fumble Chance\c-  -  percent chance a qualifying hit fumbles the reload."
+	Option "Toss-Catch Reload",						"vr_reload_toss_catch", "OnOff"
+	TFLV_Tooltip "\c[Gold]Toss-Catch Reload\c-  -  point the gun straight up and a mag falling into the magwell seats hands-free, always PERFECT. Show-off reload."
+
+	StaticText ""
+	StaticText "Physical Mags & Throwing", gold
+	Option "Physical Ejected Mags",					"vr_reload_mag_throw", "OnOff"
+	TFLV_Tooltip "\c[Gold]Physical Ejected Mags\c-  -  ejected mags become real objects that fall, litter and staggers a monster you fling one into."
+	Slider "Ejected Mag Damage",					"vr_reload_mag_damage", 0, 40, 1, 0
+	TFLV_Tooltip "\c[Gold]Ejected Mag Damage\c-  -  damage a flung spent mag deals on a fast hit."
+	Slider "Ejected Mag Speed",						"vr_reload_mag_eject_speed", 0, 30, 1, 0
+	TFLV_Tooltip "\c[Gold]Ejected Mag Speed\c-  -  how hard the eject flings the spent mag."
+	Slider "Spent Mag Lifetime",					"vr_reload_mag_life", 0, 30, 1, 0
+	TFLV_Tooltip "\c[Gold]Spent Mag Lifetime\c-  -  seconds a spent mag lives on the floor before fading. 0 = forever."
+	Option "Mag Glow Trail",						"vr_reload_mag_trail", "OnOff"
+	TFLV_Tooltip "\c[Gold]Mag Glow Trail\c-  -  a fresh mag leaves a neon streak as you carry it to the gun."
+	Option "Eject Mag To Off-Hand",					"vr_reload_mag_to_offhand", "OnOff"
+	TFLV_Tooltip "\c[Gold]Eject Mag To Off-Hand\c-  -  the eject hands the mag to your OFF-HAND so you can catch it and throw it yourself. Off = it auto-flings along your aim."
+	Slider "Mag Throw Power",						"vr_reload_mag_throw_mult", 0.5, 3.0, 0.1, 1
+	TFLV_Tooltip "\c[Gold]Mag Throw Power\c-  -  how hard an off-hand-flicked mag is thrown."
+
+	StaticText ""
+	StaticText "Special Reloads", gold
+	Option "Chaingun Box Slam",						"vr_reload_chaingun_slam", "OnOff"
+	TFLV_Tooltip "\c[Gold]Chaingun Box Slam\c-  -  a hard off-hand downward slam near the chaingun instantly re-arms the whole belt."
+	Slider "Chaingun Slam Sensitivity",				"vr_reload_chaingun_slam_speed", 4, 30, 1, 0
+	TFLV_Tooltip "\c[Gold]Chaingun Slam Sensitivity\c-  -  off-hand downward speed that counts as a slam. Lower = easier."
+	Option "Whip Ammo Catch",						"vr_whip_ammo_catch", "OnOff"
+	TFLV_Tooltip "\c[Gold]Whip Ammo Catch\c-  -  yank ammo with the whip and if it matches your ready gun it instantly reloads. Wrong ammo = you just collect it."
+	Option "Variable Ammo In Dropped Guns",			"vr_reload_dropped_ammo", "OnOff"
+	TFLV_Tooltip "\c[Gold]Variable Ammo In Dropped Guns\c-  -  a gun a monster drops carries a random, sometimes empty, chamber. Grabbing one is a gamble."
+
+	StaticText ""
+	StaticText "Impact Momentum Physics", gold
+	Option "Impact Momentum",						"vr_impact_momentum", "OnOff"
+	TFLV_Tooltip "\c[Gold]Impact Momentum\c-  -  moving objects shove what they hit by mass and speed, so a heavy thing thrown hard slides a light target back. Affects all masses, you included."
+	Slider "Momentum Strength",						"vr_impact_momentum_scale", 0.0, 4.0, 0.1, 1
+	TFLV_Tooltip "\c[Gold]Momentum Strength\c-  -  global multiplier on the momentum shove."
+	Slider "Momentum Max Shove",					"vr_impact_momentum_max", 0, 60, 2, 0
+	TFLV_Tooltip "\c[Gold]Momentum Max Shove\c-  -  clamp so nothing launches across the room. 0 = no clamp."
+
+	StaticText ""
+	StaticText "Grapple & Beatdown", gold
+	Option "VR Grapple & Beatdown",					"vr_grapple", "OnOff"
+	TFLV_Tooltip "\c[Gold]VR Grapple & Beatdown\c-  -  grab a monster with your off-hand, punch it with your main hand, and throw the body into a crowd to stun them."
+	Option "Grapple Heavy Enemies",					"vr_grapple_grab_heavy", "OnOff"
+	TFLV_Tooltip "\c[Gold]Grapple Heavy Enemies\c-  -  allow grabbing very heavy or boss-tier enemies. Off = fodder only."
+	Slider "Grapple Reach",							"vr_grapple_range", 24, 96, 2, 0
+	TFLV_Tooltip "\c[Gold]Grapple Reach\c-  -  how close your off-hand must be to grab a monster."
+	Slider "Punch Speed Threshold",					"vr_grapple_punch_speed", 8, 40, 1, 0
+	TFLV_Tooltip "\c[Gold]Punch Speed Threshold\c-  -  main-hand speed that lands a punch on the held monster."
+	Slider "Punch Damage",							"vr_grapple_punch_damage", 5, 40, 1, 0
+	TFLV_Tooltip "\c[Gold]Punch Damage\c-  -  damage per punch."
+	Slider "Body Throw Power",						"vr_grapple_throw_mult", 0.5, 3.0, 0.1, 1
+	TFLV_Tooltip "\c[Gold]Body Throw Power\c-  -  how hard the thrown body flies."
+	Slider "Area-Stun Radius",						"vr_grapple_stun_radius", 48, 192, 4, 0
+	TFLV_Tooltip "\c[Gold]Area-Stun Radius\c-  -  how far the stun spreads when a thrown body hits a crowd."
+
+	StaticText ""
+	StaticText "Presets", gold
+	SafeCommand "Forgiving Reload", "vr_reload_assist 1.0; vr_reload_magwell_radius 16; vr_reload_rack_radius 16; vr_reload_rack_travel 5; vr_reload_chamber 0; vr_pouch_radius 26"
+	TFLV_Tooltip "\c[Gold]Forgiving Reload\c-  -  maxes assist, widens every grab zone, shortens the rack and auto-chambers on seat. Easiest reload."
+	SafeCommand "Realistic Reload", "vr_reload_assist 0.0; vr_reload_magwell_radius 6; vr_reload_rack_radius 6; vr_reload_rack_travel 12; vr_reload_chamber 1; vr_pouch_radius 14"
+	TFLV_Tooltip "\c[Gold]Realistic Reload\c-  -  no assist, tight grab zones, full rack required. Most demanding."
+
+	StaticText ""
+	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_reload_debug vr_reload_debug_hands vr_reload_debug_clips vr_reload_debug_pouch vr_reload_debug_hotspots vr_reload_debug_scale vr_reload_assist vr_reload_magwell_radius vr_reload_rack_radius vr_reload_rack_travel vr_weapon_hotspot_radius vr_foregrip_radius vr_pouch_height vr_pouch_forward vr_pouch_radius vr_pouch_marker vr_reload_haptic vr_reload_chamber vr_reload_tactical vr_reload_perfect_fx vr_reload_heatvent vr_reload_fumble vr_reload_fumble_damage vr_reload_fumble_chance vr_reload_toss_catch vr_reload_mag_throw vr_reload_mag_damage vr_reload_mag_eject_speed vr_reload_mag_life vr_reload_mag_trail vr_reload_mag_to_offhand vr_reload_mag_throw_mult vr_reload_chaingun_slam vr_reload_chaingun_slam_speed vr_whip_ammo_catch vr_reload_dropped_ammo vr_impact_momentum vr_impact_momentum_scale vr_impact_momentum_max vr_grapple vr_grapple_grab_heavy vr_grapple_range vr_grapple_punch_speed vr_grapple_punch_damage vr_grapple_throw_mult vr_grapple_stun_radius"
+	TFLV_Tooltip "\c[Gold]Reset to defaults\c-  -  restores every Advanced setting to its factory value."
+}
+
 OptionValue "WhipProfiles"
 {
 	0, "Indiana Jones (Leather)"
@@ -3143,7 +3401,7 @@ OptionMenu VRSwordOptions protected
 	class TFLV_TooltipOptionMenu
 	Title "VR Sword Settings"
 	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
-	TFLV_TooltipAppearance "", "", "GITDTTBG"
+	TFLV_TooltipAppearance "", "", "RADIANCETTBG"
 
 	StaticText ""
 	StaticText "Blade", gold
@@ -3177,12 +3435,18 @@ OptionMenu VRWhipOptions protected
 	class TFLV_TooltipOptionMenu
 	Title "XR Whip Settings"
 	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
-	TFLV_TooltipAppearance "", "", "GITDTTBG"
+	TFLV_TooltipAppearance "", "", "RADIANCETTBG"
 
 	StaticText ""
 	StaticText "Visual", gold
 	Option "Rigged 3D Model", "vr_whip_model", "OnOff"
 	TFLV_Tooltip "\c[Cyan]Rigged 3D Model\c-  -  \c[White]On\c- (default) shows the real braided-leather whip model, bones driven live by the physics sim. \c[White]Off\c- falls back to the glow-panel rope if the model ever looks wrong."
+	Option "Grapple-Point Preview", "vr_whip_preview_enable", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Grapple-Point Preview\c-  -  \c[White]On\c- (default) glows the exact point AltFire would grapple onto right now, so aiming isn't a guess. Uses the same trace the real grapple fires."
+	ColorPicker "   Preview Color", "vr_whip_preview_color"
+	TFLV_Tooltip "\c[Cyan]Preview Color\c-  -  tint of the grapple-point preview glow."
+	Slider "   Preview Glow Size", "vr_whip_preview_radius", 2.0, 20.0, 1.0, 1
+	TFLV_Tooltip "\c[Gold]Preview Glow Size\c-  -  radius of the grapple-point preview glow spot."
 
 	StaticText ""
 	StaticText "Profile & Crack Physics", gold
@@ -3231,7 +3495,7 @@ OptionMenu VRWhipOptions protected
 	TFLV_Tooltip "\c[Gold]Crack Knockback Cap\c-  -  hard limit on how hard a single whip crack shoves an enemy (mirrors the engine's own 32 attack-knockback cap). Heavier enemies are shoved less regardless."
 
 	StaticText " "
-	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_whip_model vr_whip_profile vr_whip_crack_threshold vr_whip_two_hand_boost vr_whip_contextual_yank vr_whip_reel_speed vr_whip_swing_pump vr_whip_yank_force_scale vr_whip_entangle_minspeed vr_whip_yank_peak_decay vr_whip_entangle_duration vr_whip_roll_speed_scale vr_whip_yank_pull_cap vr_whip_yank_vel_ceiling vr_whip_grapple_vel_ceiling vr_whip_grapple_hit_cap vr_whip_grapple_hit_scale vr_whip_crack_knock_ceiling"
+	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_whip_model vr_whip_preview_enable vr_whip_preview_color vr_whip_preview_radius vr_whip_profile vr_whip_crack_threshold vr_whip_two_hand_boost vr_whip_contextual_yank vr_whip_reel_speed vr_whip_swing_pump vr_whip_yank_force_scale vr_whip_entangle_minspeed vr_whip_yank_peak_decay vr_whip_entangle_duration vr_whip_roll_speed_scale vr_whip_yank_pull_cap vr_whip_yank_vel_ceiling vr_whip_grapple_vel_ceiling vr_whip_grapple_hit_cap vr_whip_grapple_hit_scale vr_whip_crack_knock_ceiling"
 	TFLV_Tooltip "\c[Red]Reset to defaults\c-  -  restores all whip settings above to their factory values."
 }
 
@@ -3243,7 +3507,7 @@ OptionMenu "IceHookOptions" protected
 	class TFLV_TooltipOptionMenu
 	Title "ICE HOOK"
 	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
-	TFLV_TooltipAppearance "", "", "GITDTTBG"
+	TFLV_TooltipAppearance "", "", "RADIANCETTBG"
 
 	StaticText ""
 	StaticText "Combat", gold
@@ -3251,6 +3515,12 @@ OptionMenu "IceHookOptions" protected
 	TFLV_Tooltip "\c[Gold]Melee Damage\c-  -  damage per pick swing (main trigger). Default \c[White]40\c-."
 	Slider "Throw Speed", "vr_icehook_throw_speed", 10, 80, 5, 0
 	TFLV_Tooltip "\c[Gold]Throw Speed\c-  -  launch speed of a thrown hook. Default \c[White]40\c-."
+	Option "Throw-Point Preview", "vr_icehook_preview_enable", "OnOff"
+	TFLV_Tooltip "\c[Cyan]Throw-Point Preview\c-  -  \c[White]On\c- (default) glows roughly where a throw would land right now, so aiming isn't a guess."
+	ColorPicker "   Preview Color", "vr_icehook_preview_color"
+	TFLV_Tooltip "\c[Cyan]Preview Color\c-  -  tint of the throw-point preview glow."
+	Slider "   Preview Glow Size", "vr_icehook_preview_radius", 2.0, 20.0, 1.0, 1
+	TFLV_Tooltip "\c[Gold]Preview Glow Size\c-  -  radius of the throw-point preview glow spot."
 
 	StaticText ""
 	StaticText "Stuck Hook & Climbing", gold
@@ -3264,7 +3534,7 @@ OptionMenu "IceHookOptions" protected
 	TFLV_Tooltip "\c[Gold]Pull Speed\c-  -  how fast Auto-Pull reels you toward the hook. Default \c[White]30\c-."
 
 	StaticText " "
-	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_icehook_melee_damage vr_icehook_throw_speed vr_icehook_stick_life vr_icehook_pick_liquids vr_icehook_autopull vr_icehook_pull_speed vr_icehook_pull_range"
+	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_icehook_melee_damage vr_icehook_throw_speed vr_icehook_preview_enable vr_icehook_preview_color vr_icehook_preview_radius vr_icehook_stick_life vr_icehook_pick_liquids vr_icehook_autopull vr_icehook_pull_speed vr_icehook_pull_range"
 	TFLV_Tooltip "\c[Red]Reset to defaults\c-  -  restores all Ice Hook settings above to their factory values."
 }
 
@@ -3287,7 +3557,7 @@ OptionMenu VRLaserSightOptions protected
 	class TFLV_TooltipOptionMenu
 	Title "$VRLASERMNU_TITLE"
 	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
-	TFLV_TooltipAppearance "", "", "GITDTTBG"
+	TFLV_TooltipAppearance "", "", "RADIANCETTBG"
 
 	StaticText ""
 	StaticText "$VRLASERMNU_LASER_OPTIONS", gold
@@ -3357,7 +3627,7 @@ OptionMenu VRWeaponWheelOptions protected
 	class TFLV_TooltipOptionMenu
 	Title "$VRWHEELMNU_TITLE"
 	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
-	TFLV_TooltipAppearance "", "", "GITDTTBG"
+	TFLV_TooltipAppearance "", "", "RADIANCETTBG"
 	
 	StaticText ""
 	StaticText "$VRWHEELMNU_OPEN_WHEEL", gold
@@ -3433,7 +3703,7 @@ OptionMenu VRHitscanTracerOptions protected
 	class TFLV_TooltipOptionMenu
 	Title "$VRTRACERMNU_TITLE"
 	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
-	TFLV_TooltipAppearance "", "", "GITDTTBG"
+	TFLV_TooltipAppearance "", "", "RADIANCETTBG"
 
 	StaticText ""
 	StaticText "$VRTRACERMNU_TRACE_OPTIONS", gold
@@ -3468,7 +3738,7 @@ OptionMenu VROptionsMenu protected
 	class TFLV_TooltipOptionMenu
 	Title "$VRPREFMNU_TITLE"
 	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
-	TFLV_TooltipAppearance "", "", "GITDTTBG"
+	TFLV_TooltipAppearance "", "", "RADIANCETTBG"
 
 	StaticText ""
 	ifOption(OpenVR, OpenXR)
@@ -3488,6 +3758,10 @@ OptionMenu VROptionsMenu protected
 	TFLV_Tooltip "\c[Cyan]Weapon/Item Wheel\c-  -  radial selector binds, appearance, time-slow, selection mode and model icons. Open to configure the flick-to-pick wheel."
 	Submenu "Grab Options",                 "VRGrabOptions"
 	TFLV_Tooltip "\c[Cyan]Grab Options\c-  -  telekinetic-grab tuning: cone angle, reach, magnet speed, throw force and the intent weights that pick what your hand grabs."
+	Submenu "Hand and World Collision",      "VRHandCollisionOptions"
+	TFLV_Tooltip "\c[Cyan]Hand and World Collision\c-  -  makes your VR hands aware of solid walls: a glow spot grows on the surface as your hand approaches and brightens on contact, with a haptic bump. Tune reach and glow size, or turn it off."
+	Submenu "Interaction Glows",             "VRInteractionGlowOptions"
+	TFLV_Tooltip "\c[Cyan]Interaction Glows\c-  -  QoL glow cues across every other hand system: grab targets, two-hand grip, hardpoints, reload hotspots, catch and throw-arc preview. Tune colors/sizes or turn each off."
 	Submenu "Physics Options",              "VRPhysicsOptions"
 	TFLV_Tooltip "\c[Cyan]Physics Options\c-  -  explosion physics, whether blasts move keys, and the meters-to-units scale used by the physics sim."
 	Submenu "Combat Options",               "VRCombatOptions"
@@ -3496,8 +3770,6 @@ OptionMenu VROptionsMenu protected
 	TFLV_Tooltip "\c[Cyan]Body Avatar\c-  -  your own first-person marine body: show/hide, size, height and facing. Dial the size so your head clears your view and the facing so it points where you walk."
 	Submenu "Gravity Path",                 "XRGravityPathOptions"
 	TFLV_Tooltip "\c[Cyan]Gravity Path\c-  -  the palm-out draw-a-walkway power: tile color/size, reach, attach range, mount smoothing, fall-catch and the palm-out cast gate."
-	Submenu "SDF Score System Options",     "VRSDFScoreOptions"
-	TFLV_Tooltip "\c[Gold]SDF Score System\c-  -  intended to configure the shader-drawn (SDF) score/damage popups, but its target menu isn't defined in this build, so this link currently opens \c[Red]nothing\c-."
 	StaticText ""
 	StaticText "$VRPREFMNU_MISC", gold
 	Option "Wired Visual Regime",       "vr_visual_regime", "VisualRegimes"
@@ -3628,7 +3900,7 @@ OptionMenu "VRGrabOptions" protected
     class TFLV_TooltipOptionMenu
     Title "VR Grab Settings"
     TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
-    TFLV_TooltipAppearance "", "", "GITDTTBG"
+    TFLV_TooltipAppearance "", "", "RADIANCETTBG"
     Option "Grab Debug", "vr_grab_debug", "OnOff"
     TFLV_Tooltip "\c[Gold]Grab Debug\c-  -  master switch for the grab visualisers. The aim cones and interaction spheres draw as real glowing geometry you can see in VR; the throw-trajectory arc still draws as desktop-only particles. Turn \c[White]On\c- to tune, \c[White]Off\c- for play."
     Option "   Aim Cones", "vr_grab_debug_cone", "OnOff"
@@ -3639,6 +3911,8 @@ OptionMenu "VRGrabOptions" protected
     TFLV_Tooltip "\c[Gold]Solid Fill Cones\c-  -  \c[White]On\c- fills the aim cones with a faint additive haze on top of the wireframe. \c[White]Off\c- leaves them as wireframe outlines only."
     Option "   Solid Fill Spheres", "vr_grab_debug_sphere_solid", "OnOff"
     TFLV_Tooltip "\c[Gold]Solid Fill Spheres\c-  -  \c[White]On\c- fills the interaction spheres as glowing orbs on top of the wireframe rings. \c[White]Off\c- leaves them as wireframe rings only."
+    Option "Hardpoint Debug", "vr_debug_hardpoints", "OnOff"
+    TFLV_Tooltip "\c[Gold]Hardpoint Debug\c-  -  draws a marker at every enabled holster/hardpoint slot's real world position. \c[Magenta]Magenta\c- is a body-mounted slot (chest/hip holster), \c[Purple]violet\c- is a wrist-mounted slot (ability mount on the other hand). Uses the Solid Fill Spheres setting above for the glow fill."
     StaticText " "
     StaticText "Interaction Radii", gold
     Slider "Climb Reach", "vr_climb_radius", 8.0, 64.0, 4.0, 1
@@ -3665,11 +3939,116 @@ OptionMenu "VRGrabOptions" protected
     StaticText " "
     StaticText "Intelligent Intent Weights", gold
     Slider "Distance Weight", "vr_grab_weight_dist", 0.0, 1.0, 0.05, 2
-    TFLV_Tooltip "\c[Red]Distance Weight\c-  -  meant to bias grab-target scoring toward closer items, but no code reads this cvar so it is currently \c[White]inert\c-."
+    TFLV_Tooltip "\c[Cyan]Distance Weight\c-  -  how much closer items are favored when your hand's aim cone overlaps several grabbable things at once. \c[White]1.0\c- (default) = full effect, matching the original picking behavior. \c[White]0.0\c- ignores distance entirely, so only Alignment decides."
     Slider "Alignment Weight", "vr_grab_weight_align", 0.0, 1.0, 0.05, 2
-    TFLV_Tooltip "\c[Red]Alignment Weight\c-  -  meant to bias grab-target scoring toward items most centered in your aim, but no code reads this cvar so it is currently \c[White]inert\c-."
+    TFLV_Tooltip "\c[Cyan]Alignment Weight\c-  -  how much items centered in your aim are favored over off-axis ones. \c[White]1.0\c- (default) = full effect, matching the original picking behavior. \c[White]0.0\c- ignores aim centering entirely, so only Distance decides."
     Slider "Mass Penalty Weight", "vr_grab_weight_mass", 0.0, 1.0, 0.05, 2
-    TFLV_Tooltip "\c[Red]Mass Penalty Weight\c-  -  meant to make heavier items less likely to be auto-targeted, but no code reads this cvar so it is currently \c[White]inert\c-."
+    TFLV_Tooltip "\c[Cyan]Mass Penalty Weight\c-  -  makes heavier items less likely to be auto-targeted over lighter ones nearby. \c[White]0.0\c- (default) = no penalty, matching the original picking behavior. Raise it if heavy props keep stealing the pick from small items."
+}
+
+OptionMenu "VRHandCollisionOptions" protected
+{
+    class TFLV_TooltipOptionMenu
+    Title "Hand and World Collision"
+    TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+    TFLV_TooltipAppearance "", "", "RADIANCETTBG"
+    Option "Hand World Collision", "vr_hand_collision", "OnOff"
+    TFLV_Tooltip "\c[Gold]Hand World Collision\c-  -  master switch. When \c[White]On\c-, each hand is checked against nearby solid walls every tic and can trigger the touch glow and haptic bump below."
+    Option "   Touch Glow", "vr_hand_collision_glow", "OnOff", vr_hand_collision
+    TFLV_Tooltip "\c[Cyan]Touch Glow\c-  -  draws a real glow spot (native gradient, no dynamic lights) on the wall under your hand, growing as you get closer and brightening on contact. Off leaves collision detection running silently."
+    ColorPicker "   Glow Color", "vr_hand_glow_color", vr_hand_collision
+    TFLV_Tooltip "\c[Cyan]Glow Color\c-  -  tint of the hand-touch glow spot on a plain solid wall."
+    ColorPicker "   Climbable Glow Color", "vr_hand_glow_climb_color", vr_hand_collision
+    TFLV_Tooltip "\c[Cyan]Climbable Glow Color\c-  -  tint used instead of Glow Color when the surface under your hand is actually climbable (KEYWORDS-tagged). Most solid walls are not climbable, so a different color tells you which is which before you grip."
+    Option "   Clamp Hand At Wall", "vr_hand_ik_clamp", "OnOff", vr_hand_collision
+    TFLV_Tooltip "\c[Cyan]Clamp Hand At Wall\c-  -  \c[White]On\c- (default) visually stops your rendered hand at the wall surface instead of letting it clip through geometry when touching. Off leaves the hand a pure unclipped pose (glow/haptic still work)."
+    StaticText " "
+    StaticText "Reach", gold
+    Slider "Contact Radius", "vr_hand_collision_radius", 1.0, 24.0, 1.0, 1, vr_hand_collision
+    TFLV_Tooltip "\c[Cyan]Contact Radius\c-  -  how close a hand must be to a solid wall to count as touching it (map units). Smaller = your hand must be right at the wall."
+    Slider "Glow Range", "vr_hand_glow_range", 4.0, 64.0, 2.0, 1, vr_hand_collision
+    TFLV_Tooltip "\c[Cyan]Glow Range\c-  -  distance at which the touch glow starts to appear as your hand approaches a wall, before actual contact."
+    StaticText " "
+    StaticText "Glow Size", gold
+    Slider "Min Glow Radius", "vr_hand_glow_min_radius", 1.0, 32.0, 1.0, 1, vr_hand_collision
+    TFLV_Tooltip "\c[Cyan]Min Glow Radius\c-  -  size of the glow spot when your hand first enters Glow Range."
+    Slider "Max Glow Radius", "vr_hand_glow_max_radius", 4.0, 64.0, 2.0, 1, vr_hand_collision
+    TFLV_Tooltip "\c[Cyan]Max Glow Radius\c-  -  size of the glow spot at full contact."
+    StaticText " "
+    SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_hand_collision vr_hand_collision_glow vr_hand_glow_color vr_hand_glow_climb_color vr_hand_ik_clamp vr_hand_collision_radius vr_hand_glow_range vr_hand_glow_min_radius vr_hand_glow_max_radius"
+    TFLV_Tooltip "\c[Red]Reset to Defaults\c-  -  restores all Hand and World Collision settings above to stock values."
+}
+
+OptionMenu "VRInteractionGlowOptions" protected
+{
+    class TFLV_TooltipOptionMenu
+    Title "Interaction Glows"
+    TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
+    TFLV_TooltipAppearance "", "", "RADIANCETTBG"
+
+    StaticText ""
+    StaticText "Grab Target", gold
+    Option "Grab-Target Highlight", "vr_grab_highlight_enable", "OnOff"
+    TFLV_Tooltip "\c[Gold]Grab-Target Highlight\c-  -  \c[White]On\c- (default) glows whatever your hand's aim-cone currently has selected to grab, before you squeeze -- so you know what you're about to pick up."
+    ColorPicker "   Color", "vr_grab_highlight_color", vr_grab_highlight_enable
+    TFLV_Tooltip "\c[Cyan]Color\c-  -  tint of the grab-target highlight glow."
+    Slider "   Glow Size", "vr_grab_highlight_radius", 2.0, 24.0, 1.0, 1, vr_grab_highlight_enable
+    TFLV_Tooltip "\c[Gold]Glow Size\c-  -  radius of the grab-target highlight glow."
+
+    StaticText ""
+    StaticText "Two-Hand Stabilize", gold
+    Option "Two-Hand Grip Glow", "vr_twohand_glow_enable", "OnOff"
+    TFLV_Tooltip "\c[Gold]Two-Hand Grip Glow\c-  -  \c[White]On\c- (default) glows the exact point your off-hand is bracing the weapon at while two-hand stabilized."
+    ColorPicker "   Color", "vr_twohand_glow_color", vr_twohand_glow_enable
+    TFLV_Tooltip "\c[Cyan]Color\c-  -  tint of the two-hand grip glow. Default matches the yellow two-hand debug sphere."
+    Slider "   Glow Size", "vr_twohand_glow_radius", 2.0, 20.0, 1.0, 1, vr_twohand_glow_enable
+    TFLV_Tooltip "\c[Gold]Glow Size\c-  -  radius of the two-hand grip glow."
+
+    StaticText ""
+    StaticText "Hardpoints (Holster/Ability Mounts)", gold
+    Option "Hardpoint Glow", "vr_hardpoint_glow_enable", "OnOff"
+    TFLV_Tooltip "\c[Gold]Hardpoint Glow\c-  -  \c[White]On\c- (default) glows each enabled holster/ability mount as your hand approaches it, growing on approach -- so you can find your holsters without memorizing the motion."
+    ColorPicker "   Body-Mount Color", "vr_hardpoint_glow_color_body", vr_hardpoint_glow_enable
+    TFLV_Tooltip "\c[Cyan]Body-Mount Color\c-  -  tint for chest/hip (body-anchored) hardpoint slots. Default matches the magenta hardpoint debug marker."
+    ColorPicker "   Wrist-Mount Color", "vr_hardpoint_glow_color_wrist", vr_hardpoint_glow_enable
+    TFLV_Tooltip "\c[Cyan]Wrist-Mount Color\c-  -  tint for wrist-anchored (other-hand-relative) hardpoint slots. Default matches the violet hardpoint debug marker."
+    Slider "   Glow Range", "vr_hardpoint_glow_range", 4.0, 32.0, 2.0, 1, vr_hardpoint_glow_enable
+    TFLV_Tooltip "\c[Gold]Glow Range\c-  -  distance at which a hardpoint glow starts to appear as your hand approaches."
+    Slider "   Min Glow Size", "vr_hardpoint_glow_min_radius", 1.0, 16.0, 1.0, 1, vr_hardpoint_glow_enable
+    TFLV_Tooltip "\c[Gold]Min Glow Size\c-  -  glow radius when your hand first enters range."
+    Slider "   Max Glow Size", "vr_hardpoint_glow_max_radius", 4.0, 32.0, 2.0, 1, vr_hardpoint_glow_enable
+    TFLV_Tooltip "\c[Gold]Max Glow Size\c-  -  glow radius right at the hardpoint."
+
+    StaticText ""
+    StaticText "Reload Hotspots", gold
+    Option "Magwell/Rack Glow", "vr_reload_glow_enable", "OnOff"
+    TFLV_Tooltip "\c[Gold]Magwell/Rack Glow\c-  -  \c[White]On\c- (default) glows the magazine well while empty and the rack point once a fresh mag is seated -- shows new players where/how to physically reload. Box-mag weapons only."
+    ColorPicker "   Color", "vr_reload_glow_color", vr_reload_glow_enable
+    TFLV_Tooltip "\c[Cyan]Color\c-  -  tint of the reload hotspot glow."
+    Slider "   Glow Size", "vr_reload_glow_radius", 1.0, 16.0, 1.0, 1, vr_reload_glow_enable
+    TFLV_Tooltip "\c[Gold]Glow Size\c-  -  radius of the reload hotspot glow."
+
+    StaticText ""
+    StaticText "Catch / Snatch", gold
+    Option "Catch Glow", "vr_catch_spark", "OnOff"
+    TFLV_Tooltip "\c[Gold]Catch Glow\c-  -  \c[White]On\c- (default) flashes a glow at a successfully snatched projectile. Same toggle as Combat Options' \"Catch Visual Effect\" -- this replaced an old particle effect that never actually rendered in VR."
+    ColorPicker "   Color", "vr_catch_glow_color", vr_catch_spark
+    TFLV_Tooltip "\c[Cyan]Color\c-  -  tint of the catch glow."
+    Slider "   Glow Size", "vr_catch_glow_radius", 2.0, 24.0, 1.0, 1, vr_catch_spark
+    TFLV_Tooltip "\c[Gold]Glow Size\c-  -  radius of the catch glow."
+
+    StaticText ""
+    StaticText "Throw Trajectory Preview", gold
+    Option "Throw Arc Glow", "vr_throw_arc_glow_enable", "OnOff"
+    TFLV_Tooltip "\c[Gold]Throw Arc Glow\c-  -  \c[White]On\c- (default) shows the predicted throw arc for a held throwable item as a dotted glow trail. Replaced an old particle-based preview that never actually rendered in VR."
+    ColorPicker "   Color", "vr_throw_arc_glow_color", vr_throw_arc_glow_enable
+    TFLV_Tooltip "\c[Cyan]Color\c-  -  tint of the throw arc preview."
+    Slider "   Glow Size", "vr_throw_arc_glow_radius", 1.0, 10.0, 0.5, 1, vr_throw_arc_glow_enable
+    TFLV_Tooltip "\c[Gold]Glow Size\c-  -  radius of each dot along the throw arc preview."
+
+    StaticText " "
+    SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_grab_highlight_enable vr_grab_highlight_color vr_grab_highlight_radius vr_twohand_glow_enable vr_twohand_glow_color vr_twohand_glow_radius vr_hardpoint_glow_enable vr_hardpoint_glow_color_body vr_hardpoint_glow_color_wrist vr_hardpoint_glow_range vr_hardpoint_glow_min_radius vr_hardpoint_glow_max_radius vr_reload_glow_enable vr_reload_glow_color vr_reload_glow_radius vr_catch_glow_color vr_catch_glow_radius vr_throw_arc_glow_enable vr_throw_arc_glow_color vr_throw_arc_glow_radius"
+    TFLV_Tooltip "\c[Red]Reset to Defaults\c-  -  restores all Interaction Glow settings above to stock values."
 }
 
 OptionMenu "VRPhysicsOptions" protected
@@ -3677,7 +4056,7 @@ OptionMenu "VRPhysicsOptions" protected
     class TFLV_TooltipOptionMenu
     Title "VR Physics Settings"
     TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
-    TFLV_TooltipAppearance "", "", "GITDTTBG"
+    TFLV_TooltipAppearance "", "", "RADIANCETTBG"
     Option "Physics Explosions", "vr_physics_explosions", "OnOff"
     TFLV_Tooltip "\c[Cyan]Physics Explosions\c-  -  \c[White]On\c- lets blast radius also shove loose pickups and corpses around, not just harm monsters. \c[White]Off\c- restores classic explosion behavior."
     Option "Explosions Affect Keys", "vr_physics_keys", "OnOff"
@@ -3694,7 +4073,7 @@ OptionMenu "XRGravityPathOptions" protected
     class TFLV_TooltipOptionMenu
     Title "XR Gravity Path"
     TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
-    TFLV_TooltipAppearance "", "", "GITDTTBG"
+    TFLV_TooltipAppearance "", "", "RADIANCETTBG"
     Option "Draw Debug Overlay", "xr_gp_debug", "OnOff"
     TFLV_Tooltip "\c[Gold]Draw Debug Overlay\c-  -  particles visualising the system: \c[Yellow]yellow\c- aim ray + \c[Orange]orange\c- hit point, \c[White]white\c- feet, each tile's \c[Cyan]cyan\c- face rectangle (\c[Magenta]magenta\c- while still extruding, \c[Green]green\c- when you're attached to it) and a green normal-stub showing the attach range. Turn \c[White]On\c- only while tuning."
     StaticText " "
@@ -3750,7 +4129,7 @@ OptionMenu "VRBodyOptions"
     class TFLV_TooltipOptionMenu
     Title "VR Body Avatar"
     TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
-    TFLV_TooltipAppearance "", "", "GITDTTBG"
+    TFLV_TooltipAppearance "", "", "RADIANCETTBG"
 
     Option "Show Body", "vr_show_body", "OnOff"
     TFLV_Tooltip "\c[Cyan]Show Body\c-  -  draws your own first-person marine body at your position. \c[White]On\c- by default; turn \c[White]Off\c- to hide it."
@@ -3771,7 +4150,7 @@ OptionMenu "VRCombatOptions" protected
     class TFLV_TooltipOptionMenu
     Title "VR Combat Settings"
     TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
-    TFLV_TooltipAppearance "", "", "GITDTTBG"
+    TFLV_TooltipAppearance "", "", "RADIANCETTBG"
     
     StaticText "Weapon Handling", gold
     Option "Show VR Hands", "vr_show_hands", "OnOff"
@@ -3814,13 +4193,21 @@ OptionMenu "VRCombatOptions" protected
     StaticText " "
     StaticText "Locational Damage & Effects", gold
     Option "Locational Damage", "vr_locational_damage", "OnOff"
-    TFLV_Tooltip "\c[Red]Locational Damage\c-  -  gates the floating \c[White]HEADSHOT!\c-/\c[White]LEGSHOT!\c- callouts (with Show Locational Text). Zone damage itself is always applied, so \c[White]Off\c- only hides the text."
+    TFLV_Tooltip "\c[Red]Locational Damage\c-  -  master switch for the zone-damage system (head/chest/torso/leg multipliers + leg stumble). \c[White]On\c- by default; \c[White]Off\c- makes every hit deal flat damage."
     Option "Show Locational Text", "vr_show_locational_text", "OnOff"
-    TFLV_Tooltip "\c[Cyan]Show Locational Text\c-  -  pops floating \c[White]HEADSHOT!\c-, \c[White]LEGSHOT!\c- and \c[White]CRITICAL!\c- callouts over your hits. \c[White]On\c- by default."
+    TFLV_Tooltip "\c[Cyan]Show Locational Text\c-  -  pops floating \c[White]HEADSHOT!\c-/\c[White]BODYSHOT!\c-/\c[White]LEGSHOT!\c- callouts over your hits. \c[White]Off\c- by default -- opt in for the arcade SDF callouts."
     Slider "Headshot Mult", "vr_locational_head_mult", 0.5, 5.0, 0.1, 1
-    TFLV_Tooltip "\c[Red]Headshot Mult\c-  -  damage multiplier for hits to a monster's head zone. Default \c[White]2.0\c-x."
+    TFLV_Tooltip "\c[Red]Headshot Mult\c-  -  damage multiplier for the head zone (top of the monster). Default \c[White]2.0\c-x."
+    Slider "Bodyshot Mult", "vr_locational_chest_mult", 0.5, 3.0, 0.1, 1
+    TFLV_Tooltip "\c[Red]Bodyshot Mult\c-  -  multiplier for the upper-body/chest zone. Default \c[White]1.0\c-x (neutral) -- raise it for a chest-crit feel."
     Slider "Legshot Mult", "vr_locational_leg_mult", 0.1, 2.0, 0.1, 1
-    TFLV_Tooltip "\c[Red]Legshot Mult\c-  -  damage multiplier for hits to a monster's leg zone. Default \c[White]0.5\c-x (weaker than a body shot)."
+    TFLV_Tooltip "\c[Red]Legshot Mult\c-  -  multiplier for the leg zone (also briefly staggers the monster). Default \c[White]0.5\c-x."
+    Slider "Head Zone Size", "vr_locational_head_threshold", 0.5, 0.95, 0.05, 2
+    TFLV_Tooltip "\c[Gold]Head Zone Size\c-  -  height fraction where the head begins (\c[White]0.8\c- = top 20%). LOWER = a bigger, more forgiving head hitbox."
+    Slider "Chest Zone Size", "vr_locational_chest_threshold", 0.35, 0.79, 0.05, 2
+    TFLV_Tooltip "\c[Gold]Chest Zone Size\c-  -  height fraction where the chest zone begins. Default \c[White]0.6\c-; the band up to Head is the chest."
+    Slider "Leg Zone Size", "vr_locational_leg_threshold", 0.05, 0.34, 0.05, 2
+    TFLV_Tooltip "\c[Gold]Leg Zone Size\c-  -  height below which a hit is legs. Default \c[White]0.3\c- (bottom 30%). Torso is everything between Legs and Chest."
     Slider "Critical Hit Chance", "vr_crit_chance", 0.0, 1.0, 0.01, 2
     TFLV_Tooltip "\c[Orange]Critical Hit Chance\c-  -  per-hit probability of rolling a critical. Default \c[White]0\c- (off); \c[White]1.0\c- = every hit crits."
     Slider "Critical Hit Mult", "vr_crit_mult", 1.0, 10.0, 0.5, 1
@@ -3834,7 +4221,7 @@ OptionMenu "VRDamageCounterOptions"
     class TFLV_TooltipOptionMenu
     Title "Cumulative Damage Counters"
     TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
-    TFLV_TooltipAppearance "", "", "GITDTTBG"
+    TFLV_TooltipAppearance "", "", "RADIANCETTBG"
 
     Option "Enable Counters", "vr_show_damage_numbers", "OnOff"
     TFLV_Tooltip "\c[Cyan]Enable Counters\c-  -  \c[White]On\c- floats a running damage tally above each enemy you're hitting; turn \c[White]Off\c- if the numbers clutter your view."
@@ -3860,7 +4247,7 @@ OptionMenu "VRWiredImpactOptions"
     class TFLV_TooltipOptionMenu
     Title "SDF Test Impacts (Wired)"
     TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
-    TFLV_TooltipAppearance "", "", "GITDTTBG"
+    TFLV_TooltipAppearance "", "", "RADIANCETTBG"
     
     Option "Enable Wired Impacts", "vr_wired_impacts", "OnOff"
     TFLV_Tooltip "\c[Cyan]Enable Wired Impacts\c-  -  master switch for the SDF-glyph particle burst that sprays from bullet hits. \c[White]On\c- by default; turn \c[White]Off\c- to disable the whole effect."
@@ -4309,7 +4696,7 @@ OptionMenu "VR3DMenu" protected
 	class TFLV_TooltipOptionMenu
 	Title "$GLPREFMNU_VRMODE"
 	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
-	TFLV_TooltipAppearance "", "", "GITDTTBG"
+	TFLV_TooltipAppearance "", "", "RADIANCETTBG"
 	Option "$GLMNU_3DMODE",					vr_mode, 						"VRMode"
 	TFLV_Tooltip "\c[Cyan]Stereo 3D Mode\c-  -  picks how the two eye views are output: \c[White]mono\c-, anaglyph, side-by-side, top/bottom, interleaved, checkerboard, single-eye, quad-buffered, or a headset via \c[White]OpenVR / OpenXR\c-. Set this to match your display or VR device."
 	IfOption(Windows)
@@ -4789,7 +5176,7 @@ OptionMenu "RV_Options"
 	class TFLV_TooltipOptionMenu
 	Title "Reikall's Voxels"
 	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
-	TFLV_TooltipAppearance "", "", "GITDTTBG"
+	TFLV_TooltipAppearance "", "", "RADIANCETTBG"
 	Option "Voxel rendering", r_drawvoxels, "OnOff"
 	TFLV_Tooltip "\c[Gold]Voxel rendering\c-  -  global switch: \c[White]On\c- shows every actor that has a voxel model as that voxel instead of a flat sprite. Turning this \c[White]Off\c- does not affect the VR grab-candidate highlight below, which forces its own target to a voxel regardless."
 	Slider "Item Voxel Cull Distance", "vr_voxel_cull_items", 0, 4000, 100
@@ -4812,7 +5199,7 @@ OptionMenu VRDoomXRGameplayOptions
 	class TFLV_TooltipOptionMenu
 	Title "DOOMXR GAMEPLAY & SPAWN OPTIONS"
 	TFLV_TooltipGeometry 1.0, 0.5, 0.30, 1.0, 0.5
-	TFLV_TooltipAppearance "", "", "GITDTTBG"
+	TFLV_TooltipAppearance "", "", "RADIANCETTBG"
 	
 	StaticText "Arcade Modes", gold
 	StaticText ""
@@ -4834,6 +5221,10 @@ OptionMenu VRDoomXRGameplayOptions
 	TFLV_Tooltip "\c[Gold]Revolver replaces Pistol/Rifle %\c-  -  chance a spawned Pistol or Rifle is swapped for a Revolver."
 	Slider "M79 replaces Rocket Launcher %", "vr_weapon_m79_chance", 0, 100, 5, 0
 	TFLV_Tooltip "\c[Gold]M79 replaces Rocket Launcher %\c-  -  chance each spawned Rocket Launcher is swapped for an M79 Grenade Launcher."
+	Slider "Super Shotgun replaces Shotgun %", "vr_shotgun_ssg_chance", 0, 100, 5, 0
+	TFLV_Tooltip "\c[Gold]Super Shotgun replaces Shotgun %\c-  -  chance each spawned Shotgun is swapped for a Super Shotgun."
+	Slider "BFG replaces Plasma Rifle %", "vr_plasma_bfg_chance", 0, 100, 5, 0
+	TFLV_Tooltip "\c[Gold]BFG replaces Plasma Rifle %\c-  -  chance each spawned Plasma Rifle is swapped for a BFG9000."
 	Option "Ballistic Bullet Drop (Realism)", "vr_ballistic_drop", "OnOff"
 	TFLV_Tooltip "\c[Cyan]Ballistic Bullet Drop\c-  -  \c[White]On\c- makes ballistic-fire weapons launch gravity-affected projectiles that arc and drop instead of instant hitscan. Off by default."
 	Option "Incinerator Leaves Fire", "vr_incinerator_ignite", "OnOff"
@@ -4841,12 +5232,22 @@ OptionMenu VRDoomXRGameplayOptions
 	
 	StaticText ""
 	StaticText "Starting Gear", gold
+	Option "Dual-Wield Starting Loadout", "vr_start_dualwield", "VRDualWieldStart"
+	TFLV_Tooltip "\c[Gold]Dual-Wield Starting Loadout\c-  -  spawn holding a matched pair, one gun in each hand: \c[White]Two Revolvers\c-, \c[White]Two Pistols\c-, or \c[White]Two SMGs\c-. \c[White]Off\c- keeps the normal single-sidearm spawn. Overrides which gun fills your hands at spawn (other starting tools are unaffected)."
 	Option "Start with Rifle instead of Pistol", "vr_start_with_rifle", "OnOff"
 	TFLV_Tooltip "\c[Gold]Start with Rifle instead of Pistol\c-  -  \c[White]On\c- swaps your starting Pistol for a Rifle when you spawn."
 	Option "Start with Whip", "vr_start_with_whip", "OnOff"
 	TFLV_Tooltip "\c[Gold]Start with Whip\c-  -  \c[White]On\c- gives you the XR Whip when you spawn. This is the only way to get it -- it has no world pickup."
 	Option "Start with Shieldsaw", "vr_start_with_shieldsaw", "OnOff"
 	TFLV_Tooltip "\c[Gold]Start with Shieldsaw\c-  -  \c[White]On\c- gives you the Shieldsaw when you spawn. This is the only way to get it -- it has no world pickup."
+	Option "Start with Sword", "vr_start_with_sword", "OnOff"
+	TFLV_Tooltip "\c[Gold]Start with Sword\c-  -  \c[White]On\c- (default) gives the VR Sword at spawn; Off removes it from your starting kit."
+	Option "Start with Ice Hook", "vr_start_with_icehook", "OnOff"
+	TFLV_Tooltip "\c[Gold]Start with Ice Hook\c-  -  \c[White]On\c- (default) gives the Ice Hook at spawn; Off removes it."
+	Option "Start with Pistol", "vr_start_with_pistol", "OnOff"
+	TFLV_Tooltip "\c[Gold]Start with Pistol\c-  -  \c[White]On\c- (default) keeps your starting Pistol; Off spawns you with no sidearm (fists/tools only)."
+	Option "Start with Fists", "vr_start_with_fist", "OnOff"
+	TFLV_Tooltip "\c[Gold]Start with Fists\c-  -  \c[White]On\c- (default) keeps the bare-hand Fist; Off removes it."
 	Option "Enable Physical Recoil", "vr_recoil", "OnOff"
 	TFLV_Tooltip "\c[Red]Enable Physical Recoil\c-  -  \c[White]On\c- kicks the gun model back and climbs your aim on each shot for weightier VR firing. Off keeps aim steady."
 	Option "Throwable Weapons (out of ammo tactic)", "vr_weapon_throwable", "OnOff"
@@ -4856,6 +5257,10 @@ OptionMenu VRDoomXRGameplayOptions
 	
 	StaticText ""
 	StaticText "Grenade Options", gold
+	Option "Start with Grenades", "vr_start_with_grenade", "OnOff"
+	TFLV_Tooltip "\c[Gold]Start with Grenades\c-  -  \c[White]On\c- (default) gives hand grenades at spawn; Off spawns you with none."
+	Slider "Starting Grenade Count", "vr_start_grenade_count", 0, 10, 1, 0
+	TFLV_Tooltip "\c[Gold]Starting Grenade Count\c-  -  how many hand grenades you spawn with (when Start with Grenades is on)."
 	Option "Show Throw Trajectory Arc", "vr_grenade_trajectory", "OnOff"
 	TFLV_Tooltip "\c[Gold]Show Throw Trajectory Arc\c-  -  intended to draw a predicted throw-arc while aiming a grenade. \c[Red]Currently inert\c- -- the toggle exists but nothing reads it, so no arc is drawn."
 
@@ -4873,7 +5278,7 @@ OptionMenu VRDoomXRGameplayOptions
 	TFLV_Tooltip "\c[Red]Give Everything\c-  -  debug cheat. Grants weapons, armor, ammo, keys and artifacts all at once (the full idkfa-style cheat)."
 
 	StaticText ""
-	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_visual_fidelity vr_barrel_vanilla_explosion vr_chainsaw_flame_chance vr_chaingun_rifle_chance vr_chaingun_smg_chance vr_weapon_revolver_chance vr_weapon_m79_chance vr_incinerator_ignite vr_start_with_rifle vr_start_with_whip vr_start_with_shieldsaw vr_grenade_trajectory vr_weapon_throwable vr_spawn_models"
+	SafeCommand "$OPTMNU_DEFAULTS", "resetcvar vr_visual_fidelity vr_barrel_vanilla_explosion vr_chainsaw_flame_chance vr_chaingun_rifle_chance vr_chaingun_smg_chance vr_weapon_revolver_chance vr_weapon_m79_chance vr_shotgun_ssg_chance vr_plasma_bfg_chance vr_incinerator_ignite vr_start_with_rifle vr_start_with_whip vr_start_with_shieldsaw vr_start_with_sword vr_start_with_icehook vr_start_with_pistol vr_start_with_fist vr_start_with_grenade vr_start_grenade_count vr_grenade_trajectory vr_weapon_throwable vr_spawn_models"
 	TFLV_Tooltip "\c[Red]Reset to defaults\c-  -  restores every gameplay and spawn setting on this page to its factory value. Use it if a tweak caused problems."
 }
 

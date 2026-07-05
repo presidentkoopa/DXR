@@ -95,6 +95,10 @@ protected:
 
 	void updateHmdPose(FRenderViewpoint& vp) const;
 	void UpdateControllerState() const;
+	// [B1] Re-query both hand spaces at the fresh predictedDisplayTime and re-derive ONLY the
+	// render pose globals (weaponoffset/weaponangles/offhand*) + two-hand override. Does NOT touch
+	// velocity history or the AttackPos/OffhandPos firing origin. Called after xrLocateViews.
+	void RelocateHandPoses() const;
 	void ProcessHaptics() const;
 	void StopHaptics() const;
 	bool InitializeOpenXR() const;

@@ -1,0 +1,30 @@
+{
+  "md3": "E:\\DoomXR-work\\DOOM_FRESH\\wadsrc\\static\\models\\weapons\\hud\\m79\\M79.md3",
+  "out": "E:\\DoomXR-work\\DOOM_FRESH\\wadsrc\\static\\models\\weapons\\hud\\m79\\M79.iqm",
+  "style": "break",
+  "material": "M79",
+  "hotspots": {
+    "hs_grip": [
+      0,
+      0,
+      0
+    ],
+    "hs_foregrip": [
+      40,
+      0,
+      -35.25
+    ],
+    "hs_breech": [
+      29.7,
+      0,
+      -29.68
+    ]
+  },
+  "axis": {
+    "long": "X",
+    "vert": "Z",
+    "lat": "Y",
+    "muzzle_at_max": true
+  },
+  "ready_frame": 3
+}

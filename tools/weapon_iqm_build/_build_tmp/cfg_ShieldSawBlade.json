@@ -1,0 +1,9 @@
+{
+  "weapon": "ShieldSawBlade",
+  "md3": "E:/DoomXR-work/DOOM_FRESH/wadsrc/static/models/weapons/hud/shieldsaw/shieldsaw.md3",
+  "out": "E:/DoomXR-work/DOOM_FRESH/wadsrc/static/models/weapons/hud/shieldsaw/shieldsaw.iqm",
+  "style": "none",
+  "material": "ShieldSawBlade",
+  "hotspots": { "hs_grip": [0, 0, 0] },
+  "ready_frame": 0
+}

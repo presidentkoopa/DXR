@@ -38,6 +38,7 @@
 #include "v_font.h"
 #include "gstrings.h"
 #include "a_keys.h"
+#include "vr_msdf_text.h"
 #include "sbar.h"
 #include "doomstat.h"
 #include "p_acs.h"
@@ -1179,7 +1180,7 @@ DEFINE_ACTION_FUNCTION_NATIVE(_Sector, SetXOffset, SetXOffset)
 	 return 0;
  }
 
-	// [GITD-AIR] camera-facing in-air glow PANEL: a billboard quad floating at world (x,y,z),
+	// [RADIANCE-AIR] camera-facing in-air glow PANEL: a billboard quad floating at world (x,y,z),
 	// drawn by the dedicated panel pass + glow_panel shader. counter = the number to show.
 	static void AddGlowPanel(FLevelLocals *self, int color, double radius, double x, double y, double z, int wipeType, double wipeProgress, double dirX, double dirY, int counter)
 	{
@@ -1204,6 +1205,23 @@ DEFINE_ACTION_FUNCTION_NATIVE(_Sector, SetXOffset, SetXOffset)
 		PARAM_FLOAT(dirY);
 		PARAM_INT(counter);
 		AddGlowPanel(self, color, radius, x, y, z, wipeType, wipeProgress, dirX, dirY, counter);
+		return 0;
+	}
+
+	// [XR] Spawn a persistent, camera-facing MSDF text label at a world position, drawn by the
+	// neonfont atlas. Exposes the native SDF text renderer to ZScript (was C++-only). Anchored
+	// (no drift) + effectively-infinite lifetime => static world signage.
+	DEFINE_ACTION_FUNCTION(_LevelLocals, SpawnSDFText)
+	{
+		PARAM_SELF_STRUCT_PROLOGUE(FLevelLocals);
+		PARAM_FLOAT(x);
+		PARAM_FLOAT(y);
+		PARAM_FLOAT(z);
+		PARAM_STRING(text);
+		PARAM_FLOAT(scale);
+		FVRMSDFTextThinker::SpawnText(self, DVector3(x, y, z), FName("Arcade"), text,
+			0x40000000, scale, NAME_None,
+			FVRMSDFTextThinker::STYLE_Classic, FVRMSDFTextThinker::BEHAVIOR_Anchor);
 		return 0;
 	}
 

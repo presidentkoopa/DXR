@@ -125,12 +125,9 @@ class VRWeaponAssignmentMenu : GenericMenu
     void CycleArchetype(int idx)
     {
         weapons[idx].archetype = (weapons[idx].archetype + 1) % archNames.Size();
-        
-        // Menu.SendConsoleCommand does not exist in this fork -- no native ZScript->CCMD
-        // string bridge is available here. This debug scanner's write-back to the native
-        // vr_weapon_set_archetype CCMD (src/playsim/vr_weapon.cpp:218) is disabled until a
-        // real bridge is built; the archetype list still displays and cycles in-menu.
-        //string cmd = String.Format("vr_weapon_set_archetype %s %s", weapons[idx].cls.GetClassName(), archNames[weapons[idx].archetype]);
-        //Menu.SendConsoleCommand(cmd);
+
+        // Persist immediately via the native bridge: sets the archetype on the weapon's
+        // default actor and writes doomxr_weapons.json (src/playsim/vr_weapon.cpp).
+        SetVRWeaponArchetype(weapons[idx].cls, weapons[idx].archetype);
     }
 }

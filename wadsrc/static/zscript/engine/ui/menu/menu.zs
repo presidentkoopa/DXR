@@ -366,6 +366,7 @@ class Menu : Object native ui version("2.4")
 	}
 
 	native static int GetVRWeaponArchetype(Class<Actor> cls);
+	native static void SetVRWeaponArchetype(Class<Actor> cls, int archetype);
 }
 
 class MenuDescriptor : Object native ui version("2.4")

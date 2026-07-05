@@ -19,13 +19,14 @@ class M79 : DoomWeapon
 	Default
 	{
 		Weapon.SelectionOrder 2600;
+		Weapon.SlotNumber 5;   // [XR] slot 5 (matches DoomPlayer's Player.WeaponSlot 5)
 		Weapon.AmmoUse 1;
 		Weapon.AmmoGive 2;
 		Weapon.AmmoType "RocketAmmo";
 		+WEAPON.NOAUTOFIRE
 		Inventory.PickupMessage "Picked up the M79 Grenade Launcher!";
 		Tag "M79 Grenade Launcher";
-		Keywords "mass:70", "grab", "class:grenadelauncher", "dmg:explosive", "style:lobber", "weight:heavy", "range:medium", "fire:single", "handling:heavy", "role:heavy";
+		Keywords "mass:70", "grab", "class:grenadelauncher", "dmg:explosive", "style:lobber", "weight:heavy", "range:medium", "fire:single", "handling:heavy", "role:heavy", "vr_dualwield";
 	}
 	States
 	{

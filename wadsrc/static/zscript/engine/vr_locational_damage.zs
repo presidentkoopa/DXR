@@ -1,102 +1,26 @@
-
+// [XR] Locational damage is now FULLY NATIVE (src/playsim/p_interaction.cpp, P_DamageMobj): zone detection
+// (head/chest/torso/legs), damage multipliers, legshot stumble, and hit-zone storage are all in C++. The
+// zone/hand are stored on the native int fields Actor.LastHitZone (0=torso 1=head 2=chest 3=legs) and
+// Actor.LastHitHand (0=main 1=off), tunable from VR Options > Combat > Locational Damage.
+//
+// The old ZScript VRLocationalArbiter StaticEventHandler (WorldThingDamaged) was RETIRED here: it
+// duplicated the native zone math AND crashed on every monster hit by assigning FString zone tags onto
+// native actors (see dxr-actor-defaults-fstring-clobber). This file now only exposes string-name helpers
+// so mods (e.g. the SDF combo system) can read the native zone without touching FStrings on actors.
 extend class Actor
 {
-    String lastHitZone;
-    String lastHitHand;
-}
-
-class VRLocationalArbiter : StaticEventHandler
-{
-    override void WorldThingDamaged(WorldEvent e)
+    // Human-readable zone name for mods. Mirrors the native LastHitZone enum.
+    String GetHitZoneName()
     {
-        if (!e.Thing || e.Damage <= 0 || !e.DamageSource) return;
-        
-        // We only care about attacks on shootable actors (monsters/players)
-        if (!e.Thing.bShootable) return;
-
-        // Calculate the hit ratio along the mathematical cylinder height.
-        // WorldThingDamaged carries no per-shot hit point (DamagePosition is only populated
-        // for WorldHitscanFired/WorldRailgunFired, not this event) -- e.Thing.HitLocation was
-        // never a real field (Actor has none by that name). Use e.Inflictor's height instead,
-        // the same proxy the live native C++ locational system (p_interaction.cpp) already uses.
-        if (!e.Inflictor) return;
-
-        double victimZ = e.Thing.Pos.Z;
-        double victimHeight = e.Thing.Height;
-
-        if (victimHeight <= 0) return;
-
-        double hitZ = e.Inflictor.Pos.Z;
-        double zRatio = (hitZ - victimZ) / victimHeight;
-
-        // Fetch dynamic bounds from CVars
-        double headThreshold = CVar.GetCVar("vr_locational_head_threshold").GetFloat();
-        double legThreshold = CVar.GetCVar("vr_locational_leg_threshold").GetFloat();
-        double headMult = CVar.GetCVar("vr_locational_head_mult").GetFloat();
-        double legMult = CVar.GetCVar("vr_locational_leg_mult").GetFloat();
-
-        int damageMultiplier = 1;
-        String zoneTag = "torso";
-
-        // Dynamic Bounding Logic
-        if (zRatio > headThreshold)
+        switch (LastHitZone)
         {
-            // HEADSHOT
-            zoneTag = "head";
-            e.NewDamage = int(e.Damage * headMult);
-            
-            // Detect Hand Source for Combo System
-            String handTag = "hand:main";
-            Weapon weap = Weapon(e.Inflictor); // For hitscans, Inflictor is often the weapon or source
-            if (!weap && e.Inflictor) weap = Weapon(e.Inflictor.master); // For projectiles, check master
-            
-            if (weap && weap.bOffhandWeapon) handTag = "hand:off";
-            
-            e.Thing.lastHitZone = "head";
-            e.Thing.lastHitHand = handTag;
-
-            if (e.Thing.Health <= 0 || (e.Thing.Health - e.NewDamage <= 0))
-            {
-                // Sigil spawning is now handled by SDFComboArbiter on death to prevent duplicates
-                // Crit sound is user-selectable (vr_crit_sound: 0=Off, 1-4 = sound choice).
-                int critSnd = CVar.GetCVar("vr_crit_sound").GetInt();
-                if (critSnd > 0)
-                {
-                    string critSndName = "vr/critical_hit";
-                    if (critSnd == 2) critSndName = "vr/critical_hit2";
-                    else if (critSnd == 3) critSndName = "vr/critical_hit3";
-                    else if (critSnd == 4) critSndName = "vr/critical_hit4";
-                    e.Thing.A_StartSound(critSndName, CHAN_AUTO, CHANF_OVERLAP);
-                }
-            }
-        }
-        else if (zRatio < legThreshold)
-        {
-            // LEGSHOT
-            zoneTag = "legs";
-            e.NewDamage = int(e.Damage * legMult);
-            
-            e.Thing.lastHitZone = "legs";
-            
-            // Stumble Logic
-            if (e.Thing.bIsMonster && !e.Thing.bNoPain)
-            {
-                e.Thing.TriggerPainChance("Pain", true);
-                e.Thing.Vel.XY *= 0.1; // Massive speed reduction for stumble
-            }
-        }
-        else
-        {
-            // TORSO
-            zoneTag = "torso";
-            e.NewDamage = e.Damage;
-            e.Thing.lastHitZone = "torso";
-        }
-
-        // Debug output if enabled
-        if (CVar.GetCVar("vr_debug_locational").GetBool())
-        {
-            Console.Printf("Hit Zone: %s | Ratio: %.2f | Final Damage: %d", zoneTag, zRatio, e.NewDamage);
+            case 1: return "head";
+            case 2: return "chest";
+            case 3: return "legs";
+            default: return "torso";
         }
     }
+
+    // Which hand landed the hit, as the combo system's tag form.
+    String GetHitHandName() { return LastHitHand == 1 ? "hand:off" : "hand:main"; }
 }

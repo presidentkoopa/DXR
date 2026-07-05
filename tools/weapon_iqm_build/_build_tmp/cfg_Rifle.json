@@ -1,0 +1,29 @@
+{
+  "md3": "E:\\DoomXR-work\\DOOM_FRESH\\wadsrc\\static\\models\\weapons\\hud\\rifle\\m16.md3",
+  "out": "E:\\DoomXR-work\\DOOM_FRESH\\wadsrc\\static\\models\\weapons\\hud\\rifle\\m16.iqm",
+  "style": "boxmag",
+  "material": "ContraGun",
+  "hotspots": {
+    "hs_grip": [
+      0,
+      0.9,
+      0
+    ],
+    "hs_foregrip": [
+      35,
+      0.9,
+      0.1
+    ],
+    "hs_magwell": [
+      9.9,
+      0.9,
+      -1.5
+    ],
+    "hs_rack": [
+      20,
+      0.9,
+      3
+    ]
+  },
+  "ready_frame": 0
+}

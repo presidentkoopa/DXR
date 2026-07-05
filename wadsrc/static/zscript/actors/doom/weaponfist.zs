@@ -9,6 +9,7 @@ class Fist : Weapon
 	Default
 	{
 		Weapon.SelectionOrder 3700;
+		Weapon.SlotNumber 1;   // [XR] slot 1 (matches DoomPlayer's Player.WeaponSlot 1)
 		Weapon.Kickback 100;
 		Obituary "$OB_MPFIST";
 		Tag "$TAG_FIST";

@@ -124,7 +124,7 @@ void HWWall::RenderWall(FRenderState &state, int textured)
 			auto cv_glow = FindCVar("hf_glow_enabled", nullptr);
 			bool glow_enabled = cv_glow ? cv_glow->GetGenericRep(CVAR_Bool).Bool : true;
 
-			auto cv_surfaces = FindCVar("gitd_surfaces", nullptr);
+			auto cv_surfaces = FindCVar("radiance_surfaces", nullptr);
 			int surfaces = cv_surfaces ? cv_surfaces->GetGenericRep(CVAR_Int).Int : 7;
 
 			// 1. Draw floor gradient skirt (Cyan)
@@ -325,7 +325,7 @@ void HWWall::RenderTexturedWall(HWWallDispatcher*di, FRenderState &state, int rf
 		SetGlowPlanes(state, frontsector->ceilingplane, frontsector->floorplane);
 	}
 
-	// [GITD] localized glow SPOTS on WALLS — mirror of the flat gather in hw_flats.cpp DrawFlat.
+	// [RADIANCE] localized glow SPOTS on WALLS — mirror of the flat gather in hw_flats.cpp DrawFlat.
 	// A wall is vertical (Normal().Z ~= 0) so the floor/ceiling plane-bit test is meaningless here;
 	// a spot lights walls when planeFlags==0 (all) OR has the WALL bit (4) set. Glow-spots are
 	// independent of the legacy HWF_GLOW gradient, so this block is unconditional (like the flat one).
@@ -342,36 +342,36 @@ void HWWall::RenderTexturedWall(HWWallDispatcher*di, FRenderState &state, int rf
 			wspots[wn++] = FVector4((float)frontsector->GetWallGlowX(), (float)frontsector->GetWallGlowY(), packed, (float)frontsector->GetWallGlowHeight());
 		}
 		TArray<FGlowSpot> &gs = di->Level->GlowSpots;
-		// [GITD] keep the spots NEAREST the camera when more are live than fit (same anti-starvation
+		// [RADIANCE] keep the spots NEAREST the camera when more are live than fit (same anti-starvation
 		// fix as the flat path in hw_flats.cpp) — walls match planeFlags==0 (all) or the WALL bit (4).
 		// The dispatcher wraps the real HWDrawInfo as di->di, which is null in the mesh-builder path;
 		// with no camera there we fall back to push order (bestk stays 0).
-		HWDrawInfo* gitdDI = di->di;
-		double gitdVpX = gitdDI ? gitdDI->Viewpoint.Pos.X : 0.0;
-		double gitdVpY = gitdDI ? gitdDI->Viewpoint.Pos.Y : 0.0;
-		TArray<int> gitdCand;
+		HWDrawInfo* radianceDI = di->di;
+		double radianceVpX = radianceDI ? radianceDI->Viewpoint.Pos.X : 0.0;
+		double radianceVpY = radianceDI ? radianceDI->Viewpoint.Pos.Y : 0.0;
+		TArray<int> radianceCand;
 		for (unsigned gi = 0; gi < gs.Size(); gi++)
 		{
-			if (gs[gi].gflags & 1) continue;   // [GITD-AIR] billboards are drawn in the panel pass, not stamped on walls
-			if (gs[gi].planeFlags != 0 && !(gs[gi].planeFlags & 4)) continue;   // [GITD] walls: planeFlags==0 (all) or WALL bit (4)
-			gitdCand.Push((int)gi);
+			if (gs[gi].gflags & 1) continue;   // [RADIANCE-AIR] billboards are drawn in the panel pass, not stamped on walls
+			if (gs[gi].planeFlags != 0 && !(gs[gi].planeFlags & 4)) continue;   // [RADIANCE] walls: planeFlags==0 (all) or WALL bit (4)
+			radianceCand.Push((int)gi);
 		}
-		while (wn < MAX_WALL_GLOW_SPOTS && gitdCand.Size() > 0)
+		while (wn < MAX_WALL_GLOW_SPOTS && radianceCand.Size() > 0)
 		{
 			unsigned bestk = 0;
-			if (gitdDI)
+			if (radianceDI)
 			{
 				double bestd = -1.0;
-				for (unsigned k = 0; k < gitdCand.Size(); k++)
+				for (unsigned k = 0; k < radianceCand.Size(); k++)
 				{
-					double dx = gs[gitdCand[k]].center.X - gitdVpX;
-					double dy = gs[gitdCand[k]].center.Y - gitdVpY;
+					double dx = gs[radianceCand[k]].center.X - radianceVpX;
+					double dy = gs[radianceCand[k]].center.Y - radianceVpY;
 					double d2 = dx * dx + dy * dy;
 					if (bestd < 0.0 || d2 < bestd) { bestd = d2; bestk = k; }
 				}
 			}
-			int gi = gitdCand[bestk];
-			gitdCand.Delete(bestk);
+			int gi = radianceCand[bestk];
+			radianceCand.Delete(bestk);
 			PalEntry c = gs[gi].color;
 			float packed = c.r * 65536.0f + c.g * 256.0f + c.b;
 			wmasks[wn] = FVector4((float)gs[gi].wipeType, (float)gs[gi].wipeProgress, (float)gs[gi].wipeDir.X, (float)gs[gi].wipeDir.Y);
@@ -507,7 +507,7 @@ void HWWall::RenderTexturedWall(HWWallDispatcher*di, FRenderState &state, int rf
 	state.SetTextureMode(tmode);
 	state.SetTextureClamp(false);
 	state.EnableGlow(false);
-	if (wallGlowOn) state.EnableWallGlow(false);   // [GITD] zero wall-glow spots so the next piece can't inherit them
+	if (wallGlowOn) state.EnableWallGlow(false);   // [RADIANCE] zero wall-glow spots so the next piece can't inherit them
 	state.EnableGradient(false);
 	state.ApplyTextureManipulation(nullptr);
 }

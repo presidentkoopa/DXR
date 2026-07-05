@@ -486,7 +486,14 @@ double IQMModel::FindFramerate(FName name)
 
 void IQMModel::RenderFrame(FModelRenderer* renderer, FGameTexture* skin, int frame1, int frame2, double inter, FTranslationID translation, const FTextureID* surfaceskinids, int boneStartPosition)
 {
-	
+	// [XR] Skip an UNMAPPED model index (no FrameIndex for the current sprite -> modelframe == -1),
+	// matching FMD3Model/FOBJModel/FUE1Model which all early-out on a negative frame. Without this,
+	// a multi-model modeldef whose models alternate by sprite state (e.g. ShieldSaw: Model 0 shield
+	// on SHLD, Model 1 saw on SHSW) draws BOTH IQM meshes at once, because unlike MD3 the IQM path
+	// otherwise ignores the frame entirely. Single-model IQMs always pass a valid frame (0), so this
+	// is a no-op for every existing converted weapon, the marine body, and the whip.
+	if (frame1 < 0) return;
+
 	renderer->SetupFrame(this, 0, 0, NumVertices, boneStartPosition >= 0 ? boneStartPosition : screen->mBones->UploadBones(boneData));
 
 	FGameTexture* lastSkin = nullptr;
@@ -816,4 +823,33 @@ int IQMModel::FindJointByName(FName name) const
 			return (int)i;
 	}
 	return -1;
+}
+
+// [XR] Case-INSENSITIVE joint-name lookup so hs_foregrip/hs_magwell/hs_rack resolve regardless of the
+// case the modeler authored them in. CompareNoCase == stricmp (zstring.h).
+int IQMModel::FindJointByNameCI(FName name) const
+{
+	const char* target = name.GetChars();
+	for (unsigned i = 0; i < Joints.Size(); i++)
+	{
+		if (Joints[i].Name.CompareNoCase(target) == 0)
+			return (int)i;
+	}
+	return -1;
+}
+
+// [XR] Parent-resolved MODEL-LOCAL bind position of joint jointIndex -- the translation column of
+// baseframe[jointIndex] (the top-down accumulation of each joint's local bind TRS built in Load(),
+// ~151-176). VSMatrix is column-major (get() returns the raw FLOATTYPE[16], translation at [12/13/14]).
+// Same rest/model-local frame GetJointBindTRS exposes -- no swapYZ, no actor transform (the consumer
+// converts to world). Read-only: does NOT touch proceduralPose or the whip write path.
+bool IQMModel::GetJointBaseframePos(int jointIndex, FVector3& out) const
+{
+	if (jointIndex < 0 || (unsigned)jointIndex >= baseframe.Size())
+		return false;
+	const auto* m = baseframe[jointIndex].get(); // column-major FLOATTYPE[16]
+	out.X = (float)m[12];
+	out.Y = (float)m[13];
+	out.Z = (float)m[14];
+	return true;
 }

@@ -36,7 +36,9 @@
 #include "hw_fakeflat.h"
 #include "texturemanager.h"
 #include "playsim/vr_weapon.h"
+#include "playsim/vr_hardpoint.h"
 #include "a_weapons.h"
+#include "filesystem.h"
 
 #include "hw_models.h"
 #include "hw_dynlightdata.h"
@@ -97,6 +99,10 @@ EXTERN_CVAR(Float, vr_grab_max_dist)
 EXTERN_CVAR(Float, vr_twohand_radius)
 EXTERN_CVAR(Float, vr_catch_radius)
 EXTERN_CVAR(Float, vr_climb_radius)
+// [XR] hardpoint/holster debug markers -- master toggle; reuses vr_grab_debug_sphere_solid
+// (declared just below) for the solid-glow variant instead of adding a second solid cvar.
+EXTERN_CVAR(Bool,  vr_debug_hardpoints)
+EXTERN_CVAR(Float, vr_hardpoint_radius)
 // [XR] solid (filled, additive-glow) debug spheres drawn IN ADDITION to the wireframe
 // rings. Defined here (my file) so linkage is self-contained. GPU-heavy by design.
 CVAR(Bool, vr_grab_debug_sphere_solid, true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
@@ -1052,7 +1058,8 @@ static void DrawXRDebugCones(FRenderState& state)
 	const bool grabOn = vr_grab_debug;
 	FBaseCVar* gpcv = FindCVar("xr_gp_debug", NULL);
 	const bool gpOn = (gpcv != nullptr) && gpcv->GetGenericRep(CVAR_Bool).Bool;
-	if (!grabOn && !gpOn) return;
+	const bool hpOn = vr_debug_hardpoints;
+	if (!grabOn && !gpOn && !hpOn) return;
 
 	// Flat colored geometry render state (mirrors DrawLaserBeamGeometry's setup).
 	state.EnableModelMatrix(false);
@@ -1105,8 +1112,11 @@ static void DrawXRDebugCones(FRenderState& state)
 			const double twohandR = (double)vr_twohand_radius;
 			DrawDebugWireSphere(state, mo->AttackPos,  catchR,   0.2f, 1.f,  0.2f, 0.80f); // green  (catch/snatch)
 			DrawDebugWireSphere(state, mo->OffhandPos, catchR,   0.2f, 1.f,  0.2f, 0.80f);
-			DrawDebugWireSphere(state, mo->AttackPos,  climbR,   0.3f, 0.5f, 1.f,  0.70f); // blue   (climb)
-			DrawDebugWireSphere(state, mo->OffhandPos, climbR,   0.3f, 0.5f, 1.f,  0.70f);
+			// [XR] Climb (light-blue) proximity spheres DISABLED: with a large vr_climb_radius they read as a
+			// blue pillar engulfing the player. Catch (green) + two-hand (yellow) markers are kept so the hand
+			// target stays visible. Re-enable by uncommenting if you need to see the climb volume.
+			//DrawDebugWireSphere(state, mo->AttackPos,  climbR,   0.3f, 0.5f, 1.f,  0.70f); // blue   (climb)
+			//DrawDebugWireSphere(state, mo->OffhandPos, climbR,   0.3f, 0.5f, 1.f,  0.70f);
 			DrawDebugWireSphere(state, mo->AttackPos,  twohandR, 1.f,  0.9f, 0.1f, 0.90f); // yellow (two-hand)
 			// Filled additive-glow volumes on top of the rings. Low per-fragment alpha so
 			// overlapping shells (catch/climb/two-hand share a hand) don't blow out to
@@ -1115,8 +1125,8 @@ static void DrawXRDebugCones(FRenderState& state)
 			{
 				DrawDebugSolidSphere(state, mo->AttackPos,  catchR,   0.2f, 1.f,  0.2f, 0.16f); // green
 				DrawDebugSolidSphere(state, mo->OffhandPos, catchR,   0.2f, 1.f,  0.2f, 0.16f);
-				DrawDebugSolidSphere(state, mo->AttackPos,  climbR,   0.3f, 0.5f, 1.f,  0.13f); // blue
-				DrawDebugSolidSphere(state, mo->OffhandPos, climbR,   0.3f, 0.5f, 1.f,  0.13f);
+				//DrawDebugSolidSphere(state, mo->AttackPos,  climbR,   0.3f, 0.5f, 1.f,  0.13f); // blue (climb) DISABLED
+				//DrawDebugSolidSphere(state, mo->OffhandPos, climbR,   0.3f, 0.5f, 1.f,  0.13f);
 				DrawDebugSolidSphere(state, mo->AttackPos,  twohandR, 1.f,  0.9f, 0.1f, 0.22f); // yellow
 			}
 		}
@@ -1129,6 +1139,43 @@ static void DrawXRDebugCones(FRenderState& state)
 		// Filled additive orange cone (narrow 6deg, so a slightly stronger haze reads clean).
 		if (vr_grab_debug_cone_solid)
 			DrawDebugSolidCone(state, mo->OffhandPos, GetLaserBeamControllerDirection(true), gpDist, 6.0, 1.f, 0.55f, 0.f, 0.12f);
+	}
+	if (hpOn)
+	{
+		// Hardpoint/holster mount markers -- one wire (+solid) sphere per ENABLED slot,
+		// at the exact world position VR_UpdateHardpoints resolves for real grip/proximity
+		// checks (VR_ResolveHardpointWorldPos, vr_hardpoint.h:79), so the marker can never
+		// drift from the actual mechanic. Colored by ANCHOR TYPE only (never per-hand, never
+		// per-slot-index), so every body-mounted slot reads one color and every wrist-mounted
+		// slot reads a second, distinct, wild color -- same "same-family-same-color" rule the
+		// grab cones (cyan/cyan) and catch spheres (green/green) already follow.
+		for (int i = 0; i < player->vr_hardpoint_count; i++)
+		{
+			const auto& slot = player->vr_hardpoints[i];
+			if (!slot.enabled) continue;
+
+			const bool isWrist = (slot.anchor == HP_ANCHOR_WRIST);
+			// forHand only matters for wrist slots (position = OTHER hand's transform);
+			// a hand-restricted slot uses its own hand, an either-hand slot defaults main.
+			const int forHand = (slot.hand == 1) ? 1 : 0;
+
+			double pos[3];
+			if (!VR_ResolveHardpointWorldPos(player, i, forHand, pos)) continue;
+
+			// Hot magenta = body-anchored (chest/hip holsters). Electric violet = wrist-anchored
+			// (ability mounts on the other hand). Maximally wild + maximally distinct from the
+			// existing cyan/green/yellow/orange debug palette above -- no color collisions.
+			const float cr = isWrist ? 0.55f : 1.00f;
+			const float cg = 0.00f;
+			const float cb = 1.00f;
+
+			const double markerR = (slot.radius > 0.0f) ? (double)slot.radius * 0.4 : (double)vr_hardpoint_radius * 0.4;
+			const double r = markerR > 4.0 ? markerR : 4.0; // tiny box stand-in; never collapse to invisible
+
+			DrawDebugWireSphere(state, DVector3(pos[0], pos[1], pos[2]), r, cr, cg, cb, 0.90f);
+			if (vr_grab_debug_sphere_solid)
+				DrawDebugSolidSphere(state, DVector3(pos[0], pos[1], pos[2]), r, cr, cg, cb, 0.20f);
+		}
 	}
 }
 
@@ -1971,6 +2018,48 @@ bool HUDSprite::GetWeaponRect(HWDrawInfo *di, DPSprite *psp, float sx, float sy,
 // R_DrawPlayerSprites
 //
 //==========================================================================
+// [XR] Native weapon MD3<->IQM format swap. When vr_weapon_model_format==1 (IQM, default), take the
+// archetype-resolved frame (whose model ids point at the .md3) and return a COPY whose ids are
+// remapped to the .iqm sibling next to each .md3 (same dir + stem), pinned to bind pose (frame 0),
+// with MDL_MODELSAREATTACHMENTS forced so the 0-baked-frame rig uploads its bind pose. Slots with no
+// .iqm sibling (Chainsaw, muzzle flashes, grenade) keep their .md3 -> those weapons are unaffected.
+// m16 is already .iqm in modeldef, so the ".md3"-extension test skips it (no double swap). Results are
+// memoized by the stable FindModelFrame cache pointer, so FindModel + the filesystem probe run at most
+// once per weapon frame and the returned pointer is permanent + pointer-stable (no per-frame alloc,
+// no shared-cache mutation, no reentrancy hazard).
+static FSpriteModelFrame* VR_ApplyWeaponModelFormat(FSpriteModelFrame* orig)
+{
+	if (!orig || vr_weapon_model_format != 1) return orig;   // 0 = MD3: untouched shipped behaviour
+
+	static TMap<FSpriteModelFrame*, FSpriteModelFrame*> cache;
+	if (auto cached = cache.CheckKey(orig)) return *cached;
+
+	FSpriteModelFrame* result = orig;        // default: nothing to swap -> use the original frame
+	FSpriteModelFrame swapped = *orig;       // deep-copies the TArrays; never touch the shared cache entry
+	bool any = false;
+	for (unsigned i = 0; i < swapped.modelIDs.Size(); i++)
+	{
+		int id = swapped.modelIDs[i];
+		if (id < 0 || (unsigned)id >= Models.Size() || Models[id] == nullptr) continue;
+		FString fn = Models[id]->mFileName;                            // e.g. "models/weapons/pistol/Pistol.md3"
+		if ((size_t)fn.LastIndexOf(".md3") != fn.Len() - 4) continue;  // already .iqm (m16) or non-md3 -> skip
+		FString iqm = fn; iqm.Substitute(".md3", ".iqm");
+		if (fileSystem.CheckNumForFullName(iqm.GetChars()) < 0) continue; // no sibling -> keep this slot's .md3
+		unsigned nid = FindModel("", iqm.GetChars(), true);
+		if (nid == (unsigned)-1) continue;                             // FindModel returns unsigned(-1) on failure
+		swapped.modelIDs[i] = (int)nid;
+		if (i < swapped.modelframes.Size()) swapped.modelframes[i] = 0; // IQM is one bind frame
+		any = true;
+	}
+	if (any)
+	{
+		swapped.XR_OrFlags(MDL_MODELSAREATTACHMENTS);   // gate the 0-frame bind-pose bone upload
+		result = new FSpriteModelFrame(swapped);        // permanent + pointer-stable (tiny bounded cache)
+	}
+	cache.Insert(orig, result);
+	return result;
+}
+
 void HWDrawInfo::PreparePlayerSprites2D(sector_t * viewsector, area_t in_area)
 {
 	static PClass * wpCls = PClass::FindClass("Weapon");
@@ -2028,6 +2117,7 @@ void HWDrawInfo::PreparePlayerSprites2D(sector_t * viewsector, area_t in_area)
 						if (activeState)
 						{
 							smf = FindModelFrame(archClass, activeState->sprite, activeState->GetFrame(), false);
+							smf = VR_ApplyWeaponModelFormat(smf);   // [XR] MD3->IQM per vr_weapon_model_format
 						}
 					}
 				}
@@ -2145,6 +2235,7 @@ void HWDrawInfo::PreparePlayerSprites3D(sector_t * viewsector, area_t in_area)
 						if (activeState)
 						{
 							smf = FindModelFrame(archClass, activeState->sprite, activeState->GetFrame(), false);
+							smf = VR_ApplyWeaponModelFormat(smf);   // [XR] MD3->IQM per vr_weapon_model_format
 						}
 					}
 				}

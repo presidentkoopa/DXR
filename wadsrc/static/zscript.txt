@@ -23,6 +23,7 @@ version "4.14.2"
 // with no engine-only dependency, so they can live in the mod pk3 for easier iteration. The native
 // fields, the shader .fp files, and their gldefs.txt HardwareShader bindings all stay here.
 #include "zscript/ui/vr_rom_load.zs"
+#include "zscript/ui/vr_test_maptext.zs"
 #include "zscript/effects/vr_death_effects.zs"
 #include "zscript/engine/ui/menu/menucustomize.zs"
 #include "zscript/engine/ui/menu/menuitembase.zs"
@@ -141,6 +142,10 @@ version "4.14.2"
 #include "zscript/actors/doom/bossbrain.zs"
 #include "zscript/engine/vr_weapon_helpers.zs"
 #include "zscript/engine/vr_manual_reload.zs"
+#include "zscript/engine/vr_ammo_pouch.zs"
+#include "zscript/engine/vr_reload_debug.zs"
+#include "zscript/engine/vr_reload_juice.zs"
+#include "zscript/engine/vr_grapple.zs"
 #include "zscript/engine/vr_hardpoint_markers.zs"
 
 // New Weapons -- must come after vr_weapon_helpers.zs (A_CheckSpawnModel/A_DataSiphonEquip/
@@ -162,6 +167,7 @@ version "4.14.2"
 #include "zscript/actors/doom/weaponplasma.zs"
 #include "zscript/actors/doom/weaponbfg.zs"
 #include "zscript/actors/doom/weaponm79.zs"
+#include "zscript/actors/doom/weapon_dualwield_variants.zs"
 #include "zscript/actors/doom/weaponshieldsaw.zs"
 #include "zscript/actors/doom/vr_thrown.zs"
 #include "zscript/actors/doom/vr_blade_profile.zs"
@@ -351,10 +357,10 @@ version "4.14.2"
 #include "zscript/ui/intermission.zs"
 
 // --- GunBonsai tooltip library (TFLV_TooltipOptionMenu/TFLV_Tooltip) -- kept here even though
-// GITD (which used it most) moved out to the standalone Radiance Control Panel mod, because ~29
-// OTHER non-GITD OptionMenu blocks in menudef.txt (VRCombatOptions etc.) also use these classes.
+// RADIANCE (which used it most) moved out to the standalone Radiance Control Panel mod, because ~29
+// OTHER non-RADIANCE OptionMenu blocks in menudef.txt (VRCombatOptions etc.) also use these classes.
 // ZScript classes are visible across all loaded pk3s regardless of which one defines them, so the
-// mod's own GITD_Options menu (also class TFLV_TooltipOptionMenu) resolves this fine as long as
+// mod's own RADIANCE_Options menu (also class TFLV_TooltipOptionMenu) resolves this fine as long as
 // both pk3s are loaded together.
 #include "zscript/radiance/ca.ancilla.bonsai/libtooltipmenu/Tooltips.zsc"
 #include "zscript/radiance/ca.ancilla.bonsai/libtooltipmenu/TooltipOptionMenu.zsc"

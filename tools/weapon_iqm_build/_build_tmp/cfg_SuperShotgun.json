@@ -1,0 +1,24 @@
+{
+  "md3": "E:\\DoomXR-work\\DOOM_FRESH\\wadsrc\\static\\models\\weapons\\hud\\ssg\\ssg.md3",
+  "out": "E:\\DoomXR-work\\DOOM_FRESH\\wadsrc\\static\\models\\weapons\\hud\\ssg\\ssg.iqm",
+  "style": "break",
+  "material": "SSG",
+  "hotspots": {
+    "hs_grip": [
+      0,
+      0,
+      0
+    ],
+    "hs_foregrip": [
+      43.8609,
+      0.0469,
+      -4.6094
+    ],
+    "hs_breech": [
+      29.4453,
+      0.0469,
+      -4.6094
+    ]
+  },
+  "ready_frame": 1
+}

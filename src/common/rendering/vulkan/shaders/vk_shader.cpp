@@ -279,14 +279,14 @@ static const char *shaderBindings = R"(
 
 		vec4 u_MSDFColor;
 
-		// ===== GITD OMNI-FOG & REGIMES (must match C++ StreamData in hw_renderstate.h) =====
-		int   u_gitd_fog_mode;
-		float u_gitd_fog_density;
-		float u_gitd_fog_height;
-		float u_gitd_fog_quantize;
-		float u_gitd_fog_rim_power;
-		float u_gitd_fog_speed;
-		int   u_gitd_fog_lightlink;
+		// ===== RADIANCE OMNI-FOG & REGIMES (must match C++ StreamData in hw_renderstate.h) =====
+		int   u_radiance_fog_mode;
+		float u_radiance_fog_density;
+		float u_radiance_fog_height;
+		float u_radiance_fog_quantize;
+		float u_radiance_fog_rim_power;
+		float u_radiance_fog_speed;
+		int   u_radiance_fog_lightlink;
 		int   u_vr_visual_regime;
 		float u_vr_regime_param1;
 		float u_vr_regime_param2;
@@ -297,19 +297,19 @@ static const char *shaderBindings = R"(
 		float u_vr_regime_jitter;
 		int   u_vr_regime_speed_link;
 		float u_vr_regime_ping_inten;
-		float u_gitd_last_hit_time;
-		float u_gitd_last_fire_time;
-		float u_gitd_player_speed;
-		float u_gitd_kill_streak;
+		float u_radiance_last_hit_time;
+		float u_radiance_last_fire_time;
+		float u_radiance_player_speed;
+		float u_radiance_kill_streak;
 		float u_vr_thermal_inten;
 		float u_vr_noir_sat;
 		int   u_vr_ripples_enabled;
 		float u_vr_ripple_scale;
-		float u_gitd_last_impact_time;
-		int   u_gitd_pad0;
-		int   u_gitd_pad1;
+		float u_radiance_last_impact_time;
+		int   u_radiance_pad0;
+		int   u_radiance_pad1;
 		vec4  u_vr_blueprint_col;
-		vec4  u_gitd_last_impact_pos;
+		vec4  u_radiance_last_impact_pos;
 
 		// Monster neon outlines -- must mirror hw_renderstate.h field-for-field (same padding).
 		float u_BlackoutMode;
@@ -439,13 +439,13 @@ static const char *shaderBindings = R"(
 	#define u_MSDFGlitch data[uDataIndex].u_MSDFGlitch
 	#define u_MSDFColor data[uDataIndex].u_MSDFColor
 
-	#define u_gitd_fog_mode data[uDataIndex].u_gitd_fog_mode
-	#define u_gitd_fog_density data[uDataIndex].u_gitd_fog_density
-	#define u_gitd_fog_height data[uDataIndex].u_gitd_fog_height
-	#define u_gitd_fog_quantize data[uDataIndex].u_gitd_fog_quantize
-	#define u_gitd_fog_rim_power data[uDataIndex].u_gitd_fog_rim_power
-	#define u_gitd_fog_speed data[uDataIndex].u_gitd_fog_speed
-	#define u_gitd_fog_lightlink data[uDataIndex].u_gitd_fog_lightlink
+	#define u_radiance_fog_mode data[uDataIndex].u_radiance_fog_mode
+	#define u_radiance_fog_density data[uDataIndex].u_radiance_fog_density
+	#define u_radiance_fog_height data[uDataIndex].u_radiance_fog_height
+	#define u_radiance_fog_quantize data[uDataIndex].u_radiance_fog_quantize
+	#define u_radiance_fog_rim_power data[uDataIndex].u_radiance_fog_rim_power
+	#define u_radiance_fog_speed data[uDataIndex].u_radiance_fog_speed
+	#define u_radiance_fog_lightlink data[uDataIndex].u_radiance_fog_lightlink
 	#define u_vr_visual_regime data[uDataIndex].u_vr_visual_regime
 	#define u_vr_regime_param1 data[uDataIndex].u_vr_regime_param1
 	#define u_vr_regime_param2 data[uDataIndex].u_vr_regime_param2
@@ -456,17 +456,17 @@ static const char *shaderBindings = R"(
 	#define u_vr_regime_jitter data[uDataIndex].u_vr_regime_jitter
 	#define u_vr_regime_speed_link data[uDataIndex].u_vr_regime_speed_link
 	#define u_vr_regime_ping_inten data[uDataIndex].u_vr_regime_ping_inten
-	#define u_gitd_last_hit_time data[uDataIndex].u_gitd_last_hit_time
-	#define u_gitd_last_fire_time data[uDataIndex].u_gitd_last_fire_time
-	#define u_gitd_player_speed data[uDataIndex].u_gitd_player_speed
-	#define u_gitd_kill_streak data[uDataIndex].u_gitd_kill_streak
+	#define u_radiance_last_hit_time data[uDataIndex].u_radiance_last_hit_time
+	#define u_radiance_last_fire_time data[uDataIndex].u_radiance_last_fire_time
+	#define u_radiance_player_speed data[uDataIndex].u_radiance_player_speed
+	#define u_radiance_kill_streak data[uDataIndex].u_radiance_kill_streak
 	#define u_vr_thermal_inten data[uDataIndex].u_vr_thermal_inten
 	#define u_vr_noir_sat data[uDataIndex].u_vr_noir_sat
 	#define u_vr_ripples_enabled data[uDataIndex].u_vr_ripples_enabled
 	#define u_vr_ripple_scale data[uDataIndex].u_vr_ripple_scale
-	#define u_gitd_last_impact_time data[uDataIndex].u_gitd_last_impact_time
+	#define u_radiance_last_impact_time data[uDataIndex].u_radiance_last_impact_time
 	#define u_vr_blueprint_col data[uDataIndex].u_vr_blueprint_col.rgb
-	#define u_gitd_last_impact_pos data[uDataIndex].u_gitd_last_impact_pos.xyz
+	#define u_radiance_last_impact_pos data[uDataIndex].u_radiance_last_impact_pos.xyz
 	#define u_BlackoutMode data[uDataIndex].u_BlackoutMode
 	#define u_NeonThickness data[uDataIndex].u_NeonThickness
 	#define u_NeonThreshold data[uDataIndex].u_NeonThreshold
@@ -630,7 +630,7 @@ FString VkShaderManager::GetTargetGlslVersion()
 
 FString VkShaderManager::LoadPublicShaderLump(const char *lumpname)
 {
-	int lump = fileSystem.CheckNumForFullName(lumpname);          // [GITD] global FIRST so a mod/loose pk3 (last-loaded) overrides core shaders
+	int lump = fileSystem.CheckNumForFullName(lumpname);          // [RADIANCE] global FIRST so a mod/loose pk3 (last-loaded) overrides core shaders
 	if (lump == -1) lump = fileSystem.CheckNumForFullName(lumpname, 0);
 	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
 	return GetStringFromLump(lump);
@@ -638,7 +638,7 @@ FString VkShaderManager::LoadPublicShaderLump(const char *lumpname)
 
 FString VkShaderManager::LoadPrivateShaderLump(const char *lumpname)
 {
-	int lump = fileSystem.CheckNumForFullName(lumpname);          // [GITD] global FIRST so a mod/loose pk3 (last-loaded) overrides core shaders (e.g. main.fp)
+	int lump = fileSystem.CheckNumForFullName(lumpname);          // [RADIANCE] global FIRST so a mod/loose pk3 (last-loaded) overrides core shaders (e.g. main.fp)
 	if (lump == -1) lump = fileSystem.CheckNumForFullName(lumpname, 0);
 	if (lump == -1) I_Error("Unable to load '%s'", lumpname);
 	return GetStringFromLump(lump);

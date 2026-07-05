@@ -1,0 +1,41 @@
+{
+  "_readme": "DoomXR gesture table. Read natively by vr_gesture.cpp at runtime from the dir next to doomxr.exe (like vr_hardpoints.json). Each entry: id (unique), anchor (chest/hip_l/hip_r/shoulder_l/shoulder_r/temple/wrist_main/wrist_off/belt/back/none), hand (main/off/either), motion (flick/thrust/shove/arc/circle_cw/circle_ccw/slash/guard/catch/place/reversal/none), gate (button-bit as an integer; 0 = pose-only = NOT multiplayer-safe), radius (map units to the anchor), dwell (tics the condition must hold before firing), action (ZScript action name; defaults to id), owned (bool; the shop flips this). Adding/editing entries needs NO recompile.",
+
+  "gestures": [
+    {
+      "_comment": "chest-pouch reload: off-hand flick at the chest, confirmed by the offhand reload bit (1<<28 = 268435456).",
+      "id": "pouch_reload",
+      "anchor": "chest", "hand": "off", "motion": "flick",
+      "gate": 268435456, "radius": 22, "dwell": 4,
+      "action": "pouch_reload", "owned": true
+    },
+    {
+      "_comment": "wrist-top grapple quick-cast: main hand taps the off-hand wrist. gate 0 for now (pose-only); wire to a real bit for MP.",
+      "id": "wrist_grapple",
+      "anchor": "wrist_off", "hand": "main", "motion": "flick",
+      "gate": 0, "radius": 12, "dwell": 2,
+      "action": "wrist_grapple", "owned": false
+    },
+    {
+      "_comment": "sigil circle overcharge: trace a circle with the off hand near the weapon; drives an elemental FX.",
+      "id": "sigil_circle",
+      "anchor": "none", "hand": "off", "motion": "circle_cw",
+      "gate": 0, "radius": 0, "dwell": 0,
+      "action": "sigil_circle", "owned": false
+    },
+    {
+      "_comment": "called-shot point: off-hand thrust toward a target designates a weak point (arming condition; the real kill stays on the fire button).",
+      "id": "called_shot",
+      "anchor": "none", "hand": "off", "motion": "thrust",
+      "gate": 0, "radius": 0, "dwell": 0,
+      "action": "called_shot", "owned": false
+    },
+    {
+      "_comment": "belt grenade pull: off-hand flick at the belt anchor, quick grenade primed on pull.",
+      "id": "belt_grenade",
+      "anchor": "belt", "hand": "off", "motion": "flick",
+      "gate": 0, "radius": 18, "dwell": 3,
+      "action": "belt_grenade", "owned": false
+    }
+  ]
+}

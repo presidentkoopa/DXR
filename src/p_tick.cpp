@@ -163,7 +163,7 @@ void P_Ticker (void)
 
 		P_ThinkParticles(Level);	// [RH] make the particles think
 
-		// [GITD] start a fresh tic of glow spots BEFORE anything publishes into the registry. Cleared
+		// [RADIANCE] start a fresh tic of glow spots BEFORE anything publishes into the registry. Cleared
 		// per game-tic (not per render frame) so VR's high frame rate doesn't strobe the 35Hz spots.
 		Level->GlowSpots.Clear();
 

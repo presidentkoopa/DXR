@@ -19,19 +19,32 @@ class DoomPlayer : PlayerPawn
 		Player.StartItem "Fist";
 		Player.StartItem "VRSword";
 		Player.StartItem "IceHook";
-		Player.StartItem "Clip", 50;
-		// XRWhip and ShieldSaw are opt-in only -- granted by WeaponReplacementHandler
-		// (vr_weapon_logic.zs) when vr_start_with_whip / vr_start_with_shieldsaw is on.
-		// VRSword and XRWhip are physical VR-grab tools, not number-key weapons -- no
-		// WeaponSlot assignment.
-		Player.WeaponSlot 1, "Fist", "Chainsaw", "Flamethrower", "ShieldSaw";
-		Player.WeaponSlot 2, "Pistol", "SMG", "Revolver";
-		Player.WeaponSlot 3, "Shotgun", "SuperShotgun";
-		Player.WeaponSlot 4, "Chaingun", "Rifle";
+		// [XR] Spawn with a FULL reserve of EVERY ammo type so every weapon (and its dual-wield _2,
+		// which shares the same pool) is loaded and ready from the start -- no gun spawns empty.
+		Player.StartItem "Clip", 200;        // bullets: Pistol / Rifle / Revolver / Chaingun / SMG
+		Player.StartItem "Shell", 50;        // Shotgun / SuperShotgun
+		Player.StartItem "RocketAmmo", 50;   // RocketLauncher / M79
+		Player.StartItem "Cell", 300;        // PlasmaRifle / BFG9000
+		Player.StartItem "Fuel", 100;        // Flamethrower
+		// [XR] The VR grab-tools now ALSO have number-key slots (slot 9 = melee/grab: IceHook,
+		// VRSword, XRWhip; ShieldSaw shares the melee slot 1). They still work as physical VR-grab
+		// tools -- the slots just make them selectable/visible without the (unwired) holster-draw.
+		// Spawn loadout: VRSword + IceHook via StartItem above; XRWhip + ShieldSaw via
+		// WeaponReplacementHandler (vr_weapon_logic.zs), both CVars (vr_start_with_whip /
+		// vr_start_with_shieldsaw) default ON -- so the marine spawns holding all four tools.
+		// Dual-wield "_2" variants share their base's slot so the SECOND gun is selectable
+		// (weapon wheel / next-weapon) -- required for the banked-spare case where both hands
+		// were full when it was acquired. Melee/tools (Fist/Chainsaw/ShieldSaw/Grenade/IceHook/
+		// VRSword/XRWhip) are not dual-wieldable, so no variants there.
+		Player.WeaponSlot 1, "Fist", "Chainsaw", "Flamethrower", "Flamethrower_2", "ShieldSaw";
+		Player.WeaponSlot 2, "Pistol", "Pistol_2", "SMG", "SMG_2", "Revolver", "Revolver_2";
+		Player.WeaponSlot 3, "Shotgun", "Shotgun_2", "SuperShotgun", "SuperShotgun_2";
+		Player.WeaponSlot 4, "Chaingun", "Chaingun_2", "Rifle", "Rifle_2";
+		Player.WeaponSlot 5, "RocketLauncher", "RocketLauncher_2", "M79", "M79_2";
+		Player.WeaponSlot 6, "ID24Incinerator", "PlasmaRifle", "PlasmaRifle_2";
+		Player.WeaponSlot 7, "ID24CalamityBlade", "BFG9000", "BFG9000_2";
 		Player.WeaponSlot 8, "HandGrenade";
-		Player.WeaponSlot 5, "RocketLauncher", "M79";
-		Player.WeaponSlot 6, "ID24Incinerator", "PlasmaRifle";
-		Player.WeaponSlot 7, "ID24CalamityBlade", "BFG9000";
+		Player.WeaponSlot 9, "IceHook", "VRSword", "XRWhip";
 		
 		Player.ColorRange 112, 127;
 		Player.Colorset 0, "$TXT_COLOR_GREEN",		0x70, 0x7F,  0x72;

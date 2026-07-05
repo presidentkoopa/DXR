@@ -173,7 +173,7 @@ struct FVector4PalEntry
 
 };
 
-// [GITD] max simultaneous localized glow spots packed into one draw (mirrored as a #define in
+// [RADIANCE] max simultaneous localized glow spots packed into one draw (mirrored as a #define in
 // every backend's shader prelude — GL/GLES/Vulkan — so C++ and GLSL agree on the array size).
 #define MAX_WALL_GLOW_SPOTS 16
 
@@ -228,20 +228,20 @@ struct StreamData
 	int padding4; // [std140 align] FVector4/FVector4PalEntry are bare floats (align-4, no alignas),
 	int padding5; // so C++ does NOT round the next vec4 up to 16 the way GLSL std140 does. The
 	int padding6; // uGlobalFade..padding3 run is 9 scalars (36B); these 3 pads make u_MSDFColor land
-	              // on a 16B boundary matching GLSL, else every field after it (all GITD fog/regime
+	              // on a 16B boundary matching GLSL, else every field after it (all RADIANCE fog/regime
 	              // uniforms) shifts 12 bytes -> corrupt reads (black world + mis-coloured glyph spray).
 
 	FVector4 u_MSDFColor;
 
-	// ===== GITD OMNI-FOG & REGIMES (global; fed per-frame; see gitd_shaderbridge -> GITDShader natives) =====
+	// ===== RADIANCE OMNI-FOG & REGIMES (global; fed per-frame; see radiance_shaderbridge -> RADIANCEShader natives) =====
 	// KEEP byte-identical (field order + std140 layout) with the GLSL StreamData in vk_shader.cpp.
-	int   u_gitd_fog_mode;
-	float u_gitd_fog_density;
-	float u_gitd_fog_height;
-	float u_gitd_fog_quantize;
-	float u_gitd_fog_rim_power;
-	float u_gitd_fog_speed;
-	int   u_gitd_fog_lightlink;
+	int   u_radiance_fog_mode;
+	float u_radiance_fog_density;
+	float u_radiance_fog_height;
+	float u_radiance_fog_quantize;
+	float u_radiance_fog_rim_power;
+	float u_radiance_fog_speed;
+	int   u_radiance_fog_lightlink;
 	int   u_vr_visual_regime;
 	float u_vr_regime_param1;
 	float u_vr_regime_param2;
@@ -252,23 +252,23 @@ struct StreamData
 	float u_vr_regime_jitter;
 	int   u_vr_regime_speed_link;
 	float u_vr_regime_ping_inten;
-	float u_gitd_last_hit_time;
-	float u_gitd_last_fire_time;
-	float u_gitd_player_speed;
-	float u_gitd_kill_streak;
+	float u_radiance_last_hit_time;
+	float u_radiance_last_fire_time;
+	float u_radiance_player_speed;
+	float u_radiance_kill_streak;
 	float u_vr_thermal_inten;
 	float u_vr_noir_sat;
 	int   u_vr_ripples_enabled;
 	float u_vr_ripple_scale;
-	float u_gitd_last_impact_time;
-	int   u_gitd_pad0;
-	int   u_gitd_pad1;
+	float u_radiance_last_impact_time;
+	int   u_radiance_pad0;
+	int   u_radiance_pad1;
 	FVector4 u_vr_blueprint_col;      // .rgb
-	FVector4 u_gitd_last_impact_pos;  // .xyz
+	FVector4 u_radiance_last_impact_pos;  // .xyz
 
 	// ===== MONSTER NEON OUTLINES (global; fed per-frame directly from the CVARINFO cvars via
 	// FindCVar() in hw_drawinfo.cpp -- NOT via ZScript/Shader.SetUniform, which cannot reach a
-	// Sprite material shader like monster_neon.fp; gitd_shaderbridge.zs's own comment confirms that
+	// Sprite material shader like monster_neon.fp; radiance_shaderbridge.zs's own comment confirms that
 	// API only exists for PostProcess shaders. KEEP byte-identical with GLSL StreamData in vk_shader.cpp.
 	float u_BlackoutMode;
 	float u_NeonThickness;
@@ -299,7 +299,7 @@ struct FNeonOutlineState
 extern FNeonOutlineState GNeonOutlineState;
 
 // Same idiom as FNeonOutlineState above: cheap once-per-frame cache for the visual-regime and
-// GITD fog tuning cvars, populated by HWDrawInfo::StartScene() via FindCVar(). FRenderState::Reset()
+// RADIANCE fog tuning cvars, populated by HWDrawInfo::StartScene() via FindCVar(). FRenderState::Reset()
 // just copies from this. The four *Pulse/KillStreak/PlayerSpeed-style reactive fields are NOT
 // cvars -- PlayerSpeed is computed live from the viewpoint each frame; LastHitTime/LastFireTime/
 // KillStreak/LastImpact have no producer yet (no combat-event tracker wired to them), so they
@@ -458,16 +458,16 @@ public:
 		mStreamData.padding4 = mStreamData.padding5 = mStreamData.padding6 = 0;
 		mStreamData.u_MSDFColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-		// GITD fog/regime: cheap copy from the once-per-frame cache (see FVisualRegimeState /
+		// RADIANCE fog/regime: cheap copy from the once-per-frame cache (see FVisualRegimeState /
 		// GVisualRegimeState above), same idiom as the neon-outline copy just below. Reset() must
 		// never do the FindCVar lookup itself -- that's StartScene()'s job, once per scene/eye.
-		mStreamData.u_gitd_fog_mode = (int)GVisualRegimeState.FogMode;
-		mStreamData.u_gitd_fog_density = GVisualRegimeState.FogDensity;
-		mStreamData.u_gitd_fog_height = GVisualRegimeState.FogHeight;
-		mStreamData.u_gitd_fog_quantize = GVisualRegimeState.FogQuantize;
-		mStreamData.u_gitd_fog_rim_power = GVisualRegimeState.FogRimPower;
-		mStreamData.u_gitd_fog_speed = GVisualRegimeState.FogSpeed;
-		mStreamData.u_gitd_fog_lightlink = (int)GVisualRegimeState.FogLightLink;
+		mStreamData.u_radiance_fog_mode = (int)GVisualRegimeState.FogMode;
+		mStreamData.u_radiance_fog_density = GVisualRegimeState.FogDensity;
+		mStreamData.u_radiance_fog_height = GVisualRegimeState.FogHeight;
+		mStreamData.u_radiance_fog_quantize = GVisualRegimeState.FogQuantize;
+		mStreamData.u_radiance_fog_rim_power = GVisualRegimeState.FogRimPower;
+		mStreamData.u_radiance_fog_speed = GVisualRegimeState.FogSpeed;
+		mStreamData.u_radiance_fog_lightlink = (int)GVisualRegimeState.FogLightLink;
 		mStreamData.u_vr_visual_regime = (int)GVisualRegimeState.RegimeSelect;
 		mStreamData.u_vr_regime_param1 = GVisualRegimeState.RegimeParam1;
 		mStreamData.u_vr_regime_param2 = GVisualRegimeState.RegimeParam2;
@@ -478,19 +478,19 @@ public:
 		mStreamData.u_vr_regime_jitter = GVisualRegimeState.RegimeJitter;
 		mStreamData.u_vr_regime_speed_link = (int)GVisualRegimeState.RegimeSpeedLink;
 		mStreamData.u_vr_regime_ping_inten = GVisualRegimeState.RegimePingInten;
-		mStreamData.u_gitd_last_hit_time = GVisualRegimeState.LastHitTime;
-		mStreamData.u_gitd_last_fire_time = GVisualRegimeState.LastFireTime;
-		mStreamData.u_gitd_player_speed = GVisualRegimeState.PlayerSpeed;
-		mStreamData.u_gitd_kill_streak = GVisualRegimeState.KillStreak;
+		mStreamData.u_radiance_last_hit_time = GVisualRegimeState.LastHitTime;
+		mStreamData.u_radiance_last_fire_time = GVisualRegimeState.LastFireTime;
+		mStreamData.u_radiance_player_speed = GVisualRegimeState.PlayerSpeed;
+		mStreamData.u_radiance_kill_streak = GVisualRegimeState.KillStreak;
 		mStreamData.u_vr_thermal_inten = GVisualRegimeState.RegimeThermalInten;
 		mStreamData.u_vr_noir_sat = GVisualRegimeState.RegimeNoirSat;
 		mStreamData.u_vr_ripples_enabled = (int)GVisualRegimeState.RegimeRipplesEnabled;
 		mStreamData.u_vr_ripple_scale = GVisualRegimeState.RegimeRippleScale;
-		mStreamData.u_gitd_last_impact_time = GVisualRegimeState.LastImpactTime;
-		mStreamData.u_gitd_pad0 = 0;
-		mStreamData.u_gitd_pad1 = 0;
+		mStreamData.u_radiance_last_impact_time = GVisualRegimeState.LastImpactTime;
+		mStreamData.u_radiance_pad0 = 0;
+		mStreamData.u_radiance_pad1 = 0;
 		mStreamData.u_vr_blueprint_col = GVisualRegimeState.RegimeBlueprintCol;
-		mStreamData.u_gitd_last_impact_pos = GVisualRegimeState.LastImpactPos;
+		mStreamData.u_radiance_last_impact_pos = GVisualRegimeState.LastImpactPos;
 
 		// Cheap copy from the once-per-frame cache (see FNeonOutlineState / GNeonOutlineState
 		// above) -- populated by HWDrawInfo::StartScene() via FindCVar(), never looked up here.
@@ -678,7 +678,7 @@ public:
 		mStreamData.uGlowBottomPlane = bp;
 	}
 
-	// [GITD] localized glow SPOTS cast onto floors/ceilings (N radial pools per draw).
+	// [RADIANCE] localized glow SPOTS cast onto floors/ceilings (N radial pools per draw).
 	void EnableWallGlow(bool on)
 	{
 		if (mWallGlowEnabled && !on)
