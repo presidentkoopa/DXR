@@ -1635,12 +1635,14 @@ void VR_UpdateHandCollision(player_t* player); // [XR] hand-vs-wall proximity + 
 void VR_UpdateHardpointGlow(player_t* player); // [XR] hardpoint draw/stow proximity glow
 void VR_UpdateHardpoints(player_t* player);   // proximity+grip draw/holster, native hardpoint mounts
 void VR_UpdateWeaponReload(player_t* player); // [XR] native box-mag manual-reload FSM (gated vr_new_weapon_handling)
+void VR_UpdateWeaponAnim(player_t* player);   // [XR] procedural weapon recoil -> weapon IQM hs_grip bone (gated vr_weapon_recoil)
 void VR_UpdateArmIK(player_t* player);        // two-bone IK -> player->vr_ik_pose
 // [XR weapon handling] name -> bind-LOCAL hotspot pos (p_actionfunctions.cpp; confines FModel to that file).
 bool VR_WeaponBoneBindLocal(AActor* weapon, FName boneName, FVector3& out);
 // [XR weapon handling] canonical hotspot WORLD-pos primitive (defined below): false if no authored bone.
 bool VR_WeaponHotspotWorld(AActor* weapon, FName name, DVector3& out);
 FModel* VR_EnsureAvatarModelDataAndGetModel(AActor* mo);   // p_actionfunctions.cpp: gives the pawn a modelData (pose target) + returns its rigged model
+FModel* VR_EnsureWeaponModelDataAndGetModel(AActor* weapon); // p_actionfunctions.cpp: same, for a HELD weapon actor (pose target for recoil)
 
 void P_PlayerThink (player_t *player)
 {
@@ -1738,6 +1740,7 @@ void P_PlayerThink (player_t *player)
     VR_CalculateTwoHanding(player);
     VR_UpdateHardpoints(player);
     VR_UpdateWeaponReload(player);   // [XR] native box-mag FSM (no-op unless vr_new_weapon_handling)
+    VR_UpdateWeaponAnim(player);     // [XR] procedural weapon recoil on the held IQM (no-op unless vr_weapon_recoil)
     VR_UpdateArmIK(player);
 
     // [XR] Decoupled body-avatar facing: hold the rendered body yaw steady while the head looks around
@@ -3519,6 +3522,13 @@ EXTERN_CVAR(Float, vr_ik_hand_maxstep)
 CVAR(Float, vr_ik_target_offx, 0.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // +X = model LATERAL (+left / -right)
 CVAR(Float, vr_ik_target_offy, 0.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // +Y = model FORWARD (view direction)
 CVAR(Float, vr_ik_target_offz, 0.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // +Z = model UP
+// [XR] PALM-SEAT correction. The two-bone IK places the marine WRIST joint on the controller/grip point, but
+// the hand MESH is skinned FORWARD of the wrist -- so the palm/fingers (the part that wraps a gun grip) land a
+// few units PAST the controller. This pulls the IK target back along model-FORWARD by that fixed wrist->palm
+// length, so the PALM seats on the controller (and thus on the weapon's hs_grip, which sits at the model
+// origin = the controller). Applied to BOTH hands (same mesh authoring) every tic. Default is a best-guess
+// starting length; dial in headset until the palm sits in the controller sphere. Set 0 to disable (revert).
+CVAR(Float, vr_ik_palm_back, 3.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 // [XR] EXTRA palm rotation applied to the LEFT / OFF hand ONLY (side 1), on top of the shared
 // vr_ik_hand_pitch/yaw/roll. The left hand's bind palm is a MIRROR of the right, so the offset that
 // aligns the right hand is ~180 off for the left. Dial these (try vr_ik_offhand_roll 180 first) until
@@ -3546,6 +3556,133 @@ extern float g_xr_vrBodyRenderScale;
 // un-yaw / axis-remap / feet-subtract / bodyFit-divide / forward-flip below.
 extern VSMatrix g_xr_vrBodyObjectToWorld;
 extern bool     g_xr_vrBodyObjToWorldValid;
+
+//----------------------------------------------------------------------------
+//
+// [XR] PROCEDURAL WEAPON RECOIL -- VR_UpdateWeaponAnim
+//
+// Peer of VR_UpdateArmIK, but for the HELD WEAPON instead of the body. Drives the weapon IQM's hs_grip ROOT
+// bone per-tic to kick the whole gun back-and-up on each shot, then springs it back to rest -- so firing reads
+// as a fluid recoil instead of a static prop. NO baked animation frames, NO re-export: it writes the SAME
+// proceduralPose channel the physics-whip and body-avatar already use (DActorModelData::proceduralPose +
+// useProceduralPose), which the HUD weapon render consumes via RenderHUDModel -> RenderFrameModels(psp->Caller)
+// -> ProcessModelFrame (r_data/models.cpp). hs_grip is the model's non-deforming weight-anchor ROOT (the whole
+// mesh rides it, tools/weapon_iqm_build README), so translating its local TRS rigidly kicks the entire gun.
+//
+// SELF-CALIBRATING DIRECTION: the kickback axis is derived from the weapon's OWN bones -- normalize(hs_grip ->
+// hs_foregrip) is the barrel line, so we push back along its negation (grip end, toward the shooter). No
+// per-weapon axis table; a weapon with no foregrip falls back to model -X (the batch tool's barrel long-axis).
+//
+// FIRE SIGNAL: rising edge of the attack button (attackdown / ohattackdown) plus a re-kick whenever the refire
+// counter climbs (sustained auto-fire re-fires without a fresh button edge). Zero ZScript hooks: works for the
+// whole roster off state already on player_t. GATED on vr_weapon_recoil (default on); an un-migrated MD3 weapon
+// resolves to no rigged model and is skipped, so the legacy roster is byte-for-byte unaffected.
+//
+// TRANSIENT / LOCAL-PRESENTATION-ONLY: reads inputs + writes a render-side kick envelope; NEVER touches Vel /
+// SetOrigin / Ammo (disjoint from the reload FSM's ammo writes and the whip's world-bone writes).
+//
+//----------------------------------------------------------------------------
+
+CVAR(Bool,  vr_weapon_recoil,        true, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // master: procedural weapon recoil on/off
+CVAR(Float, vr_weapon_recoil_kick,   2.5f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // map-units the gun slides BACK at full kick (negate to flip)
+CVAR(Float, vr_weapon_recoil_rise,   1.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // map-units the gun lifts UP (model +Z) at full kick (muzzle rise)
+CVAR(Float, vr_weapon_recoil_decay,  0.55f,CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // per-tic multiplier of the kick envelope (spring-back speed; 0..1)
+CVAR(Float, vr_weapon_recoil_impulse,1.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // envelope added per shot (clamped to 1); <1 = softer, stacks on auto
+
+// Kick one hand's weapon: seed proceduralPose with the bind pose, then offset the hs_grip root by the recoil
+// envelope along the self-derived back+up axes. amt is this hand's 0..1 envelope (already updated by caller).
+static void VR_ApplyWeaponRecoil(player_t* player, int handSlot, AActor* weapon)
+{
+	const float amt = player->vr_weapon_recoil[handSlot];
+
+	// Envelope spent: release OUR procedural-pose override (if we set it) so the gun renders its normal
+	// static bind pose again. Only clear when we own it -- never stomp another system's pose on this actor.
+	if (amt <= 0.f)
+	{
+		if (player->vr_weapon_pose_active[handSlot] && weapon != nullptr && weapon->modelData != nullptr)
+			weapon->modelData->useProceduralPose = false;
+		player->vr_weapon_pose_active[handSlot] = false;
+		return;
+	}
+	if (weapon == nullptr) return;
+
+	FModel* model = VR_EnsureWeaponModelDataAndGetModel(weapon);  // null => MD3 / unrigged: nothing to pose
+	DActorModelData* md = weapon->modelData;
+	if (model == nullptr || md == nullptr) return;
+
+	const int jointCount = model->GetJointCount();
+	if (jointCount <= 0) return;
+
+	// (Re)seed the WHOLE skeleton to its bind pose every tic. Mandatory: a default-constructed TRS has
+	// scaling (0,0,0) (utility/TRS.h), which would collapse the mesh -- and last tic's kick must be cleared
+	// off every non-grip joint. GetJointBindTRS fills real translate/rotate/scale from the model.
+	if ((int)md->proceduralPose.Size() != jointCount)
+		md->proceduralPose.Resize(jointCount);
+	for (int i = 0; i < jointCount; i++)
+		model->GetJointBindTRS(i, md->proceduralPose[i]);
+
+	int gripIdx = model->FindJointByNameCI(FName("hs_grip"));
+	if (gripIdx < 0) gripIdx = 0;   // hs_grip is authored as joint 0 (the root); fall back to the root anyway
+
+	// Back axis from the gun's OWN geometry: grip <- foregrip is "toward the shooter". Fall back to model -X
+	// (the batch builder's barrel long-axis) when a weapon authors no foregrip (melee/pod styles).
+	FVector3 back(-1.f, 0.f, 0.f);
+	int foreIdx = model->FindJointByNameCI(FName("hs_foregrip"));
+	FVector3 gripPos, forePos;
+	if (foreIdx >= 0 && model->GetJointBaseframePos(gripIdx, gripPos) && model->GetJointBaseframePos(foreIdx, forePos))
+	{
+		FVector3 d = gripPos - forePos;          // muzzle-end -> grip-end
+		if (d.Length() > 0.001f) back = d.Unit();
+	}
+	const FVector3 up(0.f, 0.f, 1.f);            // model +Z = up (hs_rack sits +Z of the bore)
+
+	const FVector3 delta = back * ((float)vr_weapon_recoil_kick * amt) + up * ((float)vr_weapon_recoil_rise * amt);
+	md->proceduralPose[gripIdx].translation += delta;   // rigid whole-gun kick (root carries all mesh weight)
+	md->useProceduralPose = true;
+	player->vr_weapon_pose_active[handSlot] = true;
+
+	static int s_recoilDbg = 0;
+	if (s_recoilDbg < 30)
+	{
+		s_recoilDbg++;
+		Printf("[VRRECOIL] slot=%d amt=%.2f joints=%d grip=%d fore=%d back=(%.2f,%.2f,%.2f)\n",
+			handSlot, amt, jointCount, gripIdx, foreIdx, back.X, back.Y, back.Z);
+	}
+}
+
+void VR_UpdateWeaponAnim(player_t* player)
+{
+	if (!vr_weapon_recoil) return;               // master toggle off => weapons render static (legacy)
+	if (!player || !player->mo) return;
+
+	// ---- fire edges (no ZScript hook needed): a fresh trigger pull OR a climbing refire count = a shot ----
+	const bool attackNow   = player->attackdown;
+	const bool ohattackNow = player->ohattackdown;
+	const int  refireNow   = player->refire;
+	const bool mainFired = (attackNow   && !player->vr_weapon_attack_prev)   || (refireNow > player->vr_weapon_refire_prev);
+	const bool offFired  = (ohattackNow && !player->vr_weapon_ohattack_prev);
+	player->vr_weapon_attack_prev   = attackNow;
+	player->vr_weapon_ohattack_prev = ohattackNow;
+	player->vr_weapon_refire_prev   = refireNow;
+
+	const float impulse = (float)vr_weapon_recoil_impulse;
+	float decay = (float)vr_weapon_recoil_decay;
+	if (decay < 0.f) decay = 0.f; if (decay > 0.98f) decay = 0.98f;
+
+	// slot 0 = main-hand weapon (ReadyWeapon), slot 1 = off-hand weapon (OffhandWeapon, dual-wield)
+	AActor* weapons[2] = { player->ReadyWeapon, player->OffhandWeapon };
+	const bool fired[2] = { mainFired, offFired };
+
+	for (int h = 0; h < 2; h++)
+	{
+		float amt = player->vr_weapon_recoil[h];
+		if (fired[h]) { amt += impulse; if (amt > 1.f) amt = 1.f; }
+		else          { amt *= decay;   if (amt < 0.02f) amt = 0.f; }
+		player->vr_weapon_recoil[h] = amt;
+
+		VR_ApplyWeaponRecoil(player, h, weapons[h]);
+	}
+}
 
 //----------------------------------------------------------------------------
 //
@@ -3961,6 +4098,19 @@ void VR_UpdateArmIK(player_t* player)
 		for (int s = 0; s < 2; s++)
 			if (haveTarget[s])
 				targetLocal[s] += FVector3((float)vr_ik_target_offx, (float)vr_ik_target_offy, (float)vr_ik_target_offz);
+
+	// [XR] PALM-SEAT: pull each hand's target back along model-FORWARD (+Y) by the fixed wrist->palm length so
+	// the palm (not the wrist) lands on the controller/grip. See vr_ik_palm_back decl. A foregripping OFF hand
+	// is EXCLUDED: it is already pinned to hs_foregrip's WORLD point (above), whose palm seating is handled by
+	// that bone's own authored placement -- shifting it here would double-correct and slide it off the barrel.
+	if ((float)vr_ik_palm_back != 0.f)
+		for (int s = 0; s < 2; s++)
+		{
+			if (!haveTarget[s]) continue;
+			const int handEnum = (s == 0) ? rightHandEnum : leftHandEnum;
+			if (player->vr_foregrip_engaged && handEnum == VR_OFFHAND) continue;
+			targetLocal[s].Y -= (float)vr_ik_palm_back;
+		}
 
 	// ---- per-side bind-pose geometry, read straight from the model's own baseframe
 	// (model-local space, no swapYZ / inversebaseframe -- see COORDINATE FRAME above) ----

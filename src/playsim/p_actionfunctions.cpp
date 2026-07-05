@@ -5282,6 +5282,21 @@ FModel* VR_GetWeaponModel(AActor* weapon)
 	return nullptr;   // MD3 / no joints => caller uses geometric default
 }
 
+// [XR weapon recoil] Same resolution as VR_GetWeaponModel, but ALSO allocates the weapon a DActorModelData so
+// VR_UpdateWeaponAnim (p_user.cpp) has a proceduralPose target to write the per-tic recoil bones into. The HUD
+// weapon render (RenderHUDModel -> RenderFrameModels(psp->Caller) -> ProcessModelFrame) reads that SAME
+// psp->Caller->modelData->proceduralPose, exactly as the world-model whip/marine path does. Returns null for an
+// un-migrated MD3 weapon (GetJointCount()==0) so the caller simply skips it -- no modelData is populated with a
+// pose in that case, and the empty models[] list keeps the normal static-modeldef render unchanged.
+FModel* VR_EnsureWeaponModelDataAndGetModel(AActor* weapon)
+{
+	if (weapon == nullptr) return nullptr;
+	FModel* m = VR_GetWeaponModel(weapon);       // null (MD3 / not-yet-loaded) => nothing to pose
+	if (m == nullptr) return nullptr;
+	EnsureModelData(weapon);                      // allocate the pose target only once we know it's a rigged IQM
+	return m;
+}
+
 // [XR weapon handling] All FModel-virtual access is confined to THIS file (it has r_data/models.h). The bone-
 // read thunks (vmthunks_actors.cpp) and the hotspot world helper (p_user.cpp) call these PLAIN-return wrappers
 // by forward-decl, so they never need the FModel class definition. Read-only; never touch proceduralPose.

@@ -572,6 +572,16 @@ public:
 	// ---- ARTICULATED TWO-HAND FOREGRIP (native; VR_CalculateTwoHanding upgrade). Transient. ----
 	bool  vr_foregrip_engaged = false;           // off-hand foregripping the main weapon's hs_foregrip this tic
 	float vr_foregrip_world[3] = { 0.f, 0.f, 0.f }; // hs_foregrip world point for the aim pivot / vhand swap
+
+	// ---- PROCEDURAL WEAPON RECOIL (native; VR_UpdateWeaponAnim in p_user.cpp drives the weapon IQM's
+	// hs_grip root bone per-tic). [0]=main-hand weapon (ReadyWeapon), [1]=off-hand (OffhandWeapon). All
+	// TRANSIENT / CLIENT-PRESENTATION-ONLY (a render-side kick envelope, never authoritative) -- EXCLUDE
+	// from the player_t FSerializer << list, same rule as vr_ik_pose / vr_foregrip_* above.
+	float vr_weapon_recoil[2]      = { 0.f, 0.f };  // 0..1 kick envelope, jumps on fire, decays to rest
+	bool  vr_weapon_pose_active[2] = { false, false }; // WE set useProceduralPose on that weapon (clean release)
+	bool  vr_weapon_attack_prev    = false;         // last-tic main attack button (fire rising-edge detect)
+	bool  vr_weapon_ohattack_prev  = false;         // last-tic off-hand attack button
+	int   vr_weapon_refire_prev    = 0;             // last-tic refire count (auto-fire per-shot re-kick)
 	// ============================================================================================================
 
 	// ---- ARM IK SOLVED POSE (native; written by VR_UpdateArmIK in p_user.cpp, read by the model-render path) ----
