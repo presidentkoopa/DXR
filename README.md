@@ -8,6 +8,9 @@ This is proabably all snakeoil bullshit but if you read any of this it should be
 
 A fork of **DoomXR** (iAmErmac's QuestZDoom-based VR fork of GZDoom) rebuilt into a purpose-built VR light-gun / physical-melee game. Design rule throughout: **behavior lives in native C++ per-tic subsystems; ZScript and JSON are data and thin override hooks.**
 
+cannot seem to get grip to bind, or regiser, or whatever, but the systems work if i can get grip to grab
+
+
 ---
 
 fuck me. most major breakthrough was ik model, sorta, ditched the lower half. 
