@@ -39,6 +39,8 @@ Files touched: src/playsim/p_user.cpp only — VR_IsGripPressed() (~line 1486), 
 
 ## Top 15 — look what you can do
 
+! If you think I verified any of these, lol !
+
 1. **[Your own body, and its arms actually reach](#1-your-own-body-and-its-arms-actually-reach)** — a first-person 3D marine whose arms track your controllers *exactly*, because the solve is the algebraic inverse of the renderer's own matrix.
 2. **[A real physics bullwhip](#2-a-real-physics-bullwhip)** — a Verlet rope with a supersonic tip-crack, grapple-swing, and an entangle-yank that reels an enemy into your hand.
 3. **[Walk on the walls and ceiling](#3-walk-on-the-walls-and-ceiling)** — a palm-out power paints a glowing walkway and flips your gravity onto it; per-actor "down" is a real field.
