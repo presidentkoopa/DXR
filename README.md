@@ -9,7 +9,7 @@ A fork of **DoomXR** (iAmErmac's QuestZDoom-based VR fork of GZDoom) rebuilt int
 ---
 
 recent patch:
-IQM ShieldSaw, IQM Chainsaw (Complete IQM roster and MDL bkups)
+IQM ShieldSaw, IQM Chainsaw (Complete IQM roster and MDL bkups) Problems with C++ weapon articulation n reloading, weapon seating. 
 
 Whip
 
