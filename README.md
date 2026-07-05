@@ -11,6 +11,10 @@ A fork of **DoomXR** (iAmErmac's QuestZDoom-based VR fork of GZDoom) rebuilt int
 recent patch:
 IQM ShieldSaw, IQM Chainsaw (Complete IQM roster and MDL bkups)
 
+Whip
+
+Diagnosed the whip's "clay vase" bug down to a bone coordinate-frame issue, staging the fix on by default plus read/write diagnostic probes.
+
 Chainsaw
 
 Converted Chainsaw.md3 → Chainsaw.iqm (baked from ready frame 5 / SAWG C, hs_grip root) and repointed the modeldef with modelsareattachments, all SAWG frames → 0. Clean single-model conversion matching the other 12; MD3 kept for one-line revert.
