@@ -19,6 +19,10 @@ ShieldSaw
 
 Converted both models → shield.iqm + shieldsaw.iqm and repointed the modeldef with modelsareattachments. As the first multi-model IQM weapon it needed a new engine guard (if (frame1 < 0) return; in models_iqm.cpp) so the shield and saw alternate by sprite state instead of drawing on top of each other — so it needs the C++ recompile, not just a pk3 repack. [edit, i recompiled].
 
+GrabBags
+
+Theoretically fixed the root cause of climb/gravity-glove/bullet-grab not working: VR_IsGripPressed() was reading a ucmd bit that the input layer permanently zeros out for your dominant (right) hand whenever vr_secondary_button_mappings is on (the default) — so your main hand's grip was never registering for gameplay at all. Repointed it to the raw hardware grip state both VR backends already expose correctly. While auditing all consumers to check whether they're truly governed by the grip arbiter (they're not — verified by reading all three in full), found and closed two real gaps that priority order requires: Gravity Gloves never yielded to an active whip-swing on the same hand, and Hardpoints never yielded to whip, an in-progress glove grab, or two-hand bracing — meaning a single squeeze could double-fire a hardpoint draw/holster alongside a glove grab-lock, a bug the original suppression was accidentally masking on your right hand.
+Files touched: src/playsim/p_user.cpp only — VR_IsGripPressed() (~line 1486), VR_UpdateGravityGloves() (~line 1772), VR_UpdateHardpoints() (~lines 2369-2384). No headers, no ZScript, no other files.
 ---
 
 > [!WARNING]
