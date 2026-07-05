@@ -2,7 +2,7 @@
 
 # ⚡ DXR — DIKX Update - "DIKX IN BOTH HANDS!"
 
-*DIKX — **D**oom **I**nverse **K**inematics × **XR**: a first-person body that reaches where your hands do — and both of them stay full.*
+*DIKX — **D**oom **I**nverse **K**inematics × **XR** *
 
 A fork of **DoomXR** (iAmErmac's QuestZDoom-based VR fork of GZDoom) rebuilt into a purpose-built VR light-gun / physical-melee game. Design rule throughout: **behavior lives in native C++ per-tic subsystems; ZScript and JSON are data and thin override hooks.**
 
