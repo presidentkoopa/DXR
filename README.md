@@ -4,6 +4,8 @@
 
 *DIKX — **D**oom **I**nverse **K**inematics × **XR** *
 
+This is proabably all snakeoil bullshit but if you read any of this it should be technical accounting: [`Documentation/DXR_VS_DOOMXR_CHANGES.md`](Documentation/DXR_VS_DOOMXR_CHANGES.md) because all the  shit is there for verification.
+
 A fork of **DoomXR** (iAmErmac's QuestZDoom-based VR fork of GZDoom) rebuilt into a purpose-built VR light-gun / physical-melee game. Design rule throughout: **behavior lives in native C++ per-tic subsystems; ZScript and JSON are data and thin override hooks.**
 
 ---
