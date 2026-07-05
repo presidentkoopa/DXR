@@ -1,5 +1,5 @@
 # DXR vs. DoomXR — Definitive Change Reference
-
+--DON'T BELIEVE EVERYTHING YOU READ, DAWG, THE CODE IS THERE BUT I MAY NOT HAVE CONNECTED THE DOTS ON VISUAL RESULTS--
 ## Scope & Baseline
 
 This document catalogs every material change between the pristine **DoomXR** engine
