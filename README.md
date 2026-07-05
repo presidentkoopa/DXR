@@ -12,7 +12,7 @@ A fork of **DoomXR** (iAmErmac's QuestZDoom-based VR fork of GZDoom) rebuilt int
 
 fuck me. most major breakthrough was ik model, sorta, ditched the lower half. 
 
-VR_UpdateWeaponAnim — new native function, peer to VR_UpdateArmIK, runs every tic in P_PlayerThink"
+almost got player holding weapon okay. physical reloading might work? 
 
 good luck with this shitshow, lol
 
