@@ -3529,6 +3529,17 @@ CVAR(Float, vr_ik_target_offz, 0.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // +Z = m
 // origin = the controller). Applied to BOTH hands (same mesh authoring) every tic. Default is a best-guess
 // starting length; dial in headset until the palm sits in the controller sphere. Set 0 to disable (revert).
 CVAR(Float, vr_ik_palm_back, 3.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
+// [XR] HAND GRIP CURL. The arm IK poses the wrist but leaves the 15 finger joints per hand at their OPEN bind
+// pose, so the hand never closes on a held gun. When a hand holds a weapon, curl its finger joints into a fist.
+// Rig fact (marine_novr.iqm, verified from bind geometry): finger bones point down local -Z and spread along X,
+// so flexion is rotation about local +X -- the axis is derived, NOT guessed. Only the SIGN may need a flip:
+// if fingers bend BACKWARD, negate vr_hand_grip_curl / _thumb. Set vr_hand_grip 0 to disable (open hands).
+CVAR(Bool,  vr_hand_grip,       true,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // curl fingers around a held weapon
+CVAR(Float, vr_hand_grip_curl,  35.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // per-segment finger flex angle (deg; negate to flip)
+CVAR(Float, vr_hand_grip_thumb, 15.0f, CVAR_ARCHIVE | CVAR_GLOBALCONFIG) // thumb flex angle (deg; usually less than the fingers)
+// [XR] Overall arm-length scale, wired into VR_UpdateArmIK's per-side bone lengths (both bones x this). 1.0 =
+// the rig's own proportions; <1 shortens reach, >1 lengthens. Clamped 0.5..2.0 in the solver. Slider-tunable.
+CVAR(Float, vr_ik_arm_scale,    1.0f,  CVAR_ARCHIVE | CVAR_GLOBALCONFIG)
 // [XR] EXTRA palm rotation applied to the LEFT / OFF hand ONLY (side 1), on top of the shared
 // vr_ik_hand_pitch/yaw/roll. The left hand's bind palm is a MIRROR of the right, so the offset that
 // aligns the right hand is ~180 off for the left. Dial these (try vr_ik_offhand_roll 180 first) until
@@ -4137,6 +4148,14 @@ void VR_UpdateArmIK(player_t* player)
 		// this session measured directly off this same rig (~11.05 / ~9.44 map units).
 		upperLen[side]   = (derivedUpper > 0.1f) ? derivedUpper : ((float)vr_ik_upperarm_len > 0.1f ? (float)vr_ik_upperarm_len : 11.05f);
 		forearmLen[side] = (derivedFore  > 0.1f) ? derivedFore  : ((float)vr_ik_forearm_len  > 0.1f ? (float)vr_ik_forearm_len  : 9.44f);
+
+		// [XR] Live overall ARM-LENGTH scale (vr_ik_arm_scale, default 1.0). Scales BOTH bones together so the
+		// hands reach nearer/farther from the shoulder without changing bend behaviour -- the tuning slider for
+		// "my arms feel too short/long". Guarded to a sane range so a mis-set value can't zero or explode reach.
+		float armScale = (float)vr_ik_arm_scale;
+		if (armScale < 0.5f) armScale = 0.5f; else if (armScale > 2.0f) armScale = 2.0f;
+		upperLen[side]   *= armScale;
+		forearmLen[side] *= armScale;
 	}
 
 	// [XR] [VRIK_TGT2] POST-CORRECTION probe (frame remap + body-fit scale applied). If reach ~= armLen
@@ -4344,6 +4363,70 @@ void VR_UpdateArmIK(player_t* player)
 		}
 
 		anySolved = true;
+	}
+
+	// ---- [XR] HAND GRIP CURL: close the fingers around a held weapon ------------------------------------
+	// The solve loop above posed the wrist but left every finger joint at its OPEN bind rotation (seeded at
+	// the top from GetJointBindTRS). Here we curl those joints into a fist for whichever hand holds a weapon.
+	// proceduralPose is PARENT-LOCAL, so post-multiplying a finger joint's local bind rotation by a curl about
+	// local +X flexes it relative to its parent -- independent of the wrist pose the IK just solved. Finger
+	// names resolved ONCE per model and cached (same discipline as the arm chain), -1 = joint absent -> skipped.
+	if (vr_hand_grip && anySolved)
+	{
+		// [side][finger][segment] joint names. side 0=right,1=left. 4 fingers x 3 flex segments + thumb x 3.
+		static const char* const fingerNames[2][5][3] =
+		{
+			{ // RIGHT
+				{ "bip_index_0_R",  "bip_index_1_R",  "bip_index_2_R"  },
+				{ "bip_middle_0_R", "bip_middle_1_R", "bip_middle_2_R" },
+				{ "bip_ring_0_R",   "bip_ring_1_R",   "bip_ring_2_R"   },
+				{ "bip_pinky_0_R",  "bip_pinky_1_R",  "bip_pinky_2_R"  },
+				{ "bip_thumb_0_R",  "bip_thumb_1_R",  "bip_thumb_2_R"  },
+			},
+			{ // LEFT
+				{ "bip_index_0_L",  "bip_index_1_L",  "bip_index_2_L"  },
+				{ "bip_middle_0_L", "bip_middle_1_L", "bip_middle_2_L" },
+				{ "bip_ring_0_L",   "bip_ring_1_L",   "bip_ring_2_L"   },
+				{ "bip_pinky_0_L",  "bip_pinky_1_L",  "bip_pinky_2_L"  },
+				{ "bip_thumb_0_L",  "bip_thumb_1_L",  "bip_thumb_2_L"  },
+			},
+		};
+		static FModel* fingerCachedModel = nullptr;
+		static int     fingerIdx[2][5][3];
+		if (model != fingerCachedModel)
+		{
+			for (int s = 0; s < 2; s++)
+				for (int fng = 0; fng < 5; fng++)
+					for (int seg = 0; seg < 3; seg++)
+						fingerIdx[s][fng][seg] = model->FindJointByNameCI(FName(fingerNames[s][fng][seg]));
+			fingerCachedModel = model;
+		}
+
+		const FVector3 flexAxis(1.f, 0.f, 0.f);   // local +X = derived finger-flex axis (bones down -Z, spread X)
+		for (int side = 0; side < 2; side++)
+		{
+			const int handEnum = (side == 0) ? rightHandEnum : leftHandEnum;
+			AActor* heldWeapon = (handEnum == VR_MAINHAND) ? player->ReadyWeapon : player->OffhandWeapon;
+			if (heldWeapon == nullptr) continue;   // empty hand stays open (no curl)
+
+			for (int fng = 0; fng < 5; fng++)
+			{
+				const bool isThumb = (fng == 4);
+				const float deg = isThumb ? (float)vr_hand_grip_thumb : (float)vr_hand_grip_curl;
+				if (deg == 0.f) continue;
+				const FQuaternion curl = FQuaternion::AxisAngle(flexAxis, FAngle::fromDeg((double)deg));
+				for (int seg = 0; seg < 3; seg++)
+				{
+					const int ji = fingerIdx[side][fng][seg];
+					if (ji < 0 || (unsigned)ji >= player->vr_ik_pose.Size()) continue;
+					const FVector4& r = player->vr_ik_pose[ji].rotation;
+					FQuaternion bind(r.X, r.Y, r.Z, r.W);
+					FQuaternion out = bind * curl;   // local post-multiply: flex in the joint's own frame
+					out.MakeUnit();
+					player->vr_ik_pose[ji].rotation = FVector4(out.X, out.Y, out.Z, out.W);
+				}
+			}
+		}
 	}
 
 	player->vr_ik_active = anySolved;

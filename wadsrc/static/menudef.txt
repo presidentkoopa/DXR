@@ -4143,6 +4143,21 @@ OptionMenu "VRBodyOptions"
     TFLV_Tooltip "\c[Gold]Body Height\c-  -  nudges the whole body up or down in map units, in case the feet float or sink after scaling. Default \c[White]0\c-."
     Slider "Body Facing", "vr_body_yaw", 0, 315, 45, 0
     TFLV_Tooltip "\c[Gold]Body Facing\c-  -  rotates the body's facing (the marine mesh is authored sideways). Slide it until the body points the way you walk. Try \c[White]90 / 180 / 270\c-. Default \c[White]90\c-."
+
+    StaticText ""
+    StaticText "Hands & Arms", 1
+    Slider "Main Hand Roll", "vr_ik_hand_roll", -180, 180, 5, 0
+    TFLV_Tooltip "\c[Gold]Main Hand Roll\c-  -  twists the main hand about the wrist. Slide until the \c[White]thumb points at the ceiling\c- when you hold a gun (start near 90 or -90). Default \c[White]0\c-."
+    Slider "Off Hand Roll", "vr_ik_offhand_roll", -180, 180, 5, 0
+    TFLV_Tooltip "\c[Gold]Off Hand Roll\c-  -  same twist for the OFF hand. Its bind palm is mirrored, so it usually needs a different value than the main hand. Default \c[White]0\c-."
+    Option "Grip The Gun", "vr_hand_grip", "OnOff"
+    TFLV_Tooltip "\c[Cyan]Grip The Gun\c-  -  \c[White]On\c- curls the fingers around a held weapon; \c[White]Off\c- leaves the hand open."
+    Slider "   Finger Curl", "vr_hand_grip_curl", -90, 90, 5, 0, vr_hand_grip
+    TFLV_Tooltip "\c[Gold]Finger Curl\c-  -  how far the fingers close around the grip. Higher = tighter fist. If fingers bend \c[White]backward\c-, use a NEGATIVE value. Default \c[White]35\c-."
+    Slider "   Thumb Curl", "vr_hand_grip_thumb", -90, 90, 5, 0, vr_hand_grip
+    TFLV_Tooltip "\c[Gold]Thumb Curl\c-  -  thumb flex, usually less than the fingers. \c[White]0\c- leaves the thumb straight along the frame. Default \c[White]15\c-."
+    Slider "Arm Length", "vr_ik_arm_scale", 0.5, 2.0, 0.05, 2
+    TFLV_Tooltip "\c[Gold]Arm Length\c-  -  scales how far the hands reach from the shoulders. \c[White]1.00\c- = the marine's own proportions; lower if the gun sits too far out, higher if your arms feel too short. Default \c[White]1.00\c-."
 }
 
 OptionMenu "VRCombatOptions" protected
