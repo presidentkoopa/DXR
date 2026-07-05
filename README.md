@@ -161,7 +161,7 @@ Native data layer attaching behavior to actors/weapons by string token instead o
 
 ## Manual reload — a native FSM that talks to ZScript through ~8 wires
 
-In VR you reload by hand: eject the mag, reach to your chest for a fresh one, seat it, rack the charging handle. A native per-tic state machine drives it; 14 weapons (and any mod weapon) opt in with one line.
+In VR you reload by hand: eject the mag, reach to your chest for a fresh one, seat it, rack the charging handle. A native per-tic state machine drives it; 14 weapons (and any mod weapon) opt in with a mixin.
 
 **The FSM.** `VR_UpdateWeaponReload` (`p_user.cpp`, called from `P_PlayerThink`) runs a five-state machine per weapon:
 
@@ -169,7 +169,7 @@ In VR you reload by hand: eject the mag, reach to your chest for a fresh one, se
 VRRL_READY → VRRL_EMPTY / VRRL_MAG_OUT → VRRL_MAG_IN → VRRL_RACKED → VRRL_READY
 ```
 
-Every transition is **edge-triggered on a grip rising-edge** — one squeeze is exactly one action, holding never repeats. Gated to VR + local player + weapons that declared `AssignWeaponHandling("boxmag")`; flatscreen and non-reload weapons bail immediately (a weapon switch resets the style to `RS_NONE` so a plasma rifle can never read a chamber field it doesn't have).
+Every *player-driven* transition (seat, rack) is **edge-triggered on a grip rising-edge** — one squeeze is exactly one action, holding never repeats; the other two are automatic bookkeeping (`READY → EMPTY` the moment the chamber hits 0, `RACKED → READY` a one-tic settle). Gated behind the `vr_new_weapon_handling` master toggle, then VR + local player + a weapon that declared `AssignWeaponHandling("boxmag")` with `magSize > 0`; flatscreen and non-reload weapons bail immediately (a weapon switch resets the style to `RS_NONE` so a plasma rifle can never read a chamber field it doesn't have).
 
 **The physical reload, beat by beat:**
 * **Eject** — the reload bind drops `XRChamber` to 0; the FSM enters `VRRL_EMPTY` and the chest pouch opens.
