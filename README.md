@@ -159,6 +159,35 @@ Native data layer attaching behavior to actors/weapons by string token instead o
 
 ---
 
+## Manual reload — a native FSM that talks to ZScript through ~8 wires
+
+In VR you reload by hand: eject the mag, reach to your chest for a fresh one, seat it, rack the charging handle. A native per-tic state machine drives it; 14 weapons (and any mod weapon) opt in with one line.
+
+**The FSM.** `VR_UpdateWeaponReload` (`p_user.cpp`, called from `P_PlayerThink`) runs a five-state machine per weapon:
+
+```
+VRRL_READY → VRRL_EMPTY / VRRL_MAG_OUT → VRRL_MAG_IN → VRRL_RACKED → VRRL_READY
+```
+
+Every transition is **edge-triggered on a grip rising-edge** — one squeeze is exactly one action, holding never repeats. Gated to VR + local player + weapons that declared `AssignWeaponHandling("boxmag")`; flatscreen and non-reload weapons bail immediately (a weapon switch resets the style to `RS_NONE` so a plasma rifle can never read a chamber field it doesn't have).
+
+**The physical reload, beat by beat:**
+* **Eject** — the reload bind drops `XRChamber` to 0; the FSM enters `VRRL_EMPTY` and the chest pouch opens.
+* **Seat** — carry a mag into the magwell hotspot and re-squeeze; the mag actor is destroyed and the round seats. A **magnetic assist** softly lerps a mag that's already in the outer ring toward the magwell — VR reach is imprecise, so it makes seating *reliable* without feeling *automatic*; it moves only the mag, never your pawn. The rising-edge requirement is why the grip you used to *carry* the mag from the pouch doesn't instantly seat it.
+* **Rack** — a *directional* gesture, not just "move your hand": the FSM latches your rack hand, projects its motion onto the barrel-back vector via a dot product `(handPos − anchor) · back`, and tracks the **maximum** reached. Projecting is what makes a sideways wiggle not count — only real backward pull accumulates — and max-tracking survives tracking jitter mid-pull. Hit the travel threshold and the round chambers.
+* **Haptics** — `reload_seat` (70), `reload_rack` (40, on grab), `reload_chamber` (90), plus the eject clunk: the four-beat rhythm of a real reload.
+* An **auto-chamber** option finishes the reload on the seat alone, for players who don't want the two-beat rack.
+
+**The seam (the interesting part).** The native FSM and the ZScript weapons **share no objects and make no direct calls** — they talk through ~8 fixed touchpoints, and that narrowness is the point: *the ZScript half can be rewritten and shipped without recompiling the engine.* C++ reads and writes ZScript fields by name through the `IntVar` / `BoolVar` / `PointerVar` reflection API (`weap->IntVar(NAME_XRChamber) = loaded`); ZScript can't go the other way (those accessors don't exist in script — using them is a boot crash), so it reaches back through purpose-built natives (`AssignWeaponHandling`, `VR_TrySetHeldItem`). **C++ pokes ZScript fields by reflection; ZScript pokes C++ through named natives — nothing else crosses the line.**
+
+**The mixin.** The arsenal shares no "reloadable" base class — Pistol, BFG, Flamethrower all descend from stock `Weapon`. `mixin XR_ManualReload;` grafts the chamber state + fire/reload/eject hooks onto any class that names it, no inheritance required — so one line wires all 14 weapons and any mod weapon, making "add a new reload weapon" a five-line job.
+
+**The ammo model.** `Ammo1` (reserve) is the only real resource; `XRChamber` is a *sub-limit* — how many of those reserve rounds can fire before a reload. Reload re-arms `XRChamber = min(reserve, magSize)` and **never touches reserve** (the loaded rounds were always part of the total), so partial mags fall out for free (12 rounds left → a 12-round reload) and toggling the system off is *exactly vanilla*.
+
+**The pouch (the keystone).** The FSM only *seats* a mag you're already holding — the chest pouch is the front half. Model it as **spawner → carrier → seater**: a world-level `StaticEventHandler` (spawner) runs every tic, your hand is the carrier, the FSM is the seater, and the three meet at one shared slot, `vr_held_items[hand]`. Reach a **body-relative, CVar-tunable** chest anchor (recomputed from your pawn each tic so it travels with you; tunable because every player's reach differs), squeeze on a rising edge, and it spawns the *right* mag class for your weapon — matched by runtime `w is "Chaingun"` checks, never `IntVar` (which crashes in ZScript) — straight into `vr_held_items[hand]`. The reach marker is a **glow panel, not a particle**, because particles don't render in the VR stereo pass. Pure ZScript feeding the compiled FSM — no rebuild.
+
+---
+
 ## Physics-driven VR arsenal
 
 * **XRWhip** — Verlet-rope bullwhip: supersonic crack, two-hand coupling, grapple-swing, entangle-yank; optional 21-bone procedural rig.
