@@ -1,0 +1,160 @@
+================================================================================
+  DXR / DoomXR — DOCUMENTATION TABLE OF CONTENTS
+  Generated 2026-07-04. Two views: (A) chronological, (B) by topic + reading order.
+  All paths relative to Documentation/. Times = file timestamp (creation proxy).
+================================================================================
+
+  ★ START HERE (new reader, want the big picture fast):
+     1. DXR_VS_DOOMXR_CHANGES.md ...... the master change reference (what DXR added
+                                        vs upstream; 50+ subsystems, exact files).
+     2. ../README.md .................. the gamer-facing showcase (Top 15 + deep-dives).
+     3. DoomXR_Design/README.md ....... the game-design vision (roguelite-arcade layer).
+
+
+================================================================================
+  PART A — BY TIME CREATED (oldest → newest)
+================================================================================
+
+2026-07-02 17:36  status.txt
+2026-07-02 18:27  DoomXR_Capability_Audit_FULL.txt
+2026-07-03 00:14  HF_NEON_ARCADE_PLAN.md
+2026-07-03 00:20  GRAVITY_CUBE_THEORY.md
+2026-07-03 00:49  GRAVITY_PLAN_AUTOPSY.md
+2026-07-03 01:03  DXR_SWORD_SLICE_DOSSIER/1_SLICE_ARCHITECTURE.md
+2026-07-03 01:03  DXR_SWORD_SLICE_DOSSIER/2_VR_SWORD_DESIGN.md
+2026-07-03 01:03  DXR_SWORD_SLICE_DOSSIER/3_SHADER_SYSTEM_MAP.md
+2026-07-03 02:48  PORTAL_STACKING_ROTATING_CUBES_PLAN.md
+2026-07-03 03:01  LIVE_SPINNING_PORTAL_GET_US_THERE.md
+2026-07-03 03:10  DoomXR_Shader_Tweaks_Proposal.md
+2026-07-03 03:15  PORTAL_WAR_TEAM_VELOCITY.md
+2026-07-03 03:16  DoomXR_Physics_Whip.md
+2026-07-03 03:16  DoomXR_Whip_IQM_Rigging_Patch_Spec.md
+2026-07-03 03:16  PORTAL_WAR_TEAM_BEDROCK.md
+2026-07-03 03:17  PORTAL_WAR_VERDICT.md
+2026-07-03 03:18  DoomXR_VRSword_HandVelocity_Patch_Spec.md
+2026-07-03 03:25  DXR_SWORD_SLICE_DOSSIER/0_EXECUTIVE_SUMMARY.md
+2026-07-03 03:31  SPHERE_BATTLEFIELDS.md
+2026-07-03 03:40  XR_GRAVITY_PATH_POWER.md
+2026-07-03 03:44  DoomXR_Holster_System_Plan.md
+2026-07-03 04:01  XR_SDF_GRAVITY_RIBBON.md
+2026-07-03 04:42  GRAVITY_ENGINE_JOURNEY.md
+2026-07-03 14:37  DoomXR_Whip_Entangle_Yank_Engine_Feature_Report.md
+2026-07-03 16:15  DoomXR_Whip_MASTER_PLAN.md
+2026-07-03 21:34  00_GRAVITY_JOURNEY_READING_ORDER.md
+2026-07-03 21:34  XR_GRAVITY_HANDOFF.md
+2026-07-04 01:59  GITD_MAIN_FP_SHADER_FEATURE_MAP.md
+2026-07-04 04:34  VR_WEAPON_HANDLING_ENGINE_LEVEL.md
+2026-07-04 04:37  VR_WEAPON_HAND_RULESET.md
+2026-07-04 04:49  00_ALL_DOCS_BY_DATE.md
+2026-07-04 05:44  XR_HOST_VS_GUEST_ENGINE_ALTERATIONS.md
+2026-07-04 07:06  WEAPON_IQM_BATCH_BUILDER.md
+2026-07-04 07:27  NATIVE_WEAPON_MODEL_FORMAT_SWAP.md
+2026-07-04 07:42  VR_ARSENAL_UI_SUITE.md
+2026-07-04 14:04  GRABMAP_V3_SHOWCASE_SPEC.md
+2026-07-04 14:45  VR_UNIVERSAL_WEAPON_HANDLING_ATTACK_PLAN.md
+2026-07-04 18:09  VR_TWOHAND_GRIP_DETERMINISM_SPEC.md
+2026-07-04 20:22  RELOAD_JUICE_SPEC.md
+2026-07-04 20:52  DoomXR_Design/  (game-design doc set, README + 01..15 — see Part B)
+2026-07-04 20:52  DoomXR_Gesture_Ideas/  (90-gesture catalog, README + 10 category files)
+2026-07-04 21:05  XR_DEBUG_VISUALIZERS.md
+2026-07-04 21:38  VR_RELOAD_SYSTEM_REFERENCE.md
+2026-07-04 22:56  DoomXR_Weapon_Mass_System_DESIGN.md
+2026-07-04 23:13  VR_RELOAD_CANON_STATUS.md
+2026-07-04 23:35  VR_GESTURE_ENGINE_INTEGRATION.md
+2026-07-04 23:44  DXR_VS_DOOMXR_CHANGES.md
+   (note: DoomXR_Design/ + DoomXR_Gesture_Ideas/ timestamps reflect a folder copy,
+    not original authoring; they were written across the 2026-07-04 design session.)
+
+
+================================================================================
+  PART B — BY TOPIC (each list is my suggested reading order)
+================================================================================
+
+--------------------------------------------------------------------------------
+[0] ENGINE OVERVIEW & META  (read these first)
+--------------------------------------------------------------------------------
+  DXR_VS_DOOMXR_CHANGES.md ............. THE definitive change reference (start here).
+  ../README.md ........................ the showcase (Top 15 + deep-dives).
+  XR_HOST_VS_GUEST_ENGINE_ALTERATIONS.md  what native C++ can do that ZScript can't.
+  DoomXR_Capability_Audit_FULL.txt .... early full capability audit.
+  00_ALL_DOCS_BY_DATE.md .............. (pre-existing by-date index).
+  status.txt .......................... (early status snapshot).
+
+--------------------------------------------------------------------------------
+[1] GAME DESIGN — the roguelite-arcade vision  (DoomXR_Design/)
+--------------------------------------------------------------------------------
+  Entry point: DoomXR_Design/README.md  (has its own 1→15 reading order). Order:
+  01_core-loop → 02_classes-and-loadout → 03_gesture-system → 04_scoring-combo →
+  05_crits-locational → 06_difficulty-director-dda → 07_economy-shop →
+  08_encounter-spikes → 09_engine-seams → 10_open-questions →
+  11_gesture-engine → 12_hardpoint-map → 13_arenas-and-run →
+  14_replay-capture → 15_gesture-engine-reference
+  Companion: DoomXR_Gesture_Ideas/  (the 90-gesture catalog; README indexes 10 category files).
+
+--------------------------------------------------------------------------------
+[2] GESTURES — the input engine
+--------------------------------------------------------------------------------
+  DoomXR_Design/03_gesture-system.md .... the design (gestures as a gold-bought tree).
+  DoomXR_Design/11_gesture-engine.md .... the architecture (native + JSON + editor).
+  VR_GESTURE_ENGINE_INTEGRATION.md ...... the integration brief (verified seams, file:line).
+  DoomXR_Design/15_gesture-engine-reference.md  schema/verbs/anchors/wiring of the built code.
+  DoomXR_Gesture_Ideas/  ................ the 90-idea catalog (browse by category).
+
+--------------------------------------------------------------------------------
+[3] WEAPON HANDLING & RELOAD
+--------------------------------------------------------------------------------
+  VR_WEAPON_HANDLING_ENGINE_LEVEL.md .... the mandate (native-first weapon handling).
+  VR_WEAPON_HAND_RULESET.md ............. grab/equip/throw/catch/dual-wield contract.
+  VR_UNIVERSAL_WEAPON_HANDLING_ATTACK_PLAN.md  the rollout plan.
+  VR_TWOHAND_GRIP_DETERMINISM_SPEC.md ... two-hand capsule stabilization spec.
+  DoomXR_Holster_System_Plan.md ......... holster/hardpoint plan.
+  --- reload ---
+  RELOAD_JUICE_SPEC.md .................. the reload-juice feature list + feel values.
+  VR_RELOAD_SYSTEM_REFERENCE.md ......... the deep reference (FSM, 8-wire seam, pouch).
+  VR_RELOAD_CANON_STATUS.md ............. the master manifest (feature→file→cvar→status).
+  --- weapon models / tooling ---
+  NATIVE_WEAPON_MODEL_FORMAT_SWAP.md .... MD3↔IQM render toggle.
+  WEAPON_IQM_BATCH_BUILDER.md ........... the MD3→IQM + hotspot pipeline.
+  DoomXR_Weapon_Mass_System_DESIGN.md ... per-weapon mass (impact-momentum feeds this).
+  VR_ARSENAL_UI_SUITE.md ................ weapon-select / arsenal UI.
+
+--------------------------------------------------------------------------------
+[4] WHIP · SWORD · MELEE
+--------------------------------------------------------------------------------
+  DXR_SWORD_SLICE_DOSSIER/0_EXECUTIVE_SUMMARY.md  (dossier entry; then 1→2→3):
+    1_SLICE_ARCHITECTURE → 2_VR_SWORD_DESIGN → 3_SHADER_SYSTEM_MAP
+  DoomXR_VRSword_HandVelocity_Patch_Spec.md  the sword hand-velocity patch.
+  DoomXR_Physics_Whip.md ................ the physics whip design.
+  DoomXR_Whip_IQM_Rigging_Patch_Spec.md   the whip rigged-model spec.
+  DoomXR_Whip_Entangle_Yank_Engine_Feature_Report.md  the entangle-yank report.
+  DoomXR_Whip_MASTER_PLAN.md ............ the whip master plan (5 executed).
+
+--------------------------------------------------------------------------------
+[5] GRAVITY · PORTALS · TRAVERSAL
+--------------------------------------------------------------------------------
+  00_GRAVITY_JOURNEY_READING_ORDER.md ... ★ pre-existing reading order for this topic.
+  Suggested order:
+  GRAVITY_CUBE_THEORY.md → GRAVITY_PLAN_AUTOPSY.md → GRAVITY_ENGINE_JOURNEY.md →
+  XR_GRAVITY_PATH_POWER.md → XR_SDF_GRAVITY_RIBBON.md → XR_GRAVITY_HANDOFF.md
+  SPHERE_BATTLEFIELDS.md ................ aerial gravity-plank battlefields.
+  --- portals ---
+  PORTAL_STACKING_ROTATING_CUBES_PLAN.md → LIVE_SPINNING_PORTAL_GET_US_THERE.md →
+  PORTAL_WAR_TEAM_VELOCITY.md → PORTAL_WAR_TEAM_BEDROCK.md → PORTAL_WAR_VERDICT.md
+
+--------------------------------------------------------------------------------
+[6] VISUALS · SDF · SHADERS
+--------------------------------------------------------------------------------
+  GITD_MAIN_FP_SHADER_FEATURE_MAP.md .... the main.fp shader capability map.
+  DoomXR_Shader_Tweaks_Proposal.md ...... shader-lane tweak proposal.
+  XR_DEBUG_VISUALIZERS.md ............... in-world debug visualizers.
+  HF_NEON_ARCADE_PLAN.md ................ neon-arcade visual plan (early).
+
+--------------------------------------------------------------------------------
+[7] MAPS · TEST
+--------------------------------------------------------------------------------
+  GRABMAP_V3_SHOWCASE_SPEC.md ........... the GRABMAP test range showcase spec.
+
+================================================================================
+  (This TOC is a navigation aid. The authoritative technical source of truth for
+   what shipped is DXR_VS_DOOMXR_CHANGES.md; the gamer-facing showcase is ../README.md.)
+================================================================================
