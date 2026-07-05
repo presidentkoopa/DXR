@@ -1034,3 +1034,68 @@ list — the hooks are the primitives.
 > **Verification caveat:** this section describes the *designed* capability of the hooks as they exist
 > in source. The build is not yet headset-verified (known launch crash), so treat every "Next" as
 > unlocked-on-paper until each hook is confirmed live in a headset.
+
+---
+
+## 10. DIKX Update — new subsystems (2026-07-04)
+
+> Written + inspection-verified, **NOT compile-verified** — these activate on the next full rebuild
+> (exe + pk3 together). Owning lanes: gesture engine (this lane); impact-momentum / grapple / reload
+> canon (Reloadin' lane, master manifest `Documentation/VR_RELOAD_CANON_STATUS.md`).
+
+### 10.1 Native VR gesture engine (motion→verb classifier + JSON table)
+**What:** New `FVRGestureEngine` singleton. A per-hand motion-history ring buffer (`FVRHandHistory`, 40
+samples) is pushed each tic from `AttackPos`/`OffhandPos` (velocity = pos-delta). `ClassifyVerb` names an
+`EGestureVerb` (FLICK/THRUST/SHOVE/ARC/CIRCLE_CW·CCW/SLASH/GUARD/CATCH/PLACE/REVERSAL) from peak-speed /
+net-displacement / angular-sweep / velocity-reversal tests. `LoadDefs` parses `vr_gestures.json`
+(rapidjson, read from the run dir like `vr_hardpoints.json`) into `FVRGestureDef` rows
+(anchor / hand / verb / gate-button / radius / dwell / action). `Update(player)` evaluates every def per
+tic and, on the rising edge of (anchor-near ∧ verb-match ∧ gate ∧ dwell), dispatches
+`PlayerPawn.VR_GestureFired(Name, int)` via `IFVIRTUALPTRNAME`/`VMCall`; gate read is
+`player->cmd.ucmd.buttons & bit`. Anchors DERIVED (feet + viewheight + yaw) with a TODO to unify with
+`GetHardpointWorldPos`.
+**Why:** Turns hand motion into declarative, data-authored gestures — a 90+ move library becomes JSON
+rows + a ZScript action case instead of hardcoded C++; one native detector, gestures = data. First cut,
+INERT (files present, not in CMake). Pending 3 wires: `CMakeLists.txt`, a `P_PlayerThink` `Update()` call,
+the `VR_GestureFired` virtual on the player. Later: `VR_HandIntent`/`VR_AnchorNear` read thunks.
+**Files:** `src/playsim/vr_gesture.h`, `src/playsim/vr_gesture.cpp`, `vr_gestures.json`.
+
+### 10.2 Impact-momentum physics (mass-scaled collision shove, all masses incl. player)
+**What:** A moving body shoves what it hits by `mass × velocity / targetMass`, clamped, by hooking the
+engine's `ApplyKickback` thrust seam. Applies to **all** masses including the player — throw a heavy body
+into a light monster and it slides; a rocket shoves the player; a heavy target barely budges. Global.
+**Why:** Gives every collision real weight; the payoff pipe for thrown weapons, thrown bodies (§10.3),
+and explosions. CVars `vr_impact_momentum` / `_scale` / `_max`.
+**Files:** `src/playsim/p_interaction.cpp`.
+
+### 10.3 VR grapple & beatdown (grab → punch → throw body)
+**What:** Off-hand grab a monster → main-hand strike it (weapon or fist) → throw the body into a crowd to
+area-stun. `XRGrapple` + `XRGrappleThrownWatcher`. The thrown body carries §10.2 impact-momentum, so
+hurling a big enemy into a pack knocks them around.
+**Why:** A physical VR grapple/beatdown loop layered on the held-item + throw + impact-momentum seams.
+CVars `vr_grapple*`.
+**Files:** `wadsrc/static/zscript/engine/vr_grapple.zs`.
+
+### 10.4 Reload canon expansion — full FSM + 4 styles + juice (supersedes §3.11)
+**What:** The reload system grew far past the old Pistol/M79 chamber tracking (§3.11): a native five-state
+FSM (`VR_UpdateWeaponReload`) with **4 styles** — box-mag, shell-by-shell + pump (shotguns), revolver
+cylinder + speed-loader, heat-vent (plasma/BFG) — carried on all **14** weapons via the `XR_ManualReload`
+mixin, fed by the chest-pouch spawner. Plus the **juice** (ZScript): physical spent mags that fall/litter/
+glow and **damage** a monster you fling them into, per-weapon mag mass tiers, perfect-timing window + neon
+popup, tactical 1-in-the-barrel, fumble-under-fire, toss-catch (barrel-up hands-free seat), off-hand throw,
+chaingun ammo-box slam, whip-yank-ammo → instant reload, variable ammo in dropped enemy guns. **7 native
+getters** exposed to ZScript: `VR_GetWeaponHotspot`, `VR_GetReloadState`, `VR_GetReloadPerfect`,
+`VR_BeginTacticalEject`, `VR_AbortReload`, `VR_AddReloadHeat`, `VR_GetReloadHeat`. Full player options
+under VR Options → Manual Reload & Ammo Pouch → Advanced.
+**Why:** Manual reload as the core VR verb, with reload-as-a-weapon juice. See the master manifest for the
+per-feature file/cvar/status table. Reference deep-dive: `Documentation/VR_RELOAD_SYSTEM_REFERENCE.md`.
+**Files:** `src/playsim/p_user.cpp` (`VR_UpdateWeaponReload`), `d_player.h`, `vmthunks_actors.cpp`,
+`hw_vrmodes.cpp`, `src/playsim/p_interaction.cpp`; `vr_manual_reload.zs`, `vr_reload_juice.zs`,
+`vr_ammo_pouch.zs`, `vr_whip.zs`, `vr_grapple.zs`; `menudef.txt` (VRReloadOptions/Advanced); manifest
+`Documentation/VR_RELOAD_CANON_STATUS.md`.
+
+### 10.5 Native VR reload debug — 3D wirebox overlays
+**What:** A real 3D wirebox model rendered on the hands (green), clips (cyan), the pouch (white), and
+weapon hotspots (magenta/yellow/orange) — actual geometry, not billboards. Toggle `vr_reload_debug`.
+**Why:** In-headset spatial debug for the reload hotspots/anchors. **Files:** `vr_reload_debug.zs`,
+`models/debug/wirebox.obj`.
