@@ -198,19 +198,27 @@ extend class StateProvider
 		{
 			if (useDrop)
 			{
-				double ang = angle + frandom(-spread_x, spread_x);
-				double pit = pitch + frandom(-spread_y, spread_y);
-				
-				Actor projectile = player.mo.SpawnPlayerMissile("BallisticBullet", ang, aimflags: hand ? ALF_ISOFFHAND : 0);
+				// Fire from the SAME place hitscan does: the VR hand muzzle
+				// (AttackPos / OffhandPos) along the hand's aim (AttackAngle/Pitch),
+				// so the round leaves the gun -- not the player's eye -- and the
+				// weapon stays anchored to the hand exactly like the hitscan path.
+				Vector3 muzzle = hand ? player.mo.OffhandPos   : player.mo.AttackPos;
+				double baseAng = hand ? player.mo.OffhandAngle : player.mo.AttackAngle;
+				double basePit = hand ? player.mo.OffhandPitch : player.mo.AttackPitch;
+				double ang = baseAng + frandom(-spread_x, spread_x);
+				double pit = basePit + frandom(-spread_y, spread_y);
+
+				Actor projectile = Spawn("BallisticBullet", muzzle, ALLOW_REPLACE);
 				if (projectile)
 				{
-					projectile.pitch = pit;
-					projectile.master = weap;
+					projectile.target  = player.mo;   // shooter (kill attribution + GunBonsai)
+					projectile.angle   = ang;
+					projectile.pitch   = pit;
+					projectile.master  = weap;         // firing weapon (offhand XP + priority)
 					projectile.SetDamage(damage);
 					projectile.gravity = gravity;
-					projectile.speed = speed;
-					// Re-calculate velocity since we changed speed
-					projectile.vel = (cos(projectile.angle) * cos(projectile.pitch), sin(projectile.angle) * cos(projectile.pitch), -sin(projectile.pitch)) * speed;
+					projectile.speed   = speed;
+					projectile.vel = (cos(ang) * cos(pit), sin(ang) * cos(pit), -sin(pit)) * speed;
 				}
 			}
 			else

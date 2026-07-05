@@ -1450,8 +1450,8 @@ class XRWhip : Weapon
 				if (hit && lt.HitType != TRACE_HitNone)
 				{
 					double radius = 6.0; { CVar r = CVar.FindCVar("vr_whip_preview_radius"); if (r) radius = r.GetFloat(); }
-					int color = 0x40FF60; { CVar c = CVar.FindCVar("vr_whip_preview_color"); if (c) color = c.GetInt(); }
-					Level.AddGlowPanel(color, radius, lt.HitLocation.x, lt.HitLocation.y, lt.HitLocation.z, 0, 0.0, 0.0, 0.0, 0);
+					int gcol = 0x40FF60; { CVar c = CVar.FindCVar("vr_whip_preview_color"); if (c) gcol = c.GetInt(); }
+					Level.AddGlowPanel(gcol, radius, lt.HitLocation.x, lt.HitLocation.y, lt.HitLocation.z, 0, 0.0, 0.0, 0.0, 0);
 				}
 			}
 		}
