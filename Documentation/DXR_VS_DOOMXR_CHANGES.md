@@ -281,6 +281,7 @@ without touching projectile damage objects.
 **Files:** `p_interaction.cpp`, `p_actionfunctions.cpp`.
 
 ### 2.13 Locational damage moved to ZScript (display-only native block)
+!!! - Dawg I think I re did this to an engine based leg, head, torso, arm, cjest thjing
 **What:** The native locational-damage block no longer multiplies damage (head/leg mults removed);
 it only spawns the HEADSHOT!/LEGSHOT! floating MSDF text. Multipliers moved to the ZScript
 `VRLocationalArbiter` to avoid double-applying.
