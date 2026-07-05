@@ -10,25 +10,11 @@ A fork of **DoomXR** (iAmErmac's QuestZDoom-based VR fork of GZDoom) rebuilt int
 
 ---
 
-recent patch:
-IQM ShieldSaw, IQM Chainsaw (Complete IQM roster and MDL bkups) Problems with C++ weapon articulation n reloading, weapon seating. 
+fuck me. most major breakthrough was ik model, sorta, ditched the lower half. 
 
-Whip
+also, not yet compiled -> "VR_UpdateWeaponAnim — new native function, peer to VR_UpdateArmIK, runs every tic in P_PlayerThink. On each shot it kicks the held gun's hs_grip root bone back-and-up, then springs it to rest — fluid recoil, no baked frames, no re-export. It writes the same proceduralPose channel the whip and marine body already use, which the HUD weapon render consumes (confirmed the path end-to-end: RenderHUDModel → RenderFrameModels(psp->Caller) → ProcessModelFrame, and every weapon modeldef already has modelsareattachments).
 
-Diagnosed the whip's "clay vase" bug down to a bone coordinate-frame issue, staging the fix on by default plus read/write diagnostic probes.
-
-Chainsaw
-
-Converted Chainsaw.md3 → Chainsaw.iqm (baked from ready frame 5 / SAWG C, hs_grip root) and repointed the modeldef with modelsareattachments, all SAWG frames → 0. Clean single-model conversion matching the other 12; MD3 kept for one-line revert.
-
-ShieldSaw
-
-Converted both models → shield.iqm + shieldsaw.iqm and repointed the modeldef with modelsareattachments. As the first multi-model IQM weapon it needed a new engine guard (if (frame1 < 0) return; in models_iqm.cpp) so the shield and saw alternate by sprite state instead of drawing on top of each other — so it needs the C++ recompile, not just a pk3 repack. [edit, i recompiled].
-
-GrabBags
-
-Theoretically fixed the root cause of climb/gravity-glove/bullet-grab not working: VR_IsGripPressed() was reading a ucmd bit that the input layer permanently zeros out for your dominant (right) hand whenever vr_secondary_button_mappings is on (the default) — so your main hand's grip was never registering for gameplay at all. Repointed it to the raw hardware grip state both VR backends already expose correctly. While auditing all consumers to check whether they're truly governed by the grip arbiter (they're not — verified by reading all three in full), found and closed two real gaps that priority order requires: Gravity Gloves never yielded to an active whip-swing on the same hand, and Hardpoints never yielded to whip, an in-progress glove grab, or two-hand bracing — meaning a single squeeze could double-fire a hardpoint draw/holster alongside a glove grab-lock, a bug the original suppression was accidentally masking on your right hand.
-Files touched: src/playsim/p_user.cpp only — VR_IsGripPressed() (~line 1486), VR_UpdateGravityGloves() (~line 1772), VR_UpdateHardpoints() (~lines 2369-2384). No headers, no ZScript, no other files.
+Sliding pump, reciprocating bolt, spinning cylinder, mag-drop — those are per-part motion, and they're impossible with the current models: your IQMs put 100% of the mesh weight on hs_grip (the other hotspots are weightless markers). Moving a bolt needs a bolt bone with real vertex weight, which means re-rigging + re-exporting each weapon — the exact Blender step you don't want. If you ever want true mechanical cycling, that's the price, and it's a separate job. Recoil, sway, and muzzle-rise are the full extent of what pure-C++ can do on these rigs."
 
 ---
 
