@@ -6,8 +6,19 @@
 
 A fork of **DoomXR** (iAmErmac's QuestZDoom-based VR fork of GZDoom) rebuilt into a purpose-built VR light-gun / physical-melee game. Design rule throughout: **behavior lives in native C++ per-tic subsystems; ZScript and JSON are data and thin override hooks.**
 
+---
+
 recent patch:
 IQM ShieldSaw, IQM Chainsaw (Complete IQM roster and MDL bkups)
+
+Chainsaw
+
+Converted Chainsaw.md3 → Chainsaw.iqm (baked from ready frame 5 / SAWG C, hs_grip root) and repointed the modeldef with modelsareattachments, all SAWG frames → 0. Clean single-model conversion matching the other 12; MD3 kept for one-line revert.
+ShieldSaw
+
+Converted both models → shield.iqm + shieldsaw.iqm and repointed the modeldef with modelsareattachments. As the first multi-model IQM weapon it needed a new engine guard (if (frame1 < 0) return; in models_iqm.cpp) so the shield and saw alternate by sprite state instead of drawing on top of each other — so it needs the C++ recompile, not just a pk3 repack. [edit, i recompiled].
+
+---
 
 > [!WARNING]
 > **Status: work-in-progress.** Some systems await a full rebuild to activate.
